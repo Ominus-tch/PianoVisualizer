@@ -66,7 +66,7 @@ bool FileDropTarget::Register(
     _registered = true;
 
     Logger::Log(
-        "[DragDrop] File drop target registered\n");
+        "[DragDrop] File drop target registered\n\n");
 
     return true;
 }

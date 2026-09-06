@@ -147,7 +147,7 @@ MIDISceneLive::MIDISceneLive(int port, bool verbose)
 		);
 
 		Logger::Log(
-			"[MIDI] Opened input: %s\n",
+			"[MIDI] Opened input: %s\n\n",
 			_deviceName.c_str()
 		);
 	}

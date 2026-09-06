@@ -43,6 +43,16 @@ Piano Visualizer can capture another visualizer window and project it onto the p
 
 This makes it possible to use Piano Visualizer with visualizers other than its built-in one.
 
+## Extensions
+
+Piano Visualizer supports optional extensions that add additional functionality to the application.
+
+### Virtual Camera
+
+The [Virtual Camera Extension](https://github.com/Ominus-tch/VirtualCameraExtension) allows Piano Visualizer's output to be used as a camera in applications such as OBS Studio, Discord, web browsers, and other software that supports camera input.
+
+[View the Virtual Camera Extension →](https://github.com/Ominus-tch/VirtualCameraExtension)
+
 ## VST3 Support
 
 Piano Visualizer can load VST3 instruments, route MIDI to them, display plugin editors, and process their audio in real time.

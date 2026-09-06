@@ -248,7 +248,7 @@ bool PianoVisualizer::Initialize(
     if (!m_vstDropTarget.Register(m_window))
     {
         Logger::Log(
-            "Failed to register VST drag-drop target!\n"
+            "Failed to register VST drag-drop target!\n\n"
         );
     }
 
@@ -257,6 +257,17 @@ bool PianoVisualizer::Initialize(
     // ---------------------------------------------------------
 
     LoadPianoConfiguration();
+
+    // ---------------------------------------------------------
+    // Extensions
+    // ---------------------------------------------------------
+
+    if (!m_virtualCamera.Initialize(m_device))
+    {
+        Logger::Log(
+            "Failed to initialize virtual camera extension!\n"
+        );
+    }
 
     // ---------------------------------------------------------
     // Timing
@@ -271,6 +282,10 @@ bool PianoVisualizer::Initialize(
     m_elapsedTime = 0.0f;
 
     m_initialized = true;
+
+    // ---------------------------------------------------------
+    // Start virtual camera
+    // ---------------------------------------------------------
 
     Logger::Log(
         "Piano Visualizer initialized!\n"
@@ -334,6 +349,120 @@ bool PianoVisualizer::InitializeRenderTarget()
         m_statistics.renderHeight =
             desc.BufferDesc.Height;
     }
+
+    return InitializeCameraOutput();
+}
+
+
+// =========================================================
+// Initialize Camera Output
+// =========================================================
+
+bool PianoVisualizer::InitializeCameraOutput()
+{
+    if (!m_device)
+    {
+        Logger::Log(
+            "Cannot initialize camera output: device is null!\n"
+        );
+
+        return false;
+    }
+
+    if (m_statistics.renderWidth == 0 ||
+        m_statistics.renderHeight == 0)
+    {
+        Logger::Log(
+            "Cannot initialize camera output: render size is invalid!\n"
+        );
+
+        return false;
+    }
+
+    D3D11_TEXTURE2D_DESC description{};
+
+    description.Width =
+        m_statistics.renderWidth;
+
+    description.Height =
+        m_statistics.renderHeight;
+
+    description.MipLevels = 1;
+    description.ArraySize = 1;
+
+    description.Format =
+        DXGI_FORMAT_B8G8R8A8_UNORM;
+
+    description.SampleDesc.Count = 1;
+
+    description.Usage =
+        D3D11_USAGE_DEFAULT;
+
+    description.BindFlags =
+        D3D11_BIND_RENDER_TARGET |
+        D3D11_BIND_SHADER_RESOURCE;
+
+    HRESULT hr =
+        m_device->CreateTexture2D(
+            &description,
+            nullptr,
+            &m_cameraOutputTexture
+        );
+
+    if (FAILED(hr))
+    {
+        Logger::Log(
+            "Failed to create camera output texture! HRESULT: 0x%08X\n",
+            static_cast<unsigned int>(hr)
+        );
+
+        return false;
+    }
+
+    hr =
+        m_device->CreateRenderTargetView(
+            m_cameraOutputTexture.Get(),
+            nullptr,
+            &m_cameraOutputRTV
+        );
+
+    if (FAILED(hr))
+    {
+        Logger::Log(
+            "Failed to create camera output render target view! HRESULT: 0x%08X\n",
+            static_cast<unsigned int>(hr)
+        );
+
+        m_cameraOutputTexture.Reset();
+
+        return false;
+    }
+
+    hr =
+        m_device->CreateShaderResourceView(
+            m_cameraOutputTexture.Get(),
+            nullptr,
+            &m_cameraOutputSRV
+        );
+
+    if (FAILED(hr))
+    {
+        Logger::Log(
+            "Failed to create camera output shader resource view! HRESULT: 0x%08X\n",
+            static_cast<unsigned int>(hr)
+        );
+
+        m_cameraOutputRTV.Reset();
+        m_cameraOutputTexture.Reset();
+
+        return false;
+    }
+
+    Logger::Log(
+        "Created %ux%u camera output texture.\n",
+        m_statistics.renderWidth,
+        m_statistics.renderHeight
+    );
 
     return true;
 }
@@ -1017,6 +1146,7 @@ void PianoVisualizer::RemoveRecentVST(
 // =========================================================
 // Render
 // =========================================================
+
 void PianoVisualizer::Render()
 {
     if (!m_initialized)
@@ -1034,12 +1164,12 @@ void PianoVisualizer::Render()
     viewport.Width =
         static_cast<float>(
             m_statistics.renderWidth
-        );
+            );
 
     viewport.Height =
         static_cast<float>(
             m_statistics.renderHeight
-        );
+            );
 
     viewport.MinDepth = 0.0f;
     viewport.MaxDepth = 1.0f;
@@ -1050,7 +1180,22 @@ void PianoVisualizer::Render()
     );
 
     // ---------------------------------------------------------
-    // Clear render target
+    // Camera output
+    // ---------------------------------------------------------
+
+    RenderCameraOutput();
+
+    // ---------------------------------------------------------
+    // Virtual camera output
+    //
+    // Send the completed camera output into the shared
+    // 1920x1080 texture.
+    // ---------------------------------------------------------
+
+    RenderVirtualCameraFrame();
+
+    // ---------------------------------------------------------
+    // Clear main render target
     // ---------------------------------------------------------
 
     constexpr float color[4]{
@@ -1083,7 +1228,9 @@ void PianoVisualizer::Render()
 
     RenderCamera();
 
-    std::string cameraError = m_camera.GetLastError();
+    std::string cameraError =
+        m_camera.GetLastError();
+
     if (!cameraError.empty())
     {
         m_showCameraError = true;
@@ -1115,6 +1262,140 @@ void PianoVisualizer::Render()
 
     // HandleVSTDrop() already draws the drop overlay in
     // Update(), so there is nothing additional required here.
+}
+
+
+// =========================================================
+// Render Camera Output
+// =========================================================
+
+void PianoVisualizer::RenderCameraOutput()
+{
+    if (!m_context)
+        return;
+
+    if (!m_cameraOutputRTV)
+        return;
+
+    if (!m_camera.IsOpen())
+        return;
+
+    ID3D11ShaderResourceView* cameraTexture =
+        m_camera.GetTexture();
+
+    if (!cameraTexture)
+        return;
+
+    const float outputWidth =
+        static_cast<float>(
+            m_statistics.renderWidth
+            );
+
+    const float outputHeight =
+        static_cast<float>(
+            m_statistics.renderHeight
+            );
+
+    const float cameraWidth =
+        static_cast<float>(
+            m_camera.GetWidth()
+            );
+
+    const float cameraHeight =
+        static_cast<float>(
+            m_camera.GetHeight()
+            );
+
+    if (outputWidth <= 0.0f ||
+        outputHeight <= 0.0f ||
+        cameraWidth <= 0.0f ||
+        cameraHeight <= 0.0f)
+    {
+        return;
+    }
+
+    constexpr float clearColor[4]{
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f
+    };
+
+    ID3D11RenderTargetView* renderTarget =
+        m_cameraOutputRTV.Get();
+
+    m_context->OMSetRenderTargets(
+        1,
+        &renderTarget,
+        nullptr
+    );
+
+    m_context->ClearRenderTargetView(
+        renderTarget,
+        clearColor
+    );
+
+    const float cameraAspect =
+        cameraWidth / cameraHeight;
+
+    float drawWidth = outputWidth;
+    float drawHeight =
+        drawWidth / cameraAspect;
+
+    if (drawHeight > outputHeight)
+    {
+        drawHeight = outputHeight;
+        drawWidth =
+            drawHeight * cameraAspect;
+    }
+
+    D3D11_VIEWPORT cameraViewport{};
+
+    cameraViewport.TopLeftX =
+        (outputWidth - drawWidth) * 0.5f;
+
+    cameraViewport.TopLeftY =
+        (outputHeight - drawHeight) * 0.5f;
+
+    cameraViewport.Width = drawWidth;
+    cameraViewport.Height = drawHeight;
+    cameraViewport.MinDepth = 0.0f;
+    cameraViewport.MaxDepth = 1.0f;
+
+    m_context->RSSetViewports(
+        1,
+        &cameraViewport
+    );
+
+    m_viewer->getFullscreenQuad().draw(
+        m_context,
+        cameraTexture,
+        0.0f
+    );
+
+    // Unbind the camera SRV before the next rendering pass.
+    ID3D11ShaderResourceView* nullSRV =
+        nullptr;
+
+    m_context->PSSetShaderResources(
+        0,
+        1,
+        &nullSRV
+    );
+
+    D3D11_VIEWPORT viewport{};
+
+    viewport.TopLeftX = 0.0f;
+    viewport.TopLeftY = 0.0f;
+    viewport.Width = outputWidth;
+    viewport.Height = outputHeight;
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
+
+    m_context->RSSetViewports(
+        1,
+        &viewport
+    );
 }
 
 
@@ -1400,11 +1681,11 @@ void PianoVisualizer::RenderCameraFeed()
     }
 
     // ---------------------------------------------------------
-    // Draw camera
+    // Draw camera output
     // ---------------------------------------------------------
 
     ImGui::Image(
-        (ImTextureID)m_camera.GetTexture(),
+        (ImTextureID)m_cameraOutputSRV.Get(),
         ImVec2(
             width,
             height
@@ -1462,6 +1743,410 @@ void PianoVisualizer::RenderCameraFeed()
         height,
         cameraWidth,
         cameraHeight
+    );
+}
+
+void PianoVisualizer::RenderVirtualCameraVisualizer()
+{
+    if (!m_context)
+        return;
+
+    if (!m_viewer)
+        return;
+
+    if (!m_virtualCamera.IsActive())
+        return;
+
+    ID3D11RenderTargetView* frameRTV =
+        m_virtualCamera.GetFrameRTV();
+
+    if (!frameRTV)
+        return;
+
+    ID3D11ShaderResourceView* visualizerTexture =
+        m_viewer->getTexture();
+
+    if (!visualizerTexture)
+        return;
+
+    if (!m_virtualCamera.AcquireFrame())
+        return;
+
+    constexpr UINT frameWidth = 1920;
+    constexpr UINT frameHeight = 1080;
+
+    // ---------------------------------------------------------
+    // Calculate piano projection
+    // ---------------------------------------------------------
+
+    if (m_polygonPoints.size() != 4)
+    {
+        m_virtualCamera.ReleaseFrame();
+        return;
+    }
+
+    ImVec2 P1 =
+        m_polygonPoints[0];
+
+    ImVec2 P2 =
+        m_polygonPoints[1];
+
+    ImVec2 P3 =
+        m_polygonPoints[2];
+
+    ImVec2 P4 =
+        m_polygonPoints[3];
+
+    const float cameraWidth =
+        static_cast<float>(
+            m_camera.GetWidth()
+            );
+
+    const float cameraHeight =
+        static_cast<float>(
+            m_camera.GetHeight()
+            );
+
+    PianoCameraPose pose =
+        CalculatePianoCameraPose(
+            P1,
+            P2,
+            P3,
+            P4,
+            cameraWidth,
+            cameraHeight,
+            m_horizontalFovDegrees
+        );
+
+    if (!pose.valid)
+    {
+        m_virtualCamera.ReleaseFrame();
+        return;
+    }
+
+    const float worldHeight =
+        -m_planeDepth *
+        m_heightScale;
+
+    float x1, y1;
+    float x2, y2;
+    float x3, y3;
+    float x4, y4;
+
+    const bool valid1 =
+        ProjectPianoPoint(
+            pose,
+            m_surfaceXOffset,
+            m_surfaceYOffset,
+            m_surfaceZOffset,
+            x1,
+            y1
+        );
+
+    const bool valid2 =
+        ProjectPianoPoint(
+            pose,
+            m_planeWidth +
+            m_surfaceXOffset,
+            m_surfaceYOffset,
+            m_surfaceZOffset,
+            x2,
+            y2
+        );
+
+    const bool valid3 =
+        ProjectPianoPoint(
+            pose,
+            m_planeWidth +
+            m_surfaceXOffset,
+            m_surfaceYOffset,
+            worldHeight +
+            m_surfaceZOffset,
+            x3,
+            y3
+        );
+
+    const bool valid4 =
+        ProjectPianoPoint(
+            pose,
+            m_surfaceXOffset,
+            m_surfaceYOffset,
+            worldHeight +
+            m_surfaceZOffset,
+            x4,
+            y4
+        );
+
+    if (!valid1 ||
+        !valid2 ||
+        !valid3 ||
+        !valid4)
+    {
+        m_virtualCamera.ReleaseFrame();
+        return;
+    }
+
+    // ---------------------------------------------------------
+    // Convert camera coordinates to virtual-camera coordinates
+    // ---------------------------------------------------------
+
+    auto CameraToFrame =
+        [&](float cameraX, float cameraY)
+        {
+            return ImVec2(
+                cameraX *
+                (
+                    static_cast<float>(frameWidth) /
+                    cameraWidth
+                    ),
+
+                cameraY *
+                (
+                    static_cast<float>(frameHeight) /
+                    cameraHeight
+                    )
+            );
+        };
+
+    const ImVec2 bottomLeft =
+        CameraToFrame(
+            x1,
+            y1
+        );
+
+    const ImVec2 bottomRight =
+        CameraToFrame(
+            x2,
+            y2
+        );
+
+    const ImVec2 topRight =
+        CameraToFrame(
+            x3,
+            y3
+        );
+
+    const ImVec2 topLeft =
+        CameraToFrame(
+            x4,
+            y4
+        );
+
+    // ---------------------------------------------------------
+    // Render visualizer into the shared frame
+    // ---------------------------------------------------------
+
+    // IMPORTANT:
+    //
+    // This is NOT the ImGui VirtualWindowRenderer.
+    //
+    // The shared frame is an actual D3D11 texture, so the
+    // perspective transformation needs to happen through D3D11.
+    //
+    // We'll implement this as a GPU grid/homography renderer.
+    //
+
+    m_virtualWindowRenderer.RenderD3D11(
+        m_context,
+        frameRTV,
+        visualizerTexture,
+
+        topLeft,
+        topRight,
+        bottomRight,
+        bottomLeft
+    );
+
+    // ---------------------------------------------------------
+    // Unbind visualizer SRV
+    // ---------------------------------------------------------
+
+    ID3D11ShaderResourceView* nullSRV =
+        nullptr;
+
+    m_context->PSSetShaderResources(
+        0,
+        1,
+        &nullSRV
+    );
+
+    // ---------------------------------------------------------
+    // Release shared frame
+    // ---------------------------------------------------------
+
+    m_virtualCamera.ReleaseFrame();
+
+    // ---------------------------------------------------------
+    // Restore normal viewport
+    // ---------------------------------------------------------
+
+    D3D11_VIEWPORT viewport{};
+
+    viewport.TopLeftX = 0.0f;
+    viewport.TopLeftY = 0.0f;
+
+    viewport.Width =
+        static_cast<float>(
+            m_statistics.renderWidth
+            );
+
+    viewport.Height =
+        static_cast<float>(
+            m_statistics.renderHeight
+            );
+
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
+
+    m_context->RSSetViewports(
+        1,
+        &viewport
+    );
+}
+
+// =========================================================
+// Render Virtual Camera Frame
+// =========================================================
+
+void PianoVisualizer::RenderVirtualCameraFrame()
+{
+    if (!m_context)
+        return;
+
+    if (!m_viewer)
+        return;
+
+    if (!m_cameraOutputSRV)
+        return;
+
+    if (!m_virtualCamera.IsActive())
+        return;
+
+    ID3D11RenderTargetView* frameRTV =
+        m_virtualCamera.GetFrameRTV();
+
+    if (!frameRTV)
+        return;
+
+    if (!m_virtualCamera.AcquireFrame())
+        return;
+
+    constexpr UINT frameWidth = 1920;
+    constexpr UINT frameHeight = 1080;
+
+    // ---------------------------------------------------------
+    // Viewport
+    // ---------------------------------------------------------
+
+    D3D11_VIEWPORT viewport{};
+
+    viewport.TopLeftX = 0.0f;
+    viewport.TopLeftY = 0.0f;
+
+    viewport.Width =
+        static_cast<float>(
+            frameWidth
+            );
+
+    viewport.Height =
+        static_cast<float>(
+            frameHeight
+            );
+
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
+
+    m_context->RSSetViewports(
+        1,
+        &viewport
+    );
+
+    // ---------------------------------------------------------
+    // Shared frame render target
+    // ---------------------------------------------------------
+
+    constexpr float clearColor[4]{
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f
+    };
+
+    m_context->OMSetRenderTargets(
+        1,
+        &frameRTV,
+        nullptr
+    );
+
+    m_context->ClearRenderTargetView(
+        frameRTV,
+        clearColor
+    );
+
+    // ---------------------------------------------------------
+    // Camera
+    // ---------------------------------------------------------
+
+    m_viewer->getFullscreenQuad().draw(
+        m_context,
+        m_cameraOutputSRV.Get(),
+        0.0f
+    );
+
+    // ---------------------------------------------------------
+    // Visualizer overlay
+    // ---------------------------------------------------------
+
+    RenderVirtualCameraVisualizer();
+
+    // ---------------------------------------------------------
+    // Unbind SRV
+    // ---------------------------------------------------------
+
+    ID3D11ShaderResourceView* nullSRV =
+        nullptr;
+
+    m_context->PSSetShaderResources(
+        0,
+        1,
+        &nullSRV
+    );
+
+    // ---------------------------------------------------------
+    // Release shared frame
+    //
+    // Producer:
+    //     key 0 -> write
+    //     key 1 -> consumer may read
+    // ---------------------------------------------------------
+
+    m_virtualCamera.ReleaseFrame();
+
+    // ---------------------------------------------------------
+    // Restore normal viewport
+    // ---------------------------------------------------------
+
+    D3D11_VIEWPORT mainViewport{};
+
+    mainViewport.TopLeftX = 0.0f;
+    mainViewport.TopLeftY = 0.0f;
+
+    mainViewport.Width =
+        static_cast<float>(
+            m_statistics.renderWidth
+            );
+
+    mainViewport.Height =
+        static_cast<float>(
+            m_statistics.renderHeight
+            );
+
+    mainViewport.MinDepth = 0.0f;
+    mainViewport.MaxDepth = 1.0f;
+
+    m_context->RSSetViewports(
+        1,
+        &mainViewport
     );
 }
 
@@ -2926,6 +3611,10 @@ void PianoVisualizer::KeyPressed(
 
 void PianoVisualizer::CleanupRenderTarget()
 {
+    m_cameraOutputSRV.Reset();
+    m_cameraOutputRTV.Reset();
+    m_cameraOutputTexture.Reset();
+
     if (m_renderTargetView)
     {
         m_renderTargetView->Release();
@@ -2979,6 +3668,15 @@ void PianoVisualizer::CreateRenderTarget()
 
         m_renderTargetView =
             nullptr;
+
+        return;
+    }
+
+    if (!InitializeCameraOutput())
+    {
+        Logger::Log(
+            "Failed to initialize camera output after render target creation!\n"
+        );
     }
 }
 
@@ -4797,6 +5495,97 @@ void PianoVisualizer::RenderCameraSettingsPanel()
     ImGui::Spacing();
     ImGui::Separator();
 
+    // =====================================================
+    // Virtual Camera
+    // =====================================================
+
+    ImGui::Text(
+        "Virtual Camera"
+    );
+
+    const bool virtualCameraAvailable =
+        m_virtualCamera.IsAvailable();
+
+    const bool virtualCameraActive =
+        m_virtualCamera.IsActive();
+
+    if (!virtualCameraAvailable)
+    {
+        ImGui::PushStyleVar(
+            ImGuiStyleVar_Alpha,
+            ImGui::GetStyle().Alpha * 0.5f
+        );
+    }
+
+    bool clicked =
+        ImGui::Button(
+            virtualCameraAvailable
+            ? (virtualCameraActive
+                ? "Stop Virtual Camera"
+                : "Start Virtual Camera")
+            : "Start Virtual Camera (Extension Required)"
+        );
+
+    if (!virtualCameraAvailable)
+    {
+        ImGui::PopStyleVar();
+    }
+
+    // ---------------------------------------------------------
+    // Button action
+    // ---------------------------------------------------------
+
+    if (clicked)
+    {
+        if (virtualCameraAvailable)
+        {
+            if (!virtualCameraActive)
+            {
+                if (m_virtualCamera.RegisterExtension())
+                {
+                    if (!m_virtualCamera.StartVirtualCamera())
+                    {
+                        m_virtualCamera.UnregisterExtension();
+                    }
+                }
+            }
+            else
+            {
+                if (m_virtualCamera.StopVirtualCamera())
+                {
+                    m_virtualCamera.UnregisterExtension();
+                }
+            }
+        }
+        else
+        {
+            ShellExecuteA(
+                nullptr,
+                "open",
+                "https://github.com/Ominus-tch/Piano-Visualizer",
+                nullptr,
+                nullptr,
+                SW_SHOWNORMAL
+            );
+        }
+    }
+
+    // ---------------------------------------------------------
+    // Tooltip
+    // ---------------------------------------------------------
+
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip(virtualCameraAvailable ? 
+			"The virtual camera outputs the visualizer to other applications.\n"
+			"Click to start or stop the virtual camera."
+            :
+            "Virtual Camera extension not found.\n"
+            "Download the extension to enable this feature.\n"
+            "Click to visit the download page."
+        );
+    }
+
     ImGui::End();
 }
 
@@ -5257,6 +6046,8 @@ void PianoVisualizer::Shutdown()
     ShutdownMidiVisualizer();
 
     ShutdownRenderTarget();
+
+    m_virtualCamera.Shutdown();
 
     m_initialized =
         false;

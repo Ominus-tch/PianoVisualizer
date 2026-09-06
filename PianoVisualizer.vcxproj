@@ -58,7 +58,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;winmm.lib;Ole32.lib;Avrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;winmm.lib;Ole32.lib;Avrt.lib;mfsensorgroup.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <EntryPointSymbol>
       </EntryPointSymbol>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -89,6 +89,7 @@
     <ClCompile Include="src\Audio\vst\VSTEventList.cpp" />
     <ClCompile Include="src\Audio\vst\VSTHostApplication.cpp" />
     <ClCompile Include="src\Audio\vst\VSTStateStream.cpp" />
+    <ClCompile Include="src\VirtualCameraExtension\VirtualCameraExtension.cpp" />
     <ClCompile Include="util\camera\Camera.cpp" />
     <ClCompile Include="util\camera\CameraControls.cpp" />
     <ClCompile Include="util\gui.cpp" />
@@ -748,6 +749,7 @@
     <ClInclude Include="src\Audio\vst\VSTEventList.h" />
     <ClInclude Include="src\Audio\vst\VSTHostApplication.h" />
     <ClInclude Include="src\Audio\vst\VSTStateStream.h" />
+    <ClInclude Include="src\VirtualCameraExtension\VirtualCameraExtension.h" />
     <ClInclude Include="util\camera\Camera.h" />
     <ClInclude Include="util\camera\CameraControls.h" />
     <ClInclude Include="util\config.h" />

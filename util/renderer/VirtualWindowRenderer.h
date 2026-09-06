@@ -1,6 +1,11 @@
 #pragma once
 
 #include <imgui/imgui.h>
+#include <d3d11.h>
+
+#include <wrl/client.h>
+
+using Microsoft::WRL::ComPtr;
 
 class VirtualWindowRenderer
 {
@@ -22,6 +27,9 @@ public:
             );
     };
 
+    bool InitializeD3D11Resources(
+        ID3D11Device* device
+    );
 
     void Render(
         ImDrawList* drawList,
@@ -33,6 +41,17 @@ public:
         const ImVec2& bottomLeft,
 
         const Settings& settings
+    );
+
+    void RenderD3D11(
+        ID3D11DeviceContext* context,
+        ID3D11RenderTargetView* renderTarget,
+        ID3D11ShaderResourceView* texture,
+
+        const ImVec2& topLeft,
+        const ImVec2& topRight,
+        const ImVec2& bottomRight,
+        const ImVec2& bottomLeft
     );
 
 
@@ -47,4 +66,20 @@ private:
         float u,
         float v
     );
+
+    struct D3D11Vertex
+    {
+        float x;
+        float y;
+        float u;
+        float v;
+    };
+
+    ComPtr<ID3D11VertexShader> m_d3dVertexShader;
+    ComPtr<ID3D11PixelShader> m_d3dPixelShader;
+    ComPtr<ID3D11InputLayout> m_d3dInputLayout;
+    ComPtr<ID3D11Buffer> m_d3dVertexBuffer;
+    ComPtr<ID3D11Buffer> m_d3dIndexBuffer;
+    ComPtr<ID3D11SamplerState> m_d3dSamplerState;
+    ComPtr<ID3D11BlendState> m_d3dBlendState;
 };

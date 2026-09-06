@@ -42,11 +42,15 @@
 #include "MidiVisualizer/helpers/System.h"
 #include "MidiVisualizer/rendering/scene/MIDISceneLive.h"
 #include "MidiVisualizer/rendering/Viewer.h"
+#include "MidiVisualizer/rendering/ScreenQuad.h"
 
 // Audio
 #include "Audio/AudioEngine.h"
 #include "Audio/AudioOutput.h"
 #include "Audio/vst/VSTPlugin.h"
+
+// Extensions
+#include "VirtualCameraExtension/VirtualCameraExtension.h"
 
 
 class PianoVisualizer
@@ -164,6 +168,7 @@ private:
     bool InitializeWindowCapture();
 
     bool InitializeRenderTarget();
+    bool InitializeCameraOutput();
 
     // =========================================================
     // Shutdown
@@ -183,6 +188,8 @@ private:
 
     void RenderCamera();
 
+    void RenderCameraOutput();
+
     void RenderVisualizer();
 
     void RenderSettings();
@@ -200,6 +207,9 @@ private:
     // =========================================================
 
     void RenderCameraFeed();
+
+    void RenderVirtualCameraVisualizer();
+    void RenderVirtualCameraFrame();
 
     void RenderCameraErrorDialog();
 
@@ -272,12 +282,12 @@ private:
 
     void CreateRenderTarget();
 
-	// =========================================================
+    // =========================================================
     // Statistics
     // =========================================================
 
     void UpdateStatistics();
-   
+
 
 private:
 
@@ -297,6 +307,10 @@ private:
 
     ID3D11RenderTargetView* m_renderTargetView = nullptr;
 
+    ComPtr<ID3D11Texture2D> m_cameraOutputTexture;
+    ComPtr<ID3D11RenderTargetView> m_cameraOutputRTV;
+    ComPtr<ID3D11ShaderResourceView> m_cameraOutputSRV;
+
     // =========================================================
     // Camera
     // =========================================================
@@ -315,6 +329,12 @@ private:
     // =========================================================
 
     Viewer* m_viewer = nullptr;
+
+    // =========================================================
+    // Extensions
+    // =========================================================
+
+    VirtualCameraExtension m_virtualCamera;
 
     // =========================================================
     // Audio / VST

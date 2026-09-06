@@ -91,6 +91,10 @@ public:
 		return _backbufferSize;
 	}
 
+	ScreenQuad& getFullscreenQuad() {
+		return _passthrough;
+	}
+
 private:
 
 	struct Layer {

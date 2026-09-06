@@ -1763,7 +1763,7 @@ void Camera::ReleaseNV12Resources()
 void Camera::CameraThread()
 {
     Logger::Log(
-        "[Camera] Capture thread started.\n"
+        "[Camera] Capture thread started.\n\n"
     );
 
     auto statsTime =
@@ -1852,7 +1852,7 @@ void Camera::CameraThread()
     }
 
     Logger::Log(
-        "[Camera] Capture thread stopped.\n"
+        "[Camera] Capture thread stopped.\n\n"
     );
 }
 
@@ -3095,7 +3095,7 @@ bool Camera::OpenCamera(
         {
             std::lock_guard<std::mutex> lock(m_errorMutex);
 
-            m_lastError = "Error: Failed to initialize camera\n(Invalid camera index:" +
+            m_lastError = "(Invalid camera index:" +
                 std::to_string(cameraIndex) +
                 ")";
         }
@@ -3132,7 +3132,7 @@ bool Camera::OpenCamera(
         {
             std::lock_guard<std::mutex> lock(m_errorMutex);
 
-            m_lastError = "Error: Failed to initialize camera \"" +
+            m_lastError = 
                 cameraName +
                 "\"\n" +
                 "(Failed to find camera index:" +
@@ -3173,7 +3173,7 @@ bool Camera::OpenCamera(
         {
             std::lock_guard<std::mutex> lock(m_errorMutex);
 
-            m_lastError = "Error: Failed to initialize camera \"" +
+            m_lastError = 
                 cameraName +
                 "\"\n" + 
                 "(Failed to create reader)";
@@ -3192,7 +3192,7 @@ bool Camera::OpenCamera(
         {
             std::lock_guard<std::mutex> lock(m_errorMutex);
 
-            m_lastError = "Error: Failed to initialize camera \"" +
+            m_lastError = 
                 cameraName +
                 "\"\n" +
                 "(Failed to create texture)";
@@ -3232,7 +3232,7 @@ bool Camera::OpenCamera(
         {
             std::lock_guard<std::mutex> lock(m_errorMutex);
 
-            m_lastError = "Error: Failed to initialize camera \"" +
+            m_lastError = 
                 cameraName +
                 "\"\n" +
                 "(Failed to allocate frame buffers.)";
