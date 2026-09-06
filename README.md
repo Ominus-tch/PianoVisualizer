@@ -68,7 +68,7 @@ Most compatible VST3 instruments should work normally, but some plugins may stil
 
 ## Download
 
-Download the latest release from the [GitHub Releases](https://github.com/Ominus-tch/Piano-Visualizer/releases) page.
+Download the latest release from the [GitHub Releases](https://github.com/Ominus-tch/PianoVisualizer/releases) page.
 
 > **Note:** Piano Visualizer is currently unsigned, so Windows SmartScreen may display an "Unknown publisher" or similar warning when launching a release.
 
@@ -77,7 +77,7 @@ Download the latest release from the [GitHub Releases](https://github.com/Ominus
 Clone the repository:
 
 ```bash
-git clone https://github.com/Ominus-tch/Piano-Visualizer.git
+git clone https://github.com/Ominus-tch/PianoVisualizer.git
 ```
 
 Open the solution in Visual Studio and build the project using the included configuration.
