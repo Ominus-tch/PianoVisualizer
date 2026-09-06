@@ -393,12 +393,12 @@ namespace vst
             return false;
         }
 
-        Logger::Log(
+        /*Logger::Log(
             "[VST] Queued Note On: "
             "channel=%d pitch=%d velocity=%f\n",
             channel,
             pitch,
-            velocity);
+            velocity);*/
 
         return true;
     }
@@ -493,12 +493,12 @@ namespace vst
             return false;
         }
 
-        Logger::Log(
+        /*Logger::Log(
             "[VST] Queued Note Off: "
             "channel=%d pitch=%d velocity=%f\n",
             channel,
             pitch,
-            velocity);
+            velocity);*/
 
         return true;
     }

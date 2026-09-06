@@ -2207,6 +2207,32 @@ bool Camera::CaptureFrame()
         return false;
 
     // -----------------------------------------------------
+    // Record frame
+    // -----------------------------------------------------
+
+    if (m_recording.load(std::memory_order_acquire))
+    {
+        const auto now =
+            std::chrono::steady_clock::now();
+
+        const auto elapsed =
+            std::chrono::duration_cast<
+            std::chrono::nanoseconds
+            >(
+                now - m_recordingStartTime
+            ).count();
+
+        const int64_t timestamp100ns =
+            elapsed / 100;
+
+        m_videoEncoder.EncodeFrame(
+            m_captureBuffer.data(),
+            m_captureFrameBytes,
+            timestamp100ns
+        );
+    }
+
+    // -----------------------------------------------------
     // Publish frame
     // -----------------------------------------------------
 
@@ -2407,6 +2433,114 @@ bool Camera::Update()
     return true;
 }
 
+
+// =========================================================
+// Recording
+// =========================================================
+
+bool Camera::StartRecording(
+    const std::string& filePath
+)
+{
+    std::lock_guard<std::mutex> lock(
+        m_recordingMutex
+    );
+
+    if (m_recording)
+    {
+        return false;
+    }
+
+    const int width =
+        GetWidth();
+
+    const int height =
+        GetHeight();
+
+    const int fps =
+        30;
+
+    CameraVideoEncoder::PixelFormat pixelFormat;
+
+    if (m_format == CameraFormat::NV12)
+    {
+        pixelFormat =
+            CameraVideoEncoder::PixelFormat::NV12;
+    }
+    else if (m_format == CameraFormat::MJPG)
+    {
+        // MJPG is decoded into BGRA/RGB32 in
+        // the capture code before being passed
+        // to the encoder.
+        pixelFormat =
+            CameraVideoEncoder::PixelFormat::RGB32;
+    }
+    else
+    {
+        Logger::Log(
+            "[Recording] Unsupported recording format.\n"
+        );
+
+        return false;
+    }
+
+    if (!m_videoEncoder.Start(
+        filePath,
+        width,
+        height,
+        fps,
+        pixelFormat
+    ))
+    {
+        Logger::Log(
+            "[Recording] Failed to start video encoder.\n"
+        );
+
+        return false;
+    }
+
+    m_recordingStartTime =
+        std::chrono::steady_clock::now();
+
+    m_recording.store(
+        true,
+        std::memory_order_release
+    );
+
+    return true;
+}
+
+bool Camera::StopRecording()
+{
+    std::lock_guard<std::mutex> lock(
+        m_recordingMutex
+    );
+
+    if (!m_recording)
+    {
+        return false;
+    }
+
+    m_recording.store(
+        false,
+        std::memory_order_release
+    );
+
+    m_videoEncoder.Stop();
+
+    Logger::Log(
+        "[Recording] Recording stopped.\n"
+    );
+
+    return true;
+}
+
+bool Camera::IsRecording() const
+{
+    return m_recording.load(
+        std::memory_order_acquire
+    );
+}
 
 // =========================================================
 // UploadFrame
@@ -4599,4 +4733,7 @@ void Camera::Shutdown()
         std::chrono::steady_clock::time_point{};
 
     m_uploadStatsFrameCount = 0;
+
+    m_recordedFrames.clear();
+    m_recordingFilePath.clear();
 }

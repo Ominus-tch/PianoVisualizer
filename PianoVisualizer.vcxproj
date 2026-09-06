@@ -92,6 +92,7 @@
     <ClCompile Include="src\VirtualCameraExtension\VirtualCameraExtension.cpp" />
     <ClCompile Include="util\camera\Camera.cpp" />
     <ClCompile Include="util\camera\CameraControls.cpp" />
+    <ClCompile Include="util\camera\CameraVideoEncoder.cpp" />
     <ClCompile Include="util\gui.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\MidiVisualizer\helpers\Configuration.cpp" />
@@ -752,6 +753,7 @@
     <ClInclude Include="src\VirtualCameraExtension\VirtualCameraExtension.h" />
     <ClInclude Include="util\camera\Camera.h" />
     <ClInclude Include="util\camera\CameraControls.h" />
+    <ClInclude Include="util\camera\CameraVideoEncoder.h" />
     <ClInclude Include="util\config.h" />
     <ClInclude Include="util\gui.h" />
     <ClInclude Include="util\helpers.h" />

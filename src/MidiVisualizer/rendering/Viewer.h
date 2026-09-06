@@ -5,7 +5,9 @@
 #include <array>
 #include <mutex>
 #include <string>
+#include <filesystem>
 
+#include <functional>
 #include <optional>
 
 #include "Framebuffer.h"
@@ -55,6 +57,36 @@ public:
 	bool connectDevice(const int port);
 
 	void setState(const State & state);
+	bool isInputting() const { return _inputting; }
+
+	using RecordingCallback = std::function<void()>;
+
+	void setOnStartRecording(
+		RecordingCallback callback
+	);
+
+	void setOnStopRecording(
+		RecordingCallback callback
+	);
+
+	bool startRecording();
+
+	bool stopRecording();
+
+	bool isRecording() const
+	{
+		return _recording;
+	}
+
+	bool isRecordingCamera() const
+	{
+		return _recording && _recordCamera;
+	}
+
+	const std::filesystem::path& recordingDirectory() const
+	{
+		return _recordingDirectory;
+	}
 	
 	/// Draw function
 	SystemAction draw(const float currentTime);
@@ -93,6 +125,10 @@ public:
 
 	ScreenQuad& getFullscreenQuad() {
 		return _passthrough;
+	}
+
+	double getElapsedRecordingTime() {
+		return (_timer * _state.scrollSpeed) - _recordingStartTime;
 	}
 
 private:
@@ -192,7 +228,10 @@ private:
 
 	void ImGuiSameLine(int w = 0);
 
+	bool createRecordingDirectory();
+
 	State _state;
+	Configuration* _config = nullptr;
 	std::array<Layer, Layer::COUNT> _layers;
 	State _backupState;
 
@@ -235,6 +274,18 @@ private:
 	bool _showPedalsEditor = false;
 	bool _exitAfterRecording = false;
 	bool _liveplay = false;
+
+	RecordingCallback _onStartRecording;
+	RecordingCallback _onStopRecording;
+
+	std::filesystem::path _recordingDirectory;
+	double _recordingStartTime = 0.0;
+
+	bool _recording = false;
+	bool _recordCamera = true;
+	bool _shouldOpenRecordingPopup = false;
+
+	bool _inputting = false;
 
 	struct MIDIDeviceEvent {
 		bool connected;

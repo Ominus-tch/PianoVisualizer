@@ -1,3 +1,5 @@
+#include "Viewer.h"
+
 #include "../helpers/ProgramUtilities.h"
 #include "../helpers/ResourcesManager.h"
 #include "../helpers/ImGuiStyle.h"
@@ -5,24 +7,25 @@
 #include "../resources/strings.h"
 
 #include <cstring>
-#include <glm/gtc/matrix_transform.hpp>
-#include <imgui/imgui.h>
 #include <iostream>
-#include <stdio.h>
+#include <utility>
 #include <vector>
+#include <algorithm>
+#include <fstream>
 
 #include <windows.h>
 #include <shobjidl.h>
+#include <stdio.h>
 
-#include "Viewer.h"
+#include <imgui/imgui.h>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include "scene/MIDIScene.h"
 #include "scene/MIDISceneFile.h"
 #include "scene/MIDISceneLive.h"
 
-#include <algorithm>
-#include <fstream>
-
 #include "../../../util/Logger.h"
+#include "../../../util/config.h"
 
 Viewer::Viewer(
 	D3D11Interface d3dInterface,
@@ -39,7 +42,6 @@ Viewer::Viewer(
 	_windowSize = glm::ivec2(width, height);
 	_camera.screen(_windowSize[0], _windowSize[1], 1.0f);
 	_backbufferSize = glm::vec2(_windowSize);
-
 
 	// Setup framebuffers, size does not really matter as we expect a resize event just after.
 	const glm::ivec2 renderSize = _camera.renderSize();
@@ -199,6 +201,71 @@ Viewer::Viewer(
 		{
 			// Handle error if desired.
 		}
+	}
+
+	// Ensure we are using the C locale.
+	System::forceLocale();
+
+	Config::GetConfigDirectory();
+
+	const std::vector<std::string> argv = {};
+
+	_config = new Configuration(argv);
+
+	if (_config->showHelp)
+	{
+		Configuration::printHelp();
+
+		return;
+	}
+
+	if (_config->showVersion)
+	{
+		Configuration::printVersion();
+
+		return;
+	}
+
+	// ---------------------------------------------------------
+	// Load MIDI file if specified
+	// ---------------------------------------------------------
+
+	if (!_config->lastMidiPath.empty())
+	{
+		loadFile(
+			_config->lastMidiPath
+		);
+	}
+
+	// ---------------------------------------------------------
+	// Apply custom state
+	// ---------------------------------------------------------
+
+	State state;
+
+	if (!_config->lastConfigPath.empty())
+	{
+		Logger::Log("[Config] Loading config: %s\n", _config->lastConfigPath.c_str());
+		state.load(_config->lastConfigPath);
+	}
+
+	state.load(
+		_config->args()
+	);
+
+	setState(
+		state
+	);
+
+	// ---------------------------------------------------------
+	// Connect to MIDI device
+	// ---------------------------------------------------------
+
+	if (!_config->lastMidiDevice.empty())
+	{
+		connectDevice(
+			_config->lastMidiDevice
+		);
 	}
 }
 
@@ -686,6 +753,65 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 
 	SystemAction action = SystemAction::NONE;
 
+	if (_shouldOpenRecordingPopup)
+	{
+		ImGui::OpenPopup("Start Recording");
+		_shouldOpenRecordingPopup = false;
+
+		Logger::Log("Open popup reached!\n");
+	}
+
+	if (ImGui::BeginPopupModal("Start Recording", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::Text("Recording Options");
+
+		ImGui::Separator();
+
+		ImGui::Checkbox(
+			"Record camera",
+			&_recordCamera
+		);
+
+		ImGui::Spacing();
+
+		if (ImGui::Button(
+			"Start Recording",
+			ImVec2(140.0f, 0.0f)
+		))
+		{
+			_recording = true;
+
+			Logger::Log(
+				"[Recording] Started.\n"
+			);
+
+			/*
+			 * MIDI recording is handled by the Viewer/MIDISceneLive.
+			 *
+			 * Only notify PianoVisualizer if the user also
+			 * requested camera recording.
+			 */
+			if (_recordCamera && _onStartRecording)
+			{
+				_onStartRecording();
+			}
+
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button(
+			"Cancel",
+			ImVec2(100.0f, 0.0f)
+		))
+		{
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+
 	if (ImGui::Begin("Visualizer Settings", &_showGUI, ImGuiWindowFlags_AlwaysAutoResize)) {
 
 		action = showTopButtons(currentTime);
@@ -779,6 +905,39 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 			ImGui::OpenPopup("Devices");
 		}
 		showDevices();
+		
+
+		auto liveScene =
+			std::dynamic_pointer_cast<MIDISceneLive>(
+				_scene
+			);
+
+		if (liveScene) {
+			// Recording
+			ImGui::SameLine();
+
+			const char* recordLabel = _recording ? "Stop recording" : "Start recording";
+			if (ImGui::Button(recordLabel)) {
+
+
+				if (_recording) {
+					stopRecording();
+					liveScene->stopRecording();
+				}
+				else {
+					_recordingStartTime = _timer * _state.scrollSpeed;
+					liveScene->startRecording(_recordingStartTime);
+					startRecording();
+				}
+			}
+
+			ImGui::SameLine();
+
+			if (_recording) {
+				double elapsedTime = getElapsedRecordingTime();
+				ImGui::Text("Recording: %.2fs", elapsedTime);
+			}
+		}
 
 		/*const bool existingScene =
 			(std::dynamic_pointer_cast<MIDISceneFile>(_scene) != nullptr) ||
@@ -1058,6 +1217,8 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 		}
 	}
 	ImGui::End();
+
+	
 
 	if(_showLayers){
 		showLayers();
@@ -1548,29 +1709,292 @@ void Viewer::showBackgroundOptions(){
 
 }
 
-void Viewer::showBottomButtons(){
-	if (ImGui::Button("Save config..."))
-	{
-		_state.save();
-	}
+void Viewer::showBottomButtons()
+{
+	const std::filesystem::path presetDirectory = Config::GetVisualizerConfigPath();
 
-	ImGui::helpTooltip("Save the current settings for all effects");
-	ImGuiSameLine();
+	std::error_code error;
+	std::filesystem::create_directories(presetDirectory, error);
 
-	if (ImGui::Button("Load config..."))
+	// Build list of available presets.
+	std::vector<std::string> presets;
+
+	if (!error)
 	{
-		if (_state.load())
+		for (const auto& entry : std::filesystem::directory_iterator(presetDirectory, error))
 		{
-			setState(_state);
+			if (error)
+				break;
+
+			if (!entry.is_regular_file())
+				continue;
+
+			if (entry.path().extension() != ".ini")
+				continue;
+
+			presets.push_back(entry.path().stem().string());
 		}
 	}
-	ImGui::helpTooltip("Load effects settings from a configuration file");
+
+	std::sort(presets.begin(), presets.end());
+
+	// Current preset.
+	std::string currentPreset = _config->lastConfigPath;
+
+	// lastConfigPath may contain the full path, so only display the preset name.
+	if (!currentPreset.empty())
+	{
+		currentPreset = std::filesystem::path(currentPreset).stem().string();
+	}
+
+	// Persistent input buffers.
+	static char presetName[256] = {};
+	static char renamePresetName[256] = {};
+
+	// Preset dropdown.
+	ImGui::SetNextItemWidth(200.0f);
+
+	const char* preview = currentPreset.empty()
+		? "No preset loaded"
+		: currentPreset.c_str();
+
+	if (ImGui::BeginCombo("Preset", preview))
+	{
+		for (const std::string& preset : presets)
+		{
+			const bool selected = preset == currentPreset;
+
+			if (ImGui::Selectable(preset.c_str(), selected))
+			{
+				const std::filesystem::path presetPath =
+					presetDirectory / preset;
+
+				if (_state.load(presetPath.string()))
+				{
+					setState(_state);
+
+					_config->lastConfigPath = preset;
+					_config->save();
+
+					currentPreset = preset;
+				}
+			}
+
+			if (selected)
+				ImGui::SetItemDefaultFocus();
+		}
+
+		ImGui::EndCombo();
+	}
+
 	ImGuiSameLine();
 
-	if (ImGui::Button("Reset##config")) {
+	// Save preset.
+	if (ImGui::Button("Save Preset..."))
+	{
+		std::strncpy(
+			presetName,
+			currentPreset.c_str(),
+			sizeof(presetName) - 1
+		);
+		presetName[sizeof(presetName) - 1] = '\0';
+
+		_inputting = true;
+		ImGui::OpenPopup("Save Preset");
+	}
+
+	ImGui::helpTooltip("Save the current visualizer settings as a preset");
+
+	if (ImGui::BeginPopupModal(
+		"Save Preset",
+		nullptr,
+		ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::Text("Preset name:");
+		ImGui::InputText(
+			"##preset_name",
+			presetName,
+			sizeof(presetName)
+		);
+
+		const std::string name = presetName;
+		const bool emptyName = name.empty();
+
+		const std::filesystem::path presetPath =
+			presetDirectory / name;
+
+		const bool alreadyExists =
+			!emptyName &&
+			std::filesystem::exists(presetPath.string() + ".ini");
+
+		if (alreadyExists)
+		{
+			ImGui::TextWrapped(
+				"A preset with this name already exists. "
+				"Saving will overwrite it."
+			);
+		}
+
+		ImGui::Spacing();
+
+		if (ImGui::Button("Cancel"))
+		{
+			presetName[0] = '\0';
+			_inputting = false;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::SameLine();
+
+		ImGui::BeginDisabled(emptyName);
+
+		if (ImGui::Button(alreadyExists ? "Overwrite" : "Save"))
+		{
+			Logger::Log("Saving %s\n", name.c_str());
+
+			if (_state.save(name))
+			{
+				_config->lastConfigPath = name;
+				_config->save();
+			}
+
+			presetName[0] = '\0';
+			_inputting = false;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndDisabled();
+
+		ImGui::EndPopup();
+	}
+
+	ImGuiSameLine();
+
+	// Rename preset.
+	ImGui::BeginDisabled(currentPreset.empty());
+
+	if (ImGui::Button("Rename Preset..."))
+	{
+		std::strncpy(
+			renamePresetName,
+			currentPreset.c_str(),
+			sizeof(renamePresetName) - 1
+		);
+		renamePresetName[sizeof(renamePresetName) - 1] = '\0';
+
+		_inputting = true;
+		ImGui::OpenPopup("Rename Preset");
+	}
+
+	ImGui::EndDisabled();
+
+	ImGui::helpTooltip("Rename the currently loaded preset");
+
+	if (ImGui::BeginPopupModal(
+		"Rename Preset",
+		nullptr,
+		ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::Text("New preset name:");
+
+		ImGui::InputText(
+			"##rename_preset_name",
+			renamePresetName,
+			sizeof(renamePresetName)
+		);
+
+		const std::string newName = renamePresetName;
+		const bool emptyName = newName.empty();
+		const bool sameName = newName == currentPreset;
+
+		const std::filesystem::path oldPath =
+			presetDirectory / currentPreset;
+
+		const std::filesystem::path newPath =
+			presetDirectory / newName;
+
+		const bool alreadyExists =
+			!emptyName &&
+			!sameName &&
+			std::filesystem::exists(newPath.string() + ".ini");
+
+		if (alreadyExists)
+		{
+			ImGui::TextWrapped(
+				"A preset with this name already exists."
+			);
+		}
+
+		ImGui::Spacing();
+
+		if (ImGui::Button("Cancel"))
+		{
+			renamePresetName[0] = '\0';
+			_inputting = false;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::SameLine();
+
+		ImGui::BeginDisabled(emptyName || sameName || alreadyExists);
+
+		if (ImGui::Button("Rename"))
+		{
+			const std::filesystem::path oldFile =
+				oldPath.string() + ".ini";
+
+			const std::filesystem::path newFile =
+				newPath.string() + ".ini";
+
+			std::error_code renameError;
+			std::filesystem::rename(
+				oldFile,
+				newFile,
+				renameError
+			);
+
+			if (renameError)
+			{
+				Logger::Log(
+					"Failed to rename preset '%s' to '%s': %s\n",
+					currentPreset.c_str(),
+					newName.c_str(),
+					renameError.message().c_str()
+				);
+			}
+			else
+			{
+				Logger::Log(
+					"Renamed preset '%s' to '%s'\n",
+					currentPreset.c_str(),
+					newName.c_str()
+				);
+
+				_config->lastConfigPath = newName;
+				_config->save();
+			}
+
+			renamePresetName[0] = '\0';
+			_inputting = false;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndDisabled();
+
+		ImGui::EndPopup();
+	}
+
+	ImGuiSameLine();
+
+	if (ImGui::Button("Reset##config"))
+	{
 		_state.reset();
 		setState(_state);
+
+		_config->lastConfigPath.clear();
+		_config->save();
 	}
+
 	ImGui::helpTooltip("Restore the default effects settings");
 }
 
@@ -2859,7 +3283,7 @@ void Viewer::applyAllSettings()
 
 
 	// Finally, restore the track at the beginning.
-	reset();
+	//reset();
 
 	// All other parameters are directly used at render time.
 }
@@ -2914,6 +3338,9 @@ void Viewer::updateSizes(){
 void Viewer::keyPressed(int key, int action)
 {
 	if (action != 1) // 1 = key pressed
+		return;
+
+	if (_inputting)
 		return;
 
 	switch (key)
@@ -3024,8 +3451,107 @@ void Viewer::setState(const State & state){
 	}
 
 	refreshPedalTextures(_state.pedals);
+}
 
-	// Don't modify the rest of the potentially restored state.
+void Viewer::setOnStartRecording(
+	RecordingCallback callback
+)
+{
+	_onStartRecording =
+		std::move(callback);
+}
+
+
+void Viewer::setOnStopRecording(
+	RecordingCallback callback
+)
+{
+	_onStopRecording =
+		std::move(callback);
+}
+
+bool Viewer::startRecording()
+{
+	if (_recording)
+		return false;
+
+	_recordCamera = true;
+	_shouldOpenRecordingPopup = true;
+	if (!createRecordingDirectory())
+	{
+		Logger::Log("Failed to create recording directory!\n");
+		return false;
+	}
+
+	return true;
+}
+
+bool Viewer::stopRecording()
+{
+	if (!_recording)
+		return false;
+
+	auto liveScene =
+		std::dynamic_pointer_cast<MIDISceneLive>(
+			_scene
+		);
+
+	if (!liveScene)
+	{
+		Logger::Log(
+			"[Recording] Cannot save: current scene is not live.\n"
+		);
+
+		_recording = false;
+
+		if (_onStopRecording)
+			_onStopRecording();
+
+		return false;
+	}
+
+	std::string midiFilePath = (_recordingDirectory / "recording.mid").string();
+
+	std::ofstream file(
+		midiFilePath,
+		std::ios::binary
+	);
+
+	if (!file.is_open())
+	{
+		Logger::Log(
+			"[Recording] Failed to open MIDI file: %s\n",
+			midiFilePath.c_str()
+		);
+
+		return false;
+	}
+
+	liveScene->save(file);
+
+	file.close();
+
+	if (!file)
+	{
+		Logger::Log(
+			"[Recording] Failed while writing MIDI file: %s\n",
+			midiFilePath.c_str()
+		);
+
+		return false;
+	}
+
+	_recording = false;
+
+	if (_onStopRecording)
+		_onStopRecording();
+
+	Logger::Log(
+		"[Recording] Saved MIDI recording: %s\n",
+		midiFilePath.c_str()
+	);
+
+	return true;
 }
 
 void  Viewer::setGUIScale(float scale){
@@ -3188,6 +3714,82 @@ void Viewer::ImGuiPushItemWidth(int w){
 
 void Viewer::ImGuiSameLine(int w){
 	ImGui::SameLine(_guiScale * w);
+}
+
+bool Viewer::createRecordingDirectory()
+{
+	try
+	{
+		const std::filesystem::path baseDirectory =
+			std::filesystem::temp_directory_path() /
+			"PianoVisualizer";
+
+		std::filesystem::create_directories(
+			baseDirectory
+		);
+
+		const auto now =
+			std::chrono::system_clock::now();
+
+		const auto time =
+			std::chrono::system_clock::to_time_t(now);
+
+		std::tm localTime{};
+
+		localtime_s(
+			&localTime,
+			&time
+		);
+
+		char timestamp[64];
+
+		std::strftime(
+			timestamp,
+			sizeof(timestamp),
+			"%Y%m%d_%H%M%S",
+			&localTime
+		);
+
+		_recordingDirectory =
+			baseDirectory /
+			("Recording_" + std::string(timestamp));
+
+		int suffix = 1;
+
+		while (std::filesystem::exists(_recordingDirectory))
+		{
+			_recordingDirectory =
+				baseDirectory /
+				(
+					"Recording_" +
+					std::string(timestamp) +
+					"_" +
+					std::to_string(suffix++)
+					);
+		}
+
+		std::filesystem::create_directories(
+			_recordingDirectory
+		);
+
+		Logger::Log(
+			"[Recording] Created temporary directory: %s\n",
+			_recordingDirectory.string().c_str()
+		);
+
+		return true;
+	}
+	catch (const std::exception& e)
+	{
+		Logger::Log(
+			"[Recording] Failed to create temporary directory: %s\n",
+			e.what()
+		);
+
+		_recordingDirectory.clear();
+
+		return false;
+	}
 }
 
 SystemAction::SystemAction(SystemAction::Type act) {

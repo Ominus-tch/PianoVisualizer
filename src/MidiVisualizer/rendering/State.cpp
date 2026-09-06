@@ -498,12 +498,12 @@ void State::updateOptions(){
 }
 
 
-void State::save(){
-	std::string outputPath = Config::GetVisualizerConfigPath().string();
+bool State::save(const std::string& presetName){
+	std::string outputPath = Config::GetVisualizerConfigPath().string() + "/" + presetName + ".ini";
 	std::ofstream configFile = System::openOutputFile(outputPath);
 	if(!configFile.is_open()){
-		std::cerr << "[CONFIG]: Unable to save state to file at path " << outputPath << std::endl;
-		return;
+		std::cout << "[Config]: Unable to save state to file at path " << outputPath << std::endl;
+		return false;
 	}
 	// Make sure the parameter pointers are up to date.
 	updateOptions();
@@ -610,14 +610,16 @@ void State::save(){
 	configFile << s_pedal_location_key << ": " << int(pedals.location) << std::endl;
 
 	configFile.close();
+
+	return true;
 }
 
-bool State::load(){
-	std::filesystem::path path = Config::GetVisualizerConfigPath();
+bool State::load(const std::string& presetName){
+	std::filesystem::path path = Config::GetVisualizerConfigPath() / (presetName + ".ini");
 
 	std::ifstream configFileRaw = System::openInputFile(path.string());
 	if(!configFileRaw.is_open()){
-		std::cerr << "[CONFIG]: Unable to load state from file at path " << path << std::endl;
+		std::cout << "[Config]: Unable to load state from file at path " << path << std::endl;
 		return false;
 	}
 
@@ -640,10 +642,10 @@ bool State::load(){
 	configFile >> majVersion >> minVersion;
 	
 	if(majVersion > MIDIVIZ_VERSION_MAJOR || (majVersion == MIDIVIZ_VERSION_MAJOR && minVersion > MIDIVIZ_VERSION_MINOR)){
-		std::cout << "[CONFIG]: The config is more recent, some settings might be ignored." << std::endl;
+		std::cout << "[Config]: The config is more recent, some settings might be ignored." << std::endl;
 	}
 	if(majVersion < MIDIVIZ_VERSION_MAJOR || (majVersion == MIDIVIZ_VERSION_MAJOR && minVersion < MIDIVIZ_VERSION_MINOR)){
-		std::cout << "[CONFIG]: The config is older, some newer settings will be left as-is." << std::endl;
+		std::cout << "[Config]: The config is older, some newer settings will be left as-is." << std::endl;
 	}
 
 	// Two options: if we are < 5.0, we use the old positional format.
@@ -668,7 +670,7 @@ void State::load(const Arguments & configArgs){
 	for(const auto & arg : configArgs){
 		const auto & key = arg.first;
 		if(arg.second.empty()){
-			std::cerr << "[CONFIG]: Missing values for key " << key << "." << std::endl;
+			std::cerr << "[Config]: Missing values for key " << key << "." << std::endl;
 			continue;
 		}
 

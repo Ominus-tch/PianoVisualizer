@@ -266,6 +266,9 @@ private:
         HWND window
     );
 
+    void onStartRecording();
+    void onStopRecording();
+
     // =========================================================
     // Configuration
     // =========================================================

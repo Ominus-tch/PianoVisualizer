@@ -1,16 +1,16 @@
-#include <stdio.h>
-#include <iostream>
-#include <vector>
-#include <algorithm>
-#include <glm/gtc/matrix_transform.hpp>
+#include <stdio.h> 
+#include <iostream> 
+#include <vector> 
+#include <algorithm> 
 
-#include "../../helpers/ProgramUtilities.h"
-#include "../../helpers/ResourcesManager.h"
-#include "../../midi/MIDIUtils.h"
+#include <glm/gtc/matrix_transform.hpp> 
 
-#include "MIDISceneLive.h"
+#include "../../helpers/ProgramUtilities.h" 
+#include "../../helpers/ResourcesManager.h" 
+#include "../../midi/MIDIUtils.h" 
 
-#include <libremidi/writer.hpp>
+#include "MIDISceneLive.h" 
+#include <libremidi/writer.hpp> 
 
 #include "../../../../util/Logger.h"
 
@@ -400,7 +400,11 @@ void MIDISceneLive::updatesActiveNotes(
 	 */
 	MIDIFrame frame;
 
-	frame.timestamp = time;
+	frame.timestamp =
+		_recording
+		? time - _recordingStartTime
+		: time;
+
 	frame.messages.reserve(8);
 
 
@@ -799,7 +803,7 @@ void MIDISceneLive::updatesActiveNotes(
 	/*
 	 * Store messages.
 	 */
-	if (!frame.messages.empty())
+	if (_recording && !frame.messages.empty())
 	{
 		_allMessages.push_back(
 			std::move(frame)
@@ -909,12 +913,75 @@ void MIDISceneLive::updatesActiveNotes(
 	_previousTime = time;
 
 	_maxTime =
-		(std::max)(
-			time,
-			_maxTime
-			);
+	(std::max)(
+		_recording ? time - _recordingStartTime : time,
+		_maxTime
+		);
 }
 
+void MIDISceneLive::startRecording(double time)
+{
+	if (_recording)
+		return;
+
+	// ------------------------------------------------------------
+	// Completely clear previous recording
+	// ------------------------------------------------------------
+
+	_allMessages.clear();
+	_notesInfos.clear();
+	_pedalInfos.clear();
+
+	_activeIds.fill(-1);
+	_activeRecording.fill(false);
+
+	_previousTime = time;
+	_maxTime = 0.0;
+	_recordingStartTime = time;
+
+	_notesCount = 0;
+	_effectiveNotesCount = 0;
+
+	_tempo = 500000;
+
+	_signatureNum = 4.0;
+	_signatureDenom = 4.0;
+
+	_secondsPerMeasure =
+		computeMeasureDuration(
+			_tempo,
+			_signatureNum / _signatureDenom
+		);
+
+	_currentSetOption = SetOptions{};
+
+	// Reset visible/active state.
+	_actives.fill(-1);
+	_pedals = Pedals();
+
+	for (auto& particle : _particles)
+	{
+		particle.note = -1;
+		particle.set = -1;
+		particle.duration = 0.0f;
+		particle.start = 0.0f;
+		particle.elapsed = 0.0f;
+	}
+
+	// ------------------------------------------------------------
+	// Start recording
+	// ------------------------------------------------------------
+
+	_recording = true;
+}
+
+void MIDISceneLive::stopRecording()
+{
+	if (!_recording)
+		return;
+
+	_recording = false;
+}
 
 double MIDISceneLive::duration() const
 {

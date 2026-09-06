@@ -604,69 +604,19 @@ bool PianoVisualizer::InitializeMidiVisualizer()
             1080
         );
 
-    // Ensure we are using the C locale.
-    System::forceLocale();
-
-    Config::GetConfigDirectory();
-
-    const std::vector<std::string> argv = {};
-
-    Configuration config(argv);
-
-    if (config.showHelp)
-    {
-        Configuration::printHelp();
-
-        return false;
-    }
-
-    if (config.showVersion)
-    {
-        Configuration::printVersion();
-
-        return false;
-    }
-
-    // ---------------------------------------------------------
-    // Load MIDI file if specified
-    // ---------------------------------------------------------
-
-    if (!config.lastMidiPath.empty())
-    {
-        m_viewer->loadFile(
-            config.lastMidiPath
-        );
-    }
-
-    // ---------------------------------------------------------
-    // Apply custom state
-    // ---------------------------------------------------------
-
-    State state;
-
-    if (!config.lastConfigPath.empty())
-    {
-        state.load();
-    }
-
-    state.load(
-        config.args()
+    m_viewer->setOnStartRecording(
+        [this]()
+        {
+            onStartRecording();
+        }
     );
 
-    m_viewer->setState(
-        state
+    m_viewer->setOnStopRecording(
+        [this]()
+        {
+            onStopRecording();
+        }
     );
-
-    // ---------------------------------------------------------
-    // Connect to MIDI device
-    // ---------------------------------------------------------
-
-    if (!config.lastMidiDevice.empty())
-    {
-        m_viewer->connectDevice(
-            config.lastMidiDevice
-        );
-    }
 
     return true;
 }
@@ -761,27 +711,30 @@ void PianoVisualizer::Update()
     // Keyboard shortcuts
     // ---------------------------------------------------------
 
-    if (ImGui::IsKeyPressed(ImGuiKey_I))
-    {
-        gui::showSettings =
-            !gui::showSettings;
-    }
+    if (!m_viewer->isInputting()) {
 
-    if (ImGui::IsKeyPressed(ImGuiKey_S))
-    {
-        m_showStatistics =
-            !m_showStatistics;
-    }
+        if (ImGui::IsKeyPressed(ImGuiKey_I))
+        {
+            gui::showSettings =
+                !gui::showSettings;
+        }
 
-    if (ImGui::IsKeyPressed(ImGuiKey_F))
-    {
-        gui::fullscreen =
-            !gui::fullscreen;
+        if (ImGui::IsKeyPressed(ImGuiKey_S))
+        {
+            m_showStatistics =
+                !m_showStatistics;
+        }
 
-        SetFullscreen(
-            m_window,
-            gui::fullscreen
-        );
+        if (ImGui::IsKeyPressed(ImGuiKey_F))
+        {
+            gui::fullscreen =
+                !gui::fullscreen;
+
+            SetFullscreen(
+                m_window,
+                gui::fullscreen
+            );
+        }
     }
 
     // ---------------------------------------------------------
@@ -917,6 +870,21 @@ void PianoVisualizer::StartWindowCapture(
     );
 }
 
+void PianoVisualizer::onStartRecording()
+{
+    if (!m_camera.StartRecording((m_viewer->recordingDirectory() / "recording.mp4").string()))
+    {
+        Logger::Log("Failed to start recording!\n");
+    }
+}
+
+void PianoVisualizer::onStopRecording()
+{
+    if (!m_camera.StopRecording())
+    {
+        Logger::Log("Failed to stop recording!\n");
+    }
+}
 
 // =========================================================
 // VST Drop
@@ -1684,13 +1652,17 @@ void PianoVisualizer::RenderCameraFeed()
     // Draw camera output
     // ---------------------------------------------------------
 
+    ID3D11ShaderResourceView* texture = m_cameraOutputSRV.Get();
+
     ImGui::Image(
-        (ImTextureID)m_cameraOutputSRV.Get(),
+        (ImTextureID)texture,
         ImVec2(
             width,
             height
         )
     );
+
+
 
     // ---------------------------------------------------------
     // Camera -> screen conversion
@@ -2466,7 +2438,7 @@ void PianoVisualizer::DrawSelectedPolygon(
     const std::function<ImVec2(float, float)>& cameraToScreen
 )
 {
-    if (!gui::showDebugLines)
+    if (!gui::showDebugLines && !gui::choosingPoints)
         return;
 
     if (m_polygonPoints.size() < 2)
@@ -3806,6 +3778,24 @@ void PianoVisualizer::UpdateStatistics()
                 (1024ull * 1024ull)
                 );
     }
+
+    //PROCESS_MEMORY_COUNTERS_EX pmc{};
+    //pmc.cb = sizeof(pmc);
+
+    //if (GetProcessMemoryInfo(
+    //    GetCurrentProcess(),
+    //    reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc),
+    //    sizeof(pmc)))
+    //{
+    //    Logger::Log(
+    //        "Memory: WorkingSet=%llu MB, PrivateUsage=%llu MB, "
+    //        "PeakWorkingSet=%llu MB, PagefileUsage=%llu MB\n",
+    //        pmc.WorkingSetSize / (1024ull * 1024ull),
+    //        pmc.PrivateUsage / (1024ull * 1024ull),
+    //        pmc.PeakWorkingSetSize / (1024ull * 1024ull),
+    //        pmc.PagefileUsage / (1024ull * 1024ull)
+    //    );
+    //}
 }
 
 void PianoVisualizer::RenderStatistics()
@@ -4051,124 +4041,140 @@ void PianoVisualizer::RenderStatistics()
 
         if (m_audioEngine)
         {
-            const auto audioStats =
-                m_audioEngine->output()->getStatistics();
+            const auto* output = m_audioEngine->output();
+            const auto* audio = m_audioEngine->audio();
 
-            static double latencyAccumulator = 0.0;
-            static double latencyAccumulatorTime = 0.0;
-            static uint64_t latencySampleCount = 0;
-            static double averageLatencyMs = 0.0;
-
-            const double pluginLatencyMs =
-                static_cast<double>(
-                    m_audioEngine->audio()->getLatencySamples()
-                    ) /
-                audioStats.sampleRate *
-                1000.0;
-
-            const double queuedAudioLatencyMs =
-                static_cast<double>(
-                    audioStats.currentPadding
-                    ) /
-                audioStats.sampleRate *
-                1000.0;
-
-            const double estimatedLatencyMs =
-                pluginLatencyMs +
-                queuedAudioLatencyMs;
-
-            latencyAccumulator += estimatedLatencyMs;
-            latencyAccumulatorTime +=
-                m_statistics.frameTimeMs / 1000.0;
-            latencySampleCount++;
-
-            if (latencyAccumulatorTime >= 2.0)
+            if (output)
             {
-                averageLatencyMs =
-                    latencyAccumulator /
-                    static_cast<double>(latencySampleCount);
+                const auto audioStats = output->getStatistics();
 
-                latencyAccumulator = 0.0;
-                latencyAccumulatorTime = 0.0;
-                latencySampleCount = 0;
+                static double latencyAccumulator = 0.0;
+                static double latencyAccumulatorTime = 0.0;
+                static uint64_t latencySampleCount = 0;
+                static double averageLatencyMs = 0.0;
+
+                double pluginLatencyMs = 0.0;
+                double queuedAudioLatencyMs = 0.0;
+
+                if (audio && audioStats.sampleRate > 0.0)
+                {
+                    pluginLatencyMs =
+                        static_cast<double>(
+                            audio->getLatencySamples()
+                            ) /
+                        audioStats.sampleRate *
+                        1000.0;
+
+                    queuedAudioLatencyMs =
+                        static_cast<double>(
+                            audioStats.currentPadding
+                            ) /
+                        audioStats.sampleRate *
+                        1000.0;
+                }
+
+                const double estimatedLatencyMs =
+                    pluginLatencyMs +
+                    queuedAudioLatencyMs;
+
+                latencyAccumulator += estimatedLatencyMs;
+                latencyAccumulatorTime +=
+                    m_statistics.frameTimeMs / 1000.0;
+                latencySampleCount++;
+
+                if (latencyAccumulatorTime >= 2.0 &&
+                    latencySampleCount > 0)
+                {
+                    averageLatencyMs =
+                        latencyAccumulator /
+                        static_cast<double>(latencySampleCount);
+
+                    latencyAccumulator = 0.0;
+                    latencyAccumulatorTime = 0.0;
+                    latencySampleCount = 0;
+                }
+
+                if (BeginStatsTable())
+                {
+                    ImGui::TableNextRow();
+
+                    Stat(
+                        "Output",
+                        "%s",
+                        audioStats.initialized
+                        ? (audioStats.running ? "Running" : "Stopped")
+                        : "Unavailable"
+                    );
+
+                    Stat(
+                        "Sample rate",
+                        "%.0f Hz",
+                        audioStats.sampleRate
+                    );
+
+                    ImGui::TableNextRow();
+
+                    Stat(
+                        "Channels",
+                        "%d",
+                        audioStats.channels
+                    );
+
+                    Stat(
+                        "Buffer",
+                        "%u frames",
+                        audioStats.bufferFrames
+                    );
+
+                    ImGui::TableNextRow();
+
+                    Stat(
+                        "Buffer duration",
+                        "%.2f ms",
+                        audioStats.bufferDurationMs
+                    );
+
+                    Stat(
+                        "Output rate",
+                        "%.0f frames/s",
+                        audioStats.outputFramesPerSecond
+                    );
+
+                    ImGui::TableNextRow();
+
+                    Stat(
+                        "Throughput",
+                        "%.2f MB/s",
+                        audioStats.throughputMBps
+                    );
+
+                    Stat(
+                        "Failed writes",
+                        "%llu",
+                        static_cast<unsigned long long>(
+                            audioStats.failedWrites
+                            )
+                    );
+
+                    ImGui::TableNextRow();
+
+                    Stat(
+                        "Average latency",
+                        "%.3f ms",
+                        averageLatencyMs
+                    );
+
+                    EndStatsTable();
+                }
             }
-
-            if (BeginStatsTable())
+            else
             {
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Output",
-                    "%s",
-                    audioStats.initialized
-                    ? (audioStats.running ? "Running" : "Stopped")
-                    : "Unavailable"
-                );
-
-                Stat(
-                    "Sample rate",
-                    "%.0f Hz",
-                    audioStats.sampleRate
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Channels",
-                    "%d",
-                    audioStats.channels
-                );
-
-                Stat(
-                    "Buffer",
-                    "%u frames",
-                    audioStats.bufferFrames
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Buffer duration",
-                    "%.2f ms",
-                    audioStats.bufferDurationMs
-                );
-
-                Stat(
-                    "Output rate",
-                    "%.0f frames/s",
-                    audioStats.outputFramesPerSecond
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Throughput",
-                    "%.2f MB/s",
-                    audioStats.throughputMBps
-                );
-
-                Stat(
-                    "Failed writes",
-                    "%llu",
-                    static_cast<unsigned long long>(
-                        audioStats.failedWrites
-                        )
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Average latency",
-                    "%.3f ms",
-                    averageLatencyMs
-                );
-
-                EndStatsTable();
+                ImGui::TextDisabled("Audio output: Unavailable");
             }
         }
         else
         {
-            ImGui::TextDisabled("Audio output: Unavailable");
+            ImGui::TextDisabled("Audio engine: Unavailable");
         }
 
         // -----------------------------------------------------

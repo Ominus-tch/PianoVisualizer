@@ -80,7 +80,18 @@ namespace Config {
         if (directory.empty())
             return {};
 
-        return directory / "piano_visualizer.ini";
+        std::error_code error;
+        std::filesystem::path presetsDirectory = directory / "presets";
+
+        std::filesystem::create_directories(
+            presetsDirectory,
+            error
+        );
+
+        if (error)
+            return {};
+
+        return presetsDirectory;
     }
 
     inline std::filesystem::path GetVisualizerConfigurationPath()

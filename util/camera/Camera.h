@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CameraControls.h"
+#include "CameraVideoEncoder.h"
 
 #include <d3d11.h>
 #include <wrl/client.h>
@@ -122,6 +123,17 @@ public:
 
     bool Update();
 
+    // =========================================================
+    // Recording
+    // =========================================================
+
+    bool StartRecording(
+        const std::string& filePath
+    );
+
+    bool StopRecording();
+
+    bool IsRecording() const;
 
     // =========================================================
     // Camera selection
@@ -221,6 +233,16 @@ private:
 
     bool CaptureFrame();
 
+    // =========================================================
+    // Recording
+    // =========================================================
+
+    bool RecordFrame(
+        const BYTE* pixels,
+        size_t pixelSize
+    );
+
+    void StopRecordingInternal();
 
     // =========================================================
     // Media Foundation
@@ -235,12 +257,6 @@ private:
         IMFActivate* camera,
         CameraFormat requestedFormat
     );
-
-    // =========================================================
-    // Camera Settings
-    // =========================================================
-
-
 
     // =========================================================
     // D3D11 resources
@@ -278,13 +294,11 @@ private:
         size_t pixelSize
     );
 
-
     // =========================================================
     // NV12 conversion
     // =========================================================
 
     bool ConvertNV12ToBGRA();
-
 
     // =========================================================
     // Format helpers
@@ -562,6 +576,35 @@ private:
     std::atomic<bool>
         m_open =
         false;
+
+    // =========================================================
+    // Recording state
+    // =========================================================
+
+    CameraVideoEncoder m_videoEncoder;
+
+    struct RecordedFrame
+    {
+        std::vector<uint8_t> pixels;
+        int width = 0;
+        int height = 0;
+        double timestamp = 0.0;
+    };
+
+    std::atomic<bool>
+        m_recording =
+        false;
+
+    std::mutex
+        m_recordingMutex;
+
+    std::string
+        m_recordingFilePath;
+
+    std::chrono::steady_clock::time_point
+        m_recordingStartTime{};
+
+    std::vector<RecordedFrame> m_recordedFrames;
 
 
     // =========================================================

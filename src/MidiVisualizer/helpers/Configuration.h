@@ -38,6 +38,8 @@ public:
 	static void printVersion();
 
 	static void printHelp();
+
+	const std::string& getConfigFilePath() const { return lastConfigPath; }
 	
 public:
 

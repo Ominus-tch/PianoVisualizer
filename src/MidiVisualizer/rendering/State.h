@@ -223,11 +223,11 @@ public:
 
 	State();
 
-	bool load();
+	bool load(const std::string& presetName = "piano_visualizer");
 
 	void load(const Arguments & configArgs);
 
-	void save();
+	bool save(const std::string& presetName = "piano_visualizer");
 	
 	void reset();
 

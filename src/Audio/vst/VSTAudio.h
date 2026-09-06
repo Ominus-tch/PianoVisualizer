@@ -63,7 +63,7 @@ namespace vst
         double sampleRate() const;
         int32_t maxBlockSize() const;
 
-        int32_t getLatencySamples()
+        int32_t getLatencySamples() const
         {
             if (_processor)
                 return _processor->getLatencySamples();
