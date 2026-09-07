@@ -872,7 +872,7 @@ void PianoVisualizer::StartWindowCapture(
 
 void PianoVisualizer::onStartRecording()
 {
-    if (!m_camera.StartRecording((m_viewer->recordingDirectory() / "recording.mp4").string()))
+    if (!m_camera.StartRecording((m_viewer->recordingDirectory() / "cameraRecording.mp4").string()))
     {
         Logger::Log("Failed to start recording!\n");
     }

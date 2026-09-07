@@ -27,6 +27,8 @@
 #include "../../../util/Logger.h"
 #include "../../../util/config.h"
 
+namespace fs = std::filesystem;
+
 Viewer::Viewer(
 	D3D11Interface d3dInterface,
 	int width,
@@ -42,6 +44,12 @@ Viewer::Viewer(
 	_windowSize = glm::ivec2(width, height);
 	_camera.screen(_windowSize[0], _windowSize[1], 1.0f);
 	_backbufferSize = glm::vec2(_windowSize);
+
+	_tempDirectory =
+		fs::temp_directory_path() /
+		"PianoVisualizer";
+
+	refreshRecordings();
 
 	// Setup framebuffers, size does not really matter as we expect a resize event just after.
 	const glm::ivec2 renderSize = _camera.renderSize();
@@ -757,8 +765,6 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 	{
 		ImGui::OpenPopup("Start Recording");
 		_shouldOpenRecordingPopup = false;
-
-		Logger::Log("Open popup reached!\n");
 	}
 
 	if (ImGui::BeginPopupModal("Start Recording", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
@@ -781,19 +787,22 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 		{
 			_recording = true;
 
-			Logger::Log(
-				"[Recording] Started.\n"
-			);
-
-			/*
-			 * MIDI recording is handled by the Viewer/MIDISceneLive.
-			 *
-			 * Only notify PianoVisualizer if the user also
-			 * requested camera recording.
-			 */
-			if (_recordCamera && _onStartRecording)
+			if (!createRecordingDirectory())
 			{
-				_onStartRecording();
+				Logger::Log("Failed to create recording directory!\n");
+				ImGui::CloseCurrentPopup();
+			}
+			else {
+				/*
+				 * MIDI recording is handled by the Viewer/MIDISceneLive.
+				 *
+				 * Only notify PianoVisualizer if the user also
+				 * requested camera recording.
+				 */
+				if (_recordCamera && _onStartRecording)
+				{
+					_onStartRecording();
+				}
 			}
 
 			ImGui::CloseCurrentPopup();
@@ -936,6 +945,18 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 			if (_recording) {
 				double elapsedTime = getElapsedRecordingTime();
 				ImGui::Text("Recording: %.2fs", elapsedTime);
+			}
+		}
+
+		if (hasRecordings())
+		{
+			ImGui::SameLine();
+
+			if (ImGui::Button("Playback Recording"))
+			{
+				refreshRecordings();
+
+				_playbackWindowOpen = true;
 			}
 		}
 
@@ -1234,6 +1255,10 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 
 	if(_showPedalsEditor){
 		showPedalsEditor();
+	}
+
+	if (_playbackWindowOpen){
+		drawPlaybackSettings();
 	}
 	return action;
 }
@@ -1711,17 +1736,17 @@ void Viewer::showBackgroundOptions(){
 
 void Viewer::showBottomButtons()
 {
-	const std::filesystem::path presetDirectory = Config::GetVisualizerConfigPath();
+	const fs::path presetDirectory = Config::GetVisualizerConfigPath();
 
 	std::error_code error;
-	std::filesystem::create_directories(presetDirectory, error);
+	fs::create_directories(presetDirectory, error);
 
 	// Build list of available presets.
 	std::vector<std::string> presets;
 
 	if (!error)
 	{
-		for (const auto& entry : std::filesystem::directory_iterator(presetDirectory, error))
+		for (const auto& entry : fs::directory_iterator(presetDirectory, error))
 		{
 			if (error)
 				break;
@@ -1744,7 +1769,7 @@ void Viewer::showBottomButtons()
 	// lastConfigPath may contain the full path, so only display the preset name.
 	if (!currentPreset.empty())
 	{
-		currentPreset = std::filesystem::path(currentPreset).stem().string();
+		currentPreset = fs::path(currentPreset).stem().string();
 	}
 
 	// Persistent input buffers.
@@ -1766,7 +1791,7 @@ void Viewer::showBottomButtons()
 
 			if (ImGui::Selectable(preset.c_str(), selected))
 			{
-				const std::filesystem::path presetPath =
+				const fs::path presetPath =
 					presetDirectory / preset;
 
 				if (_state.load(presetPath.string()))
@@ -1820,12 +1845,12 @@ void Viewer::showBottomButtons()
 		const std::string name = presetName;
 		const bool emptyName = name.empty();
 
-		const std::filesystem::path presetPath =
+		const fs::path presetPath =
 			presetDirectory / name;
 
 		const bool alreadyExists =
 			!emptyName &&
-			std::filesystem::exists(presetPath.string() + ".ini");
+			fs::exists(presetPath.string() + ".ini");
 
 		if (alreadyExists)
 		{
@@ -1907,16 +1932,16 @@ void Viewer::showBottomButtons()
 		const bool emptyName = newName.empty();
 		const bool sameName = newName == currentPreset;
 
-		const std::filesystem::path oldPath =
+		const fs::path oldPath =
 			presetDirectory / currentPreset;
 
-		const std::filesystem::path newPath =
+		const fs::path newPath =
 			presetDirectory / newName;
 
 		const bool alreadyExists =
 			!emptyName &&
 			!sameName &&
-			std::filesystem::exists(newPath.string() + ".ini");
+			fs::exists(newPath.string() + ".ini");
 
 		if (alreadyExists)
 		{
@@ -1940,14 +1965,14 @@ void Viewer::showBottomButtons()
 
 		if (ImGui::Button("Rename"))
 		{
-			const std::filesystem::path oldFile =
+			const fs::path oldFile =
 				oldPath.string() + ".ini";
 
-			const std::filesystem::path newFile =
+			const fs::path newFile =
 				newPath.string() + ".ini";
 
 			std::error_code renameError;
-			std::filesystem::rename(
+			fs::rename(
 				oldFile,
 				newFile,
 				renameError
@@ -3477,11 +3502,6 @@ bool Viewer::startRecording()
 
 	_recordCamera = true;
 	_shouldOpenRecordingPopup = true;
-	if (!createRecordingDirectory())
-	{
-		Logger::Log("Failed to create recording directory!\n");
-		return false;
-	}
 
 	return true;
 }
@@ -3510,7 +3530,7 @@ bool Viewer::stopRecording()
 		return false;
 	}
 
-	std::string midiFilePath = (_recordingDirectory / "recording.mid").string();
+	std::string midiFilePath = (_recordingDirectory / "midiRecording.mid").string();
 
 	std::ofstream file(
 		midiFilePath,
@@ -3720,11 +3740,11 @@ bool Viewer::createRecordingDirectory()
 {
 	try
 	{
-		const std::filesystem::path baseDirectory =
-			std::filesystem::temp_directory_path() /
+		const fs::path baseDirectory =
+			fs::temp_directory_path() /
 			"PianoVisualizer";
 
-		std::filesystem::create_directories(
+		fs::create_directories(
 			baseDirectory
 		);
 
@@ -3756,7 +3776,7 @@ bool Viewer::createRecordingDirectory()
 
 		int suffix = 1;
 
-		while (std::filesystem::exists(_recordingDirectory))
+		while (fs::exists(_recordingDirectory))
 		{
 			_recordingDirectory =
 				baseDirectory /
@@ -3768,7 +3788,7 @@ bool Viewer::createRecordingDirectory()
 					);
 		}
 
-		std::filesystem::create_directories(
+		fs::create_directories(
 			_recordingDirectory
 		);
 
@@ -3790,6 +3810,200 @@ bool Viewer::createRecordingDirectory()
 
 		return false;
 	}
+}
+
+void Viewer::refreshRecordings()
+{
+	_availableRecordings.clear();
+	Logger::Log("Temp dir: %s\n", _tempDirectory.string().c_str());
+
+	if (
+		_tempDirectory.empty() ||
+		!std::filesystem::exists(_tempDirectory)
+		)
+	{
+		return;
+	}
+
+
+	for (const auto& entry :
+		std::filesystem::directory_iterator(_tempDirectory))
+	{
+		if (!entry.is_directory())
+		{
+			continue;
+		}
+
+		_availableRecordings.push_back(
+			entry.path()
+		);
+
+		Logger::Log("entry: %s\n", entry.path().string().c_str());
+	}
+
+	/*
+	 * Newest recording first.
+	 */
+	std::sort(
+		_availableRecordings.begin(),
+		_availableRecordings.end(),
+		[](const auto& a, const auto& b)
+		{
+			return std::filesystem::last_write_time(a) >
+				std::filesystem::last_write_time(b);
+		}
+	);
+}
+
+bool Viewer::hasRecordings() const
+{
+	return !_availableRecordings.empty();
+}
+
+void Viewer::startPlayback()
+{
+	if (!_playbackLoaded)
+	{
+		return;
+	}
+
+	_playbackPlaying = true;
+
+	Logger::Log(
+		"[Playback] Started.\n"
+	);
+}
+
+void Viewer::pausePlayback()
+{
+	if (!_playbackLoaded)
+	{
+		return;
+	}
+
+	_playbackPlaying = false;
+
+	Logger::Log(
+		"[Playback] Paused.\n"
+	);
+}
+
+void Viewer::stopPlayback()
+{
+	_playbackPlaying = false;
+
+	Logger::Log(
+		"[Playback] Stopped.\n"
+	);
+}
+
+void Viewer::drawPlaybackSettings()
+{
+	if (!ImGui::Begin(
+		"Playback Settings",
+		&_playbackWindowOpen,
+		ImGuiWindowFlags_AlwaysAutoResize
+	))
+	{
+		ImGui::End();
+		return;
+	}
+
+	// ---------------------------------------------------------
+	// Recording selection
+	// ---------------------------------------------------------
+
+	ImGui::Text("Recording");
+
+	if (_availableRecordings.empty())
+	{
+		ImGui::Text("No recordings available.");
+	}
+	else
+	{
+		for (const auto& recording : _availableRecordings)
+		{
+			const std::string name =
+				recording.filename().string();
+
+			const bool selected =
+				recording == _playbackRecordingDirectory;
+
+			if (ImGui::RadioButton(
+				name.c_str(),
+				selected
+			))
+			{
+				_playbackRecordingDirectory =
+					recording;
+
+				_playbackVideoPath =
+					(
+						recording /
+						"Recording.mp4"
+						).string();
+
+				_playbackLoaded = true;
+				_playbackPlaying = false;
+
+				Logger::Log(
+					"[Playback] Selected recording: %s\n",
+					name.c_str()
+				);
+			}
+		}
+	}
+
+	ImGui::Separator();
+
+	// ---------------------------------------------------------
+	// Playback controls
+	// ---------------------------------------------------------
+
+	if (ImGui::Button("Play"))
+	{
+		startPlayback();
+	}
+
+	ImGui::SameLine();
+
+	if (ImGui::Button("Pause"))
+	{
+		pausePlayback();
+	}
+
+	ImGui::SameLine();
+
+	if (ImGui::Button("Stop"))
+	{
+		stopPlayback();
+	}
+
+	ImGui::Separator();
+
+	if (_playbackLoaded)
+	{
+		ImGui::Text(
+			"Selected: %s",
+			_playbackRecordingDirectory
+			.filename()
+			.string()
+			.c_str()
+		);
+
+		ImGui::Text(
+			"Status: %s",
+			_playbackPlaying
+			? "Playing"
+			: "Paused"
+		);
+	}
+	else
+	{
+		ImGui::Text("No recording selected.");
+	}
+
+	ImGui::End();
 }
 
 SystemAction::SystemAction(SystemAction::Type act) {

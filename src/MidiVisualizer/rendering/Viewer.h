@@ -230,6 +230,18 @@ private:
 
 	bool createRecordingDirectory();
 
+	void refreshRecordings();
+
+	void drawPlaybackSettings();
+
+	void startPlayback();
+
+	void pausePlayback();
+
+	void stopPlayback();
+
+	bool hasRecordings() const;
+
 	State _state;
 	Configuration* _config = nullptr;
 	std::array<Layer, Layer::COUNT> _layers;
@@ -278,12 +290,22 @@ private:
 	RecordingCallback _onStartRecording;
 	RecordingCallback _onStopRecording;
 
+	std::filesystem::path _tempDirectory;
 	std::filesystem::path _recordingDirectory;
 	double _recordingStartTime = 0.0;
 
 	bool _recording = false;
 	bool _recordCamera = true;
 	bool _shouldOpenRecordingPopup = false;
+
+	bool _playbackWindowOpen = false;
+	bool _playbackLoaded = false;
+	bool _playbackPlaying = false;
+
+	std::filesystem::path _playbackRecordingDirectory;
+	std::string _playbackVideoPath;
+
+	std::vector<std::filesystem::path> _availableRecordings;
 
 	bool _inputting = false;
 
