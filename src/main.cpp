@@ -158,7 +158,7 @@ INT APIENTRY WinMain(
     }
 
     Logger::Log(
-        "Logger initialized!\n"
+        "[main] Logger initialized!\n"
     );
 
 
@@ -172,7 +172,7 @@ INT APIENTRY WinMain(
     if (FAILED(oleResult))
     {
         Logger::Log(
-            "Failed to initialize OLE!\n"
+            "[main] Failed to initialize OLE!\n"
         );
 
         Logger::Remove();
@@ -220,7 +220,7 @@ INT APIENTRY WinMain(
     if (!RegisterClassEx(&gWndclass))
     {
         Logger::Log(
-            "Failed to register window class!\n"
+            "[main] Failed to register window class!\n"
         );
 
         OleUninitialize();
@@ -256,7 +256,7 @@ INT APIENTRY WinMain(
     if (!window)
     {
         Logger::Log(
-            "Failed to create window!\n"
+            "[main] Failed to create window!\n"
         );
 
         UnregisterClass(
@@ -364,7 +364,7 @@ INT APIENTRY WinMain(
     if (FAILED(hr))
     {
         Logger::Log(
-            "Failed to create D3D11 device and swap chain!\n"
+            "[main] Failed to create D3D11 device and swap chain!\n"
         );
 
         DestroyWindow(window);
@@ -401,7 +401,7 @@ INT APIENTRY WinMain(
     if (FAILED(hr) || !backBuffer)
     {
         Logger::Log(
-            "Failed to acquire back buffer!\n"
+            "[main] Failed to acquire back buffer!\n"
         );
 
         if (swapChain)
@@ -443,7 +443,7 @@ INT APIENTRY WinMain(
     if (FAILED(hr) || !renderTargetView)
     {
         Logger::Log(
-            "Failed to create render target view!\n"
+            "[main] Failed to create render target view!\n"
         );
 
         swapChain->Release();
@@ -468,7 +468,7 @@ INT APIENTRY WinMain(
 
 
     Logger::Log(
-        "D3D11 initialized!\n"
+        "[main] D3D11 initialized!\n"
     );
 
 
@@ -484,7 +484,7 @@ INT APIENTRY WinMain(
     UpdateWindow(window);
 
     Logger::Log(
-        "Window created!\n"
+        "[main] Window created!\n"
     );
 
 
@@ -493,7 +493,7 @@ INT APIENTRY WinMain(
     // =========================================================
 
     Logger::Log(
-        "Setting up ImGui...\n"
+        "[main] Setting up ImGui...\n"
     );
 
     IMGUI_CHECKVERSION();
@@ -522,7 +522,7 @@ INT APIENTRY WinMain(
     if (!ImGui_ImplWin32_Init(window))
     {
         Logger::Log(
-            "Failed to initialize ImGui Win32 backend!\n"
+            "[main] Failed to initialize ImGui Win32 backend!\n"
         );
 
         ImGui::DestroyContext();
@@ -554,7 +554,7 @@ INT APIENTRY WinMain(
         context))
     {
         Logger::Log(
-            "Failed to initialize ImGui DX11 backend!\n"
+            "[main] Failed to initialize ImGui DX11 backend!\n"
         );
 
         ImGui_ImplWin32_Shutdown();
@@ -583,7 +583,7 @@ INT APIENTRY WinMain(
 
 
     Logger::Log(
-        "ImGui initialized!\n"
+        "[main] ImGui initialized!\n"
     );
 
 
@@ -607,7 +607,7 @@ INT APIENTRY WinMain(
     ))
     {
         Logger::Log(
-            "Failed to initialize PianoVisualizer!\n"
+            "[main] Failed to initialize PianoVisualizer!\n"
         );
 
         pianoVisualizer.Shutdown();

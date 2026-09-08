@@ -2,6 +2,7 @@
 #include <iostream> 
 #include <vector> 
 #include <algorithm> 
+#include <cmath>
 
 #include <glm/gtc/matrix_transform.hpp> 
 
@@ -678,18 +679,14 @@ void MIDISceneLive::updatesActiveNotes(
 						_signatureDenom
 					);
 
-
-				if (_verbose)
-				{
-					std::cout
-						<< "Tempo: "
-						<< _tempo
-						<< " "
-						<< _secondsPerMeasure
-						<< "("
-						<< message.timestamp
-						<< ")\n";
-				}
+				std::cout
+					<< "Tempo: "
+					<< _tempo
+					<< " "
+					<< _secondsPerMeasure
+					<< "("
+					<< message.timestamp
+					<< ")\n";
 			}
 			else if (_verbose)
 			{
@@ -1019,9 +1016,7 @@ void MIDISceneLive::print() const
 }
 
 
-void MIDISceneLive::save(
-	std::ofstream& file
-) const
+void MIDISceneLive::save(std::ofstream& file) const
 {
 	const double quarterNotesPerSecond =
 		1000000.0 /
@@ -1034,23 +1029,9 @@ void MIDISceneLive::save(
 		unitsPerQuarterNote *
 		quarterNotesPerSecond;
 
-
-	if (_verbose)
-	{
-		std::cout
-			<< "Saving recording using "
-			<< unitsPerSecond
-			<< " units per second, containing "
-			<< _allMessages.size()
-			<< " messages."
-			<< std::endl;
-	}
-
-
 	std::vector<MIDIFrame> allMessages(
 		_allMessages
 	);
-
 
 	std::sort(
 		allMessages.begin(),
@@ -1061,40 +1042,29 @@ void MIDISceneLive::save(
 		}
 	);
 
+	Logger::Log(
+		"[MIDI] Recorded timestamp duration: %.6f s\n",
+		allMessages.empty()
+		? 0.0
+		: allMessages.back().timestamp
+	);
 
-	double currentTime = 0.0;
+	Logger::Log(
+		"[MIDI] Tempo: %d us/qn (%.2f BPM)\n",
+		_tempo,
+		60000000.0 /
+		static_cast<double>(_tempo)
+	);
 
+	Logger::Log(
+		"[MIDI] PPQ: %.0f\n",
+		unitsPerQuarterNote
+	);
 
-	for (MIDIFrame& frame : allMessages)
-	{
-		if (frame.messages.empty())
-		{
-			continue;
-		}
-
-
-		frame.messages[0].timestamp =
-			frame.timestamp -
-			currentTime;
-
-
-		const size_t messageCount =
-			frame.messages.size();
-
-
-		for (size_t mid = 1;
-			mid < messageCount;
-			++mid)
-		{
-			frame.messages[mid].timestamp =
-				0.0;
-		}
-
-
-		currentTime =
-			frame.timestamp;
-	}
-
+	Logger::Log(
+		"[MIDI] Units/sec: %.6f\n",
+		unitsPerSecond
+	);
 
 	libremidi::writer writer;
 
@@ -1103,11 +1073,12 @@ void MIDISceneLive::save(
 
 	writer.tracks.resize(1);
 
-
 	writer.add_event(
 		0,
 		0,
-		libremidi::meta_events::tempo(_tempo)
+		libremidi::meta_events::tempo(
+			_tempo
+		)
 	);
 
 	writer.add_event(
@@ -1128,22 +1099,49 @@ void MIDISceneLive::save(
 		)
 	);
 
+	long long previousTicks = 0;
 
 	for (const MIDIFrame& frame : allMessages)
 	{
-		for (const libremidi::message& message : frame.messages)
+		if (frame.messages.empty())
+			continue;
+
+		/*
+		 * Convert the absolute time to an absolute
+		 * MIDI tick position first.
+		 *
+		 * Rounding the absolute position prevents
+		 * fractional-tick errors from accumulating
+		 * across thousands of MIDI events.
+		 */
+		const long long absoluteTicks =
+			static_cast<long long>(
+				std::llround(
+					frame.timestamp *
+					unitsPerSecond
+				)
+				);
+
+		const long long deltaTicks =
+			absoluteTicks -
+			previousTicks;
+
+		for (size_t mid = 0;
+			mid < frame.messages.size();
+			++mid)
 		{
 			writer.add_event(
-				int(
-					message.timestamp *
-					unitsPerSecond
-					),
+				mid == 0
+				? static_cast<int>(deltaTicks)
+				: 0,
 				0,
-				message
+				frame.messages[mid]
 			);
 		}
-	}
 
+		previousTicks =
+			absoluteTicks;
+	}
 
 	writer.write(file);
 }

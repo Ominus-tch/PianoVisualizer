@@ -96,16 +96,16 @@ void Renderer::renderSetup(
 		if (FAILED(hr))
 			throw std::runtime_error("Failed to create quad vertex buffer.");
 
-		D3D11_BUFFER_DESC debugDesc{};
-		_quadVertices->GetDesc(&debugDesc);
+		//D3D11_BUFFER_DESC debugDesc{};
+		//_quadVertices->GetDesc(&debugDesc);
 
-		Logger::Log(
-			"[D3D11] quadVertices: ByteWidth=%u Usage=%u BindFlags=0x%X CPUAccessFlags=0x%X\n",
-			debugDesc.ByteWidth,
-			debugDesc.Usage,
-			debugDesc.BindFlags,
-			debugDesc.CPUAccessFlags
-		);
+		//Logger::Log(
+		//	"[D3D11] quadVertices: ByteWidth=%u Usage=%u BindFlags=0x%X CPUAccessFlags=0x%X\n",
+		//	debugDesc.ByteWidth,
+		//	debugDesc.Usage,
+		//	debugDesc.BindFlags,
+		//	debugDesc.CPUAccessFlags
+		//);
 	}
 
 	{

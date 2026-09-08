@@ -149,12 +149,6 @@ void MIDISceneFile::updatesActiveNotes(double time, double speed, const FilterOp
 		// Check if the note was triggered at this frame.
 		if (note.start > _previousTime && note.start <= time)
 		{
-			Logger::Log(
-				"[MIDI Playback] Scheduling note: %d at %.3f sec.\n",
-				i,
-				note.start
-			);
-
 			// Find an available particles system and update it with the note parameters.
 			for(auto & particle : _particles){
 				if(particle.note < 0){

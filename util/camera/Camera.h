@@ -121,7 +121,7 @@ public:
     // Runtime update
     // =========================================================
 
-    bool Update();
+    bool Update(double time);
 
     // =========================================================
     // Recording
@@ -569,6 +569,8 @@ private:
     // =========================================================
     // Recording state
     // =========================================================
+
+    std::atomic<double> m_recordingTime{ 0.0 };
 
     CameraVideoEncoder m_videoEncoder;
 

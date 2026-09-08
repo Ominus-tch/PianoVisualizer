@@ -641,6 +641,15 @@ bool PianoVisualizer::InitializeMidiVisualizer()
         [this](const std::string& path)
         {
 
+
+            if (m_camera.IsOpen())
+            {
+                m_cameraSelectedIndex = m_camera.GetCameraIndex();
+                m_camera.CloseCamera();
+            }
+
+            bool success = m_cameraVideoPlayer.Open(path);
+
             Config::LoadPianoConfigFromPath(
                 m_viewer->selectedRecordingDirectory() / "recordingPreset.json",
                 m_polygonPoints,
@@ -652,12 +661,7 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 m_surfaceZOffset
             );
 
-            m_cameraSelectedIndex = m_camera.GetCameraIndex();
-
-            if (m_camera.IsOpen())
-                m_camera.CloseCamera();
-
-            return m_cameraVideoPlayer.Open(path);
+            return success;
         }
     );
 
@@ -665,6 +669,13 @@ bool PianoVisualizer::InitializeMidiVisualizer()
     m_viewer->setOnStopPlayback(
         [this]()
         {
+
+            m_cameraVideoPlayer.Close();
+            if (!m_camera.IsOpen() && m_cameraSelectedIndex != -1)
+            {
+                m_camera.OpenCamera(m_cameraSelectedIndex);
+            }
+
             Config::LoadPianoConfig(
                 m_polygonPoints,
                 m_horizontalFovDegrees,
@@ -674,11 +685,6 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 m_surfaceYOffset,
                 m_surfaceZOffset
             );
-
-            m_cameraVideoPlayer.Close();
-
-            if (!m_camera.IsOpen() && m_cameraSelectedIndex != -1)
-                m_camera.OpenCamera(m_cameraSelectedIndex);
         }
     );
 
@@ -805,18 +811,20 @@ void PianoVisualizer::Update()
     // Camera
     // ---------------------------------------------------------
 
+    double time = m_viewer->getTime();
+
     if (
         m_viewer &&
         m_viewer->isPlaybackLoaded()
         )
     {
         m_cameraVideoPlayer.Update(
-            m_viewer->getTime()
+            time
         );
     }
     else
     {
-        m_camera.Update();
+        m_camera.Update(time);
     }
 
     // ---------------------------------------------------------
@@ -4848,8 +4856,6 @@ void PianoVisualizer::RenderCameraSettingsPanel()
                             m_cameraSettingsHeight = 0;
                             m_cameraSettingsFPSNumerator = 0;
                             m_cameraSettingsFPSDenominator = 1;
-
-                            m_cameraSelectedIndex = i;
                         }
                         else
                         {

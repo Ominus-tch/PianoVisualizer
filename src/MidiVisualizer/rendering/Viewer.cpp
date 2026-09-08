@@ -67,13 +67,8 @@ Viewer::Viewer(
 	_renderFramebuffer = createFramebuffer();
 	_finalFramebuffer = createFramebuffer();
 
-	Logger::Log("Creating Blurring Screen Quad...\n");
 	_blurringScreen.init(_device, _particlesFramebuffer->textureId(), "particlesblur_frag");
-	
-	Logger::Log("Creating fxaa Quad...\n");
 	_fxaa.init(_device, "fxaa_frag");
-
-	Logger::Log("Creating passthrough Quad...\n");
 	_passthrough.init(_device, "screenquad_frag");
 
 	// Create the layers.
@@ -277,7 +272,7 @@ Viewer::Viewer(
 }
 
 Viewer::~Viewer() {
-	Logger::Log("Viewer closed!\n");
+	Logger::Log("[MIDI Visualizer] Viewer closed!\n");
 }
 
 bool Viewer::loadFile(const std::string& midiFilePath) {
@@ -383,9 +378,10 @@ SystemAction Viewer::draw(
 
 void Viewer::drawScene(bool transparentBG)
 {
+
 	// Update active notes listing.
 	_scene->updatesActiveNotes(
-		_state.scrollSpeed * _timer,
+		_timer,
 		_state.scrollSpeed,
 		_state.filter
 	);

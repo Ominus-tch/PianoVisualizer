@@ -80,7 +80,7 @@ bool VirtualCameraExtension::Initialize(ID3D11Device* device)
     m_available = true;
 
     Logger::Log(
-        "[VirtualCamera] Extension available. Shared frame: %ux%u.\n",
+        "[VirtualCamera] Shared frame: %ux%u.\n\n",
         SharedFrameWidth,
         SharedFrameHeight
     );

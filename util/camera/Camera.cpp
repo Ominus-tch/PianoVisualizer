@@ -2210,28 +2210,6 @@ bool Camera::CaptureFrame()
     // Record frame
     // -----------------------------------------------------
 
-    if (m_recording.load(std::memory_order_acquire))
-    {
-        const auto now =
-            std::chrono::steady_clock::now();
-
-        const auto elapsed =
-            std::chrono::duration_cast<
-            std::chrono::nanoseconds
-            >(
-                now - m_recordingStartTime
-            ).count();
-
-        const int64_t timestamp100ns =
-            elapsed / 100;
-
-        m_videoEncoder.EncodeFrame(
-            m_captureBuffer.data(),
-            m_captureFrameBytes,
-            timestamp100ns
-        );
-    }
-
     // -----------------------------------------------------
     // Publish frame
     // -----------------------------------------------------
@@ -2240,6 +2218,23 @@ bool Camera::CaptureFrame()
         std::lock_guard<std::mutex> lock(
             m_frameMutex
         );
+
+        if (m_recording.load(std::memory_order_acquire))
+        {
+            const double recordingTime =
+                m_recordingTime.load(
+                    std::memory_order_relaxed
+                );
+
+            const int64_t timestamp100ns =
+                m_recordingTime * 10'000'000.0;
+
+            m_videoEncoder.EncodeFrame(
+                m_captureBuffer.data(),
+                m_captureFrameBytes,
+                timestamp100ns
+            );
+        }
 
         if (
             m_newFrameAvailable.load(
@@ -2283,7 +2278,7 @@ void Camera::ClearLastError()
 // Update
 // =========================================================
 
-bool Camera::Update()
+bool Camera::Update(double time)
 {
     if (m_runtimeFailure)
     {
@@ -2312,6 +2307,11 @@ bool Camera::Update()
     {
         return false;
     }
+
+    m_recordingTime.store(
+        time,
+        std::memory_order_relaxed
+    );
 
     // -----------------------------------------------------
     // Get latest frame
