@@ -22,5 +22,13 @@ extern  unsigned char pedal_center_image[614720];
 extern  glm::vec2 pedal_center_size;
 extern  unsigned char pedal_top_image[630984];
 extern  glm::vec2 pedal_top_size;
+extern  unsigned char playButton_image[4096];
+extern  glm::vec2 playButton_size;
+extern  unsigned char pauseButton_image[4096];
+extern  glm::vec2 pauseButton_size;
+extern  unsigned char stopButton_image[4096];
+extern  glm::vec2 stopButton_size;
+extern  unsigned char replayButton_image[4096];
+extern  glm::vec2 replayButton_size;
 
 #endif

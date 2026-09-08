@@ -46,6 +46,8 @@ public:
 
 	const std::string& filePath() const;
 
+	void resetPlaybackState(double time = 0.0);
+
 private:
 
 private:

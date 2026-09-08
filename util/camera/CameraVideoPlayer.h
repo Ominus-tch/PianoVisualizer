@@ -83,6 +83,10 @@ public:
         double time
     );
 
+    bool Seek(
+        double time
+    );
+
 
     ID3D11ShaderResourceView*
         GetTexture() const

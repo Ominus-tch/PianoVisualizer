@@ -205,3 +205,37 @@ void MIDISceneFile::save(std::ofstream& file) const {
 const std::string& MIDISceneFile::filePath() const {
 	return _filePath;
 }
+
+void MIDISceneFile::resetPlaybackState(double time)
+{
+	const auto& events =
+		_midiFile.playbackEvents();
+
+	_nextPlaybackEvent = 0;
+
+	while (
+		_nextPlaybackEvent < events.size() &&
+		events[_nextPlaybackEvent].time < time
+		)
+	{
+		++_nextPlaybackEvent;
+	}
+
+	_previousTime = time;
+
+	for (auto& particle : _particles)
+	{
+		particle.note = -1;
+		particle.set = -1;
+		particle.duration = 0.0f;
+		particle.start = 0.0f;
+		particle.elapsed = 0.0f;
+	}
+
+	_actives.fill(-1);
+
+	_pedals.damper = 0.0f;
+	_pedals.sostenuto = 0.0f;
+	_pedals.soft = 0.0f;
+	_pedals.expression = 0.0f;
+}

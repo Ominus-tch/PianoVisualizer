@@ -58,6 +58,11 @@ void ResourcesManager::loadResources(ID3D11Device* device){
 	imagesLibrary["pedal_center"] = pedal_center_image;
 	imagesLibrary["pedal_top"] = pedal_top_image;
 
+	imagesLibrary["playButton"] = playButton_image;
+	imagesLibrary["pauseButton"] = pauseButton_image;
+	imagesLibrary["stopButton"] = stopButton_image;
+	imagesLibrary["replayButton"] = replayButton_image;
+
 	imagesSize["font"] = font_size;
 	imagesSize["flash"] = flash_size;
 	imagesSize["particles"] = particles_size;
@@ -65,6 +70,11 @@ void ResourcesManager::loadResources(ID3D11Device* device){
 	imagesSize["pedal_side"] = pedal_side_size;
 	imagesSize["pedal_center"] = pedal_center_size;
 	imagesSize["pedal_top"] = pedal_top_size;
+
+	imagesSize["playButton"] = playButton_size;
+	imagesSize["pauseButton"] = pauseButton_size;
+	imagesSize["stopButton"] = stopButton_size;
+	imagesSize["replayButton"] = replayButton_size;
 	
 	{
 		unsigned int imwidth;
@@ -109,6 +119,30 @@ void ResourcesManager::loadResources(ID3D11Device* device){
 		unsigned int imheight;
 		auto image = ResourcesManager::getDataForImage("pedal_top", imwidth, imheight);
 		textureLibrary["pedal_top"] = loadTexture(device, image, imwidth, imheight, 4, false);
+	}
+	{
+		unsigned int imwidth;
+		unsigned int imheight;
+		auto image = ResourcesManager::getDataForImage("playButton", imwidth, imheight);
+		textureLibrary["playButton"] = loadTexture(device, image, imwidth, imheight, 4, false);
+	}
+	{
+		unsigned int imwidth;
+		unsigned int imheight;
+		auto image = ResourcesManager::getDataForImage("pauseButton", imwidth, imheight);
+		textureLibrary["pauseButton"] = loadTexture(device, image, imwidth, imheight, 4, false);
+	}
+	{
+		unsigned int imwidth;
+		unsigned int imheight;
+		auto image = ResourcesManager::getDataForImage("stopButton", imwidth, imheight);
+		textureLibrary["stopButton"] = loadTexture(device, image, imwidth, imheight, 4, false);
+	}
+	{
+		unsigned int imwidth;
+		unsigned int imheight;
+		auto image = ResourcesManager::getDataForImage("replayButton", imwidth, imheight);
+		textureLibrary["replayButton"] = loadTexture(device, image, imwidth, imheight, 4, false);
 	}
 	
 	{

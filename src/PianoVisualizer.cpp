@@ -688,6 +688,16 @@ bool PianoVisualizer::InitializeMidiVisualizer()
         }
     );
 
+    m_viewer->setOnSeekChanged(
+        [this](double time)
+        {
+            if (!m_cameraVideoPlayer.Seek(time))
+            {
+                Logger::Log("[CameraVideoPlayer] Seek to %.2f failed!\n", time);
+            }
+        }
+    );
+
     return true;
 }
 

@@ -404,6 +404,7 @@ void CameraVideoPlayer::DecodeThread(
         std::memory_order_release
     );
 
+    bool catchingUpAfterSeek = false;
 
     HRESULT comResult =
         CoInitializeEx(
@@ -974,6 +975,7 @@ void CameraVideoPlayer::DecodeThread(
                 break;
             }
 
+            catchingUpAfterSeek = true;
 
             m_lastDecodedFrameTime.store(
                 seekTime,
@@ -981,10 +983,10 @@ void CameraVideoPlayer::DecodeThread(
             );
 
 
-            Logger::Log(
-                "[CameraVideoPlayer] Decoder seek: %.6f\n",
-                seekTime
-            );
+            //Logger::Log(
+            //    "[CameraVideoPlayer] Decoder seek: %.6f\n",
+            //    seekTime
+            //);
         }
 
 
@@ -992,6 +994,7 @@ void CameraVideoPlayer::DecodeThread(
          * If the queue is full, wait until the main thread
          * consumes a frame or requests a seek.
          */
+        if (!catchingUpAfterSeek)
         {
             std::unique_lock<std::mutex>
                 lock(m_queueMutex);
@@ -1070,6 +1073,20 @@ void CameraVideoPlayer::DecodeThread(
             break;
         }
 
+        const double decodedFrameTime =
+            static_cast<double>(timestamp) /
+            static_cast<double>(HNS_PER_SECOND);
+
+
+        if (catchingUpAfterSeek)
+        {
+            if (decodedFrameTime < seekTime)
+            {
+                continue;
+            }
+
+            catchingUpAfterSeek = false;
+        }
 
         if (
             flags &
@@ -1188,12 +1205,12 @@ void CameraVideoPlayer::DecodeThread(
             std::memory_order_relaxed
         );
 
-
         m_lastDecodedFrameTime.store(
-            static_cast<double>(timestamp) /
-            static_cast<double>(HNS_PER_SECOND),
+            decodedFrameTime,
             std::memory_order_release
         );
+
+
 
 
         const double decodeStatElapsed =
@@ -1574,10 +1591,12 @@ bool CameraVideoPlayer::CreateTexture()
     return true;
 }
 
+bool CameraVideoPlayer::Seek(double time)
+{
+    return RequestSeek(time);
+}
 
-bool CameraVideoPlayer::RequestSeek(
-    double time
-)
+bool CameraVideoPlayer::RequestSeek(double time)
 {
     time =
         (std::max)(

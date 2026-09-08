@@ -66,6 +66,8 @@ public:
 	using PlaybackStartCallback = std::function<bool(const std::string&)>;
 	using PlaybackStopCallback = std::function<void()>;
 
+	using SeekChangedCallback = std::function<void(double)>;
+
 	void setOnStartRecording(
 		RecordingCallback callback
 	);
@@ -80,6 +82,10 @@ public:
 
 	void setOnStopPlayback(
 		PlaybackStopCallback callback
+	);
+
+	void setOnSeekChanged(
+		SeekChangedCallback callback
 	);
 
 	bool startRecording();
@@ -345,10 +351,22 @@ private:
 	bool _recordCamera = true;
 	bool _shouldOpenRecordingPopup = false;
 
+
+	ID3D11ShaderResourceView* _playTexture = nullptr;
+	ID3D11ShaderResourceView* _pauseTexture = nullptr;
+	ID3D11ShaderResourceView* _stopTexture = nullptr;
+	ID3D11ShaderResourceView* _restartTexture = nullptr;
+
 	PlaybackStartCallback _onStartPlayback;
 	PlaybackStopCallback _onStopPlayback;
 
+	SeekChangedCallback _onSeekChanged;
+
 	bool _playbackWindowOpen = false;
+	float _playbackSeekTime = 0.0f;
+	double _playbackDuration = 0.0;
+	bool _playbackWasPlayingBeforeSeek = false;
+
 	bool _playbackLoaded = false;
 	bool _playbackPlaying = false;
 	bool _playbackPaused = false;

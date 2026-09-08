@@ -66,6 +66,18 @@ public:
         bool prepass
     );
 
+    void clearFlashes()
+    {
+        _flashes.fill(
+            {
+                -1,
+                0.0f,
+                0.0f,
+                false
+            }
+        );
+    }
+
     void drawFlashes(
         const std::shared_ptr<MIDIScene>& scene,
         float time,

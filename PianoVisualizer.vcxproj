@@ -89,6 +89,10 @@
     <ClCompile Include="src\Audio\vst\VSTEventList.cpp" />
     <ClCompile Include="src\Audio\vst\VSTHostApplication.cpp" />
     <ClCompile Include="src\Audio\vst\VSTStateStream.cpp" />
+    <ClCompile Include="src\MidiVisualizer\resources\pauseButton_image.cpp" />
+    <ClCompile Include="src\MidiVisualizer\resources\playButton_image.cpp" />
+    <ClCompile Include="src\MidiVisualizer\resources\replayButton_image.cpp" />
+    <ClCompile Include="src\MidiVisualizer\resources\stopButton_image.cpp" />
     <ClCompile Include="src\VirtualCameraExtension\VirtualCameraExtension.cpp" />
     <ClCompile Include="util\camera\Camera.cpp" />
     <ClCompile Include="util\camera\CameraControls.cpp" />

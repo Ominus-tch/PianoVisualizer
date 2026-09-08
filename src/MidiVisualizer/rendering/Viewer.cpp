@@ -11,6 +11,7 @@
 #include <vector>
 #include <algorithm>
 #include <fstream>
+#include <cmath>
 
 #include <windows.h>
 #include <shobjidl.h>
@@ -26,7 +27,59 @@
 #include "../../../util/Logger.h"
 #include "../../../util/config.h"
 
+#include <mfapi.h>
+#include <mfidl.h>
+#include <mfreadwrite.h>
+#include <wrl/client.h>
 namespace fs = std::filesystem;
+
+using Microsoft::WRL::ComPtr;
+
+static double GetVideoDuration(const fs::path& path)
+{
+	ComPtr<IMFSourceReader> reader;
+
+	HRESULT hr =
+		MFCreateSourceReaderFromURL(
+			path.c_str(),
+			nullptr,
+			&reader
+		);
+
+	if (FAILED(hr))
+		return 0.0;
+
+	ComPtr<IMFMediaSource> source;
+	hr = reader->GetServiceForStream(
+		MF_SOURCE_READER_MEDIASOURCE,
+		GUID_NULL,
+		IID_PPV_ARGS(&source)
+	);
+
+	if (FAILED(hr))
+		return 0.0;
+
+	ComPtr<IMFPresentationDescriptor> presentationDescriptor;
+	hr = source->CreatePresentationDescriptor(
+		&presentationDescriptor
+	);
+
+	if (FAILED(hr))
+		return 0.0;
+
+	UINT64 duration = 0;
+
+	hr = presentationDescriptor->GetUINT64(
+		MF_PD_DURATION,
+		&duration
+	);
+
+	if (FAILED(hr))
+		return 0.0;
+
+	// Media Foundation duration is in 100-nanosecond units.
+	return static_cast<double>(duration) / 10'000'000.0;
+}
 
 Viewer::Viewer(
 	D3D11Interface d3dInterface,
@@ -280,6 +333,7 @@ bool Viewer::loadFile(const std::string& midiFilePath) {
 
 	try {
 		scene = std::make_shared<MIDISceneFile>(midiFilePath, _state.setOptions, _state.filter);
+		_renderer.clearFlashes();
 	} catch(...){
 		// Failed to load.
 		return false;
@@ -313,6 +367,7 @@ bool Viewer::connectDevice(const std::string& deviceName) {
 	}
 
 	_scene = std::make_shared<MIDISceneLive>(_selectedPort, _verbose);
+	_renderer.clearFlashes();
 	_timer = 0.0f;
 	// Don't start immediately
 	// _shouldPlay = true;
@@ -338,6 +393,7 @@ bool Viewer::connectDevice(const int port) {
 	_selectedPort = port;
 
 	_scene = std::make_shared<MIDISceneLive>(_selectedPort, _verbose);
+	_renderer.clearFlashes();
 	_timer = 0.0f;
 	// Don't start immediately
 	_shouldPlay = true;
@@ -2097,6 +2153,7 @@ void Viewer::showDevices(){
 			ImGuiSameLine(EXPORT_COLUMN_SIZE);
 			if(ImGui::Button("Start", buttonSize)){
 				_scene = std::make_shared<MIDISceneLive>(_selectedPort, _verbose);
+				_renderer.clearFlashes();
 				starting = true;
 			}
 		}
@@ -3499,6 +3556,14 @@ void Viewer::setOnStopPlayback(
 		std::move(callback);
 }
 
+void Viewer::setOnSeekChanged(
+	SeekChangedCallback callback
+)
+{
+	_onSeekChanged =
+		std::move(callback);
+}
+
 bool Viewer::startRecording()
 {
 	if (_recording)
@@ -3574,6 +3639,8 @@ bool Viewer::stopRecording()
 		"[Recording] Saved MIDI recording: %s\n",
 		midiFilePath.c_str()
 	);
+
+	_renderer.clearFlashes();
 
 	refreshRecordings();
 
@@ -3875,6 +3942,7 @@ void Viewer::startPlayback()
 
 	try {
 		scene = std::make_shared<MIDISceneFile>(_playbackMidiPath, _state.setOptions, _state.filter);
+		_renderer.clearFlashes();
 	}
 	catch (...) {
 		Logger::Log("[Error] Failed to create recording scene!\n");
@@ -3884,10 +3952,33 @@ void Viewer::startPlayback()
 	// Player.
 
 
-	_timerStart = getCurrentTime();
+	const double currentTime =
+		getCurrentTime();
 
-	if (!_state.reverseScroll)
-		_timerStart += _state.prerollTime;
+	if (_playbackSeekTime > 0.0f)
+	{
+		_timerStart =
+			currentTime -
+			static_cast<double>(
+				_playbackSeekTime
+				);
+	}
+	else
+	{
+		_timerStart =
+			currentTime;
+
+		if (!_state.reverseScroll)
+		{
+			_timerStart +=
+				_state.prerollTime;
+		}
+	}
+
+	_timer =
+		static_cast<double>(
+			_playbackSeekTime
+			);
 
 	_shouldPlay = true;
 	_liveplay = false;
@@ -3897,12 +3988,17 @@ void Viewer::startPlayback()
 	_scene = scene;
 	applyAllSettings();
 
+	_playbackPlaying = true;
+	_playbackPaused = false;
+
+	auto* midiScene = dynamic_cast<MIDISceneFile*>(_scene.get());
+	midiScene->resetPlaybackState(
+		_playbackSeekTime
+	);
+
 	Logger::Log(
 		"[Playback] Started.\n"
 	);
-
-	_playbackPlaying = true;
-	_playbackPaused = false;
 
 	return;
 }
@@ -3975,124 +4071,231 @@ void Viewer::drawPlaybackSettings()
 {
 	if (!ImGui::Begin(
 		"Playback Settings",
-		&_playbackWindowOpen,
-		ImGuiWindowFlags_AlwaysAutoResize
+		&_playbackWindowOpen
 	))
 	{
 		ImGui::End();
 		return;
 	}
 
-	// ---------------------------------------------------------
-	// Recording selection
-	// ---------------------------------------------------------
+	// =========================================================
+	// Helpers
+	// =========================================================
 
-	bool openDeletePopup = false;
+	auto formatTime =
+		[](double time)
+		{
+			time =
+				(std::max)(
+					0.0,
+					time
+					);
+
+			const int totalSeconds =
+				static_cast<int>(time);
+
+			const int hours =
+				totalSeconds / 3600;
+
+			const int minutes =
+				(totalSeconds % 3600) / 60;
+
+			const int seconds =
+				totalSeconds % 60;
+
+			char buffer[32]{};
+
+			if (hours > 0)
+			{
+				std::snprintf(
+					buffer,
+					sizeof(buffer),
+					"%d:%02d:%02d",
+					hours,
+					minutes,
+					seconds
+				);
+			}
+			else
+			{
+				std::snprintf(
+					buffer,
+					sizeof(buffer),
+					"%d:%02d",
+					minutes,
+					seconds
+				);
+			}
+
+			return std::string(buffer);
+		};
+
+	// =========================================================
+	// Playback textures
+	// =========================================================
+
+	if (!_playTexture)
+		_playTexture =
+			ResourcesManager::getTextureFor(
+				"playButton"
+			);
+
+	if (!_pauseTexture)
+		_pauseTexture =
+			ResourcesManager::getTextureFor(
+				"pauseButton"
+			);
+
+	if (!_stopTexture)
+		_stopTexture =
+			ResourcesManager::getTextureFor(
+				"stopButton"
+			);
+
+	if (!_restartTexture)
+		_restartTexture =
+			ResourcesManager::getTextureFor(
+				"replayButton"
+			);
+
+	// =========================================================
+	// Recording selection
+	// =========================================================
 
 	ImGui::Text("Recording");
 
 	if (_availableRecordings.empty())
 	{
-		ImGui::Text("No recordings available.");
+		ImGui::TextDisabled(
+			"No recordings available."
+		);
 	}
 	else
 	{
-		for (const auto& recording : _availableRecordings)
+		std::string selectedName;
+
+		if (_playbackLoaded)
 		{
-			const std::string name =
-				recording.filename().string();
+			selectedName =
+				_playbackRecordingDirectory
+				.filename()
+				.string();
+		}
 
-			const bool selected =
-				recording == _playbackRecordingDirectory;
-
-			ImGui::PushID(
-				recording.string().c_str()
-			);
-
-			if (ImGui::RadioButton(
-				name.c_str(),
-				selected
-			))
+		if (ImGui::BeginCombo(
+			"##RecordingCombo",
+			selectedName.empty()
+			? "Select recording..."
+			: selectedName.c_str()
+		))
+		{
+			for (const auto& recording :
+				_availableRecordings)
 			{
-				const std::string videoPath =
-					(
-						recording /
-						"cameraRecording.mp4"
-						).string();
+				const std::string name =
+					recording.filename().string();
 
-				std::filesystem::path _temp = _playbackRecordingDirectory;
+				const bool selected =
+					recording ==
+					_playbackRecordingDirectory;
 
-				_playbackRecordingDirectory =
-					recording;
-
-				if (
-					_onStartPlayback &&
-					_onStartPlayback(videoPath)
-					)
+				if (ImGui::Selectable(
+					name.c_str(),
+					selected
+				))
 				{
-					_playbackVideoPath =
-						videoPath;
-
-					_playbackMidiPath =
+					const std::string videoPath =
 						(
 							recording /
-							"midiRecording.mid"
+							"cameraRecording.mp4"
 							).string();
 
-					_playbackLoaded = true;
-					_playbackPlaying = false;
-					_playbackPaused = false;
+					const std::filesystem::path previousRecording =
+						_playbackRecordingDirectory;
 
-					_shouldPlay = false;
+					_playbackRecordingDirectory =
+						recording;
 
+					if (
+						_onStartPlayback &&
+						_onStartPlayback(videoPath)
+						)
+					{
+						_playbackVideoPath =
+							videoPath;
 
-					_timerStart = getCurrentTime();
-					_timer = 0.f;
+						_playbackMidiPath =
+							(
+								recording /
+								"midiRecording.mid"
+								).string();
 
+						_playbackLoaded =
+							true;
 
-					Logger::Log(
-						"[Playback] Selected recording: %s\n",
-						name.c_str()
-					);
-				}
-				else
-				{
-					_playbackRecordingDirectory = _temp;
-					Logger::Log(
-						"[Playback] Failed to open video: %s\n",
-						videoPath.c_str()
-					);
+						_playbackPlaying =
+							false;
+
+						_playbackPaused =
+							false;
+
+						_shouldPlay =
+							false;
+
+						_timerStart =
+							getCurrentTime();
+
+						_timer =
+							0.0f;
+
+						_playbackSeekTime =
+							0.0f;
+
+						_playbackDuration = GetVideoDuration(videoPath);
+
+						Logger::Log(
+							"[Playback] Selected recording: %s\n",
+							name.c_str()
+						);
+					}
+					else
+					{
+						_playbackRecordingDirectory =
+							previousRecording;
+
+						Logger::Log(
+							"[Playback] Failed to open video: %s\n",
+							videoPath.c_str()
+						);
+					}
 				}
 			}
 
-			ImGui::SameLine();
+			ImGui::EndCombo();
+		}
 
-			if (ImGui::SmallButton("X"))
+		ImGui::SameLine();
+
+		if (ImGui::Button("Delete"))
+		{
+			if (!_playbackRecordingDirectory.empty())
 			{
 				_recordingToDelete =
-					recording;
+					_playbackRecordingDirectory;
 
 				_deleteRecordingPopupOpen =
 					true;
 
-				openDeletePopup =
-					true;
+				ImGui::OpenPopup(
+					"Delete Recording"
+				);
 			}
-
-			ImGui::PopID();
 		}
 	}
 
-	// ---------------------------------------------------------
+	// =========================================================
 	// Delete confirmation
-	// ---------------------------------------------------------
-
-	if (openDeletePopup)
-	{
-		ImGui::OpenPopup(
-			"Delete Recording"
-		);
-	}
+	// =========================================================
 
 	if (ImGui::BeginPopupModal(
 		"Delete Recording",
@@ -4101,7 +4304,9 @@ void Viewer::drawPlaybackSettings()
 	))
 	{
 		const std::string name =
-			_recordingToDelete.filename().string();
+			_recordingToDelete
+			.filename()
+			.string();
 
 		ImGui::Text(
 			"Are you sure you want to delete:"
@@ -4110,8 +4315,7 @@ void Viewer::drawPlaybackSettings()
 		ImGui::Spacing();
 
 		ImGui::TextWrapped(
-			"\"%s\""
-			,
+			"\"%s\"",
 			name.c_str()
 		);
 
@@ -4163,28 +4367,36 @@ void Viewer::drawPlaybackSettings()
 						)
 				);
 
-				/*
-				 * The currently selected recording was deleted.
-				 */
 				if (
 					recording ==
 					_playbackRecordingDirectory
 					)
 				{
-					_playbackLoaded = false;
-					_playbackPlaying = false;
-					_playbackPaused = false;
+					_playbackLoaded =
+						false;
+
+					_playbackPlaying =
+						false;
+
+					_playbackPaused =
+						false;
 
 					_playbackRecordingDirectory.clear();
 					_playbackVideoPath.clear();
 					_playbackMidiPath.clear();
 
-					_shouldPlay = true;
+					_playbackSeekTime =
+						0.0f;
+
+					_playbackDuration = 0.0;
+
+					_timer =
+						0.0f;
+
+					_shouldPlay =
+						true;
 				}
 
-				/*
-				 * Remove it from the available recording list.
-				 */
 				_availableRecordings.erase(
 					std::remove(
 						_availableRecordings.begin(),
@@ -4196,7 +4408,8 @@ void Viewer::drawPlaybackSettings()
 			}
 
 			_recordingToDelete.clear();
-			_deleteRecordingPopupOpen = false;
+			_deleteRecordingPopupOpen =
+				false;
 
 			ImGui::CloseCurrentPopup();
 		}
@@ -4209,7 +4422,8 @@ void Viewer::drawPlaybackSettings()
 		))
 		{
 			_recordingToDelete.clear();
-			_deleteRecordingPopupOpen = false;
+			_deleteRecordingPopupOpen =
+				false;
 
 			ImGui::CloseCurrentPopup();
 		}
@@ -4217,15 +4431,279 @@ void Viewer::drawPlaybackSettings()
 		ImGui::EndPopup();
 	}
 
+	// =========================================================
+	// Playback timeline
+	// =========================================================
+
+	if (
+		_playbackLoaded &&
+		_scene
+		)
+	{
+		_playbackSeekTime =
+			static_cast<float>(
+				(std::clamp)(
+					static_cast<double>(_timer),
+					0.0,
+					_playbackDuration
+					)
+				);
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		// -----------------------------------------------------
+		// Time labels
+		// -----------------------------------------------------
+
+		const std::string currentTime =
+			formatTime(
+				_playbackSeekTime
+			);
+
+		const std::string totalTime =
+			formatTime(
+				_playbackDuration
+			);
+
+		ImGui::Text(
+			"%s",
+			currentTime.c_str()
+		);
+
+		ImGui::SameLine();
+
+		ImGui::TextDisabled(
+			"/ %s",
+			totalTime.c_str()
+		);
+
+		// -----------------------------------------------------
+		// Seek bar
+		// -----------------------------------------------------
+
+		ImGui::PushItemWidth(-1.0f);
+
+		// Make sure we only update when the value accually changes
+		static float previousSeekTime = _playbackSeekTime;
+		bool shouldPlayDupe = _shouldPlay;
+
+		if (ImGui::SliderFloat(
+			"##PlaybackPosition",
+			&_playbackSeekTime,
+			0.0f,
+			static_cast<float>(_playbackDuration),
+			""
+		))
+		{
+			_playbackSeekTime =
+				(std::clamp)(
+					_playbackSeekTime,
+					0.0f,
+					static_cast<float>(_playbackDuration)
+					);
+
+			if (_playbackSeekTime != previousSeekTime)
+			{
+				_shouldPlay = false;
+
+				_timer = _playbackSeekTime;
+
+				const double currentTimeNow =
+					getCurrentTime();
+
+				_timerStart =
+					currentTimeNow -
+					static_cast<double>(
+						_playbackSeekTime
+						);
+
+				if (_scene)
+				{
+					if (auto* midiScene =
+						dynamic_cast<MIDISceneFile*>(_scene.get()))
+					{
+						midiScene->resetPlaybackState(
+							_playbackSeekTime
+						);
+
+						_renderer.clearFlashes();
+					}
+				}
+
+				if (_onSeekChanged)
+					_onSeekChanged(_timer);
+
+				previousSeekTime = _playbackSeekTime;
+			}
+		}
+
+		if (ImGui::IsItemActivated())
+		{
+			_playbackWasPlayingBeforeSeek = shouldPlayDupe;
+		}
+
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			_shouldPlay = _playbackWasPlayingBeforeSeek;
+		}
+
+		ImGui::PopItemWidth();
+	}
+
+
+	// =========================================================
+	// Playback controls
+	// =========================================================
 
 	ImGui::Spacing();
 	ImGui::Separator();
 	ImGui::Spacing();
 
+	const ImVec2 buttonSize(
+		42.0f,
+		42.0f
+	);
+
+	const float buttonSpacing =
+		8.0f;
+
+	const float totalWidth =
+		buttonSize.x * 3.0f +
+		buttonSpacing * 2.0f;
+
+	const float startX =
+		ImGui::GetCursorPosX() +
+		(
+			ImGui::GetContentRegionAvail().x -
+			totalWidth
+			) * 0.5f;
+
+	ImGui::SetCursorPosX(
+		(std::max)(
+			ImGui::GetCursorPosX(),
+			startX
+			)
+	);
 
 	// ---------------------------------------------------------
-	// Reverse scroll
+	// Play / Pause
 	// ---------------------------------------------------------
+
+	const bool currentlyPlaying =
+		_playbackPlaying &&
+		!_playbackPaused;
+
+	ID3D11ShaderResourceView*
+		playPauseTexture =
+		currentlyPlaying
+		? _pauseTexture
+		: _playTexture;
+
+	if (ImGui::ImageButton(
+		"##PlayPause",
+		(ImTextureID)playPauseTexture,
+		buttonSize
+	))
+	{
+		if (currentlyPlaying)
+		{
+			pausePlayback();
+		}
+		else
+		{
+			if (!_playbackPlaying)
+				startPlayback();
+			else
+				pausePlayback();
+		}
+	}
+
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip(
+			currentlyPlaying
+			? "Pause"
+			: "Play"
+		);
+	}
+
+	// ---------------------------------------------------------
+	// Stop
+	// ---------------------------------------------------------
+
+	ImGui::SameLine(
+		0.0f,
+		buttonSpacing
+	);
+
+	if (ImGui::ImageButton(
+		"##Stop",
+		(ImTextureID)_stopTexture,
+		buttonSize
+	))
+	{
+		stopPlayback();
+	}
+
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip(
+			"Stop"
+		);
+	}
+
+	// ---------------------------------------------------------
+	// Restart
+	// ---------------------------------------------------------
+
+	ImGui::SameLine(
+		0.0f,
+		buttonSpacing
+	);
+
+	if (ImGui::ImageButton(
+		"##Restart",
+		(ImTextureID)_restartTexture,
+		buttonSize,
+		ImVec2(0.0f, 1.0f),
+		ImVec2(1.0f, 0.0f)
+	))
+	{
+		_timer =
+			0.0f;
+
+		_timerStart =
+			getCurrentTime();
+
+		_playbackSeekTime =
+			0.0f;
+
+		if (_playbackPlaying)
+		{
+			_playbackPaused =
+				false;
+
+			_shouldPlay =
+				true;
+		}
+	}
+
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip(
+			"Restart"
+		);
+	}
+
+	// =========================================================
+	// Playback options
+	// =========================================================
+
+	ImGui::Spacing();
+	ImGui::Separator();
+	ImGui::Spacing();
 
 	bool reverseScroll =
 		!_state.reverseScroll;
@@ -4243,8 +4721,12 @@ void Viewer::drawPlaybackSettings()
 	{
 		ImGui::SameLine();
 
+		ImGui::SetNextItemWidth(
+			160.0f
+		);
+
 		ImGui::SliderFloat(
-			"Preroll Time",
+			"Preroll",
 			&_state.prerollTime,
 			0.0f,
 			10.0f,
@@ -4252,68 +4734,34 @@ void Viewer::drawPlaybackSettings()
 		);
 	}
 
+	// =========================================================
+	// Status
+	// =========================================================
 
 	ImGui::Spacing();
-	ImGui::Separator();
-	ImGui::Spacing();
-
-
-	// ---------------------------------------------------------
-	// Playback controls
-	// ---------------------------------------------------------
-
-	if (ImGui::Button("Play"))
-	{
-		startPlayback();
-	}
-
-	ImGui::SameLine();
-
-	if (ImGui::Button("Pause"))
-	{
-		pausePlayback();
-	}
-
-	ImGui::SameLine();
-
-	if (ImGui::Button("Stop"))
-	{
-		stopPlayback();
-	}
-
-
-	ImGui::Separator();
-
 
 	if (_playbackLoaded)
 	{
-		ImGui::Text(
-			"Selected: %s",
-			_playbackRecordingDirectory
-			.filename()
-			.string()
-			.c_str()
-		);
-
-		const char* label =
+		const char* status =
 			_playbackPlaying
-			? _playbackPaused
-			? "Paused"
-			: "Playing"
+			? (
+				_playbackPaused
+				? "Paused"
+				: "Playing"
+				)
 			: "Stopped";
 
 		ImGui::Text(
 			"Status: %s",
-			label
+			status
 		);
 	}
 	else
 	{
-		ImGui::Text(
+		ImGui::TextDisabled(
 			"No recording selected."
 		);
 	}
-
 
 	ImGui::End();
 }
