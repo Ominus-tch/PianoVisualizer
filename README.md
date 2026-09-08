@@ -14,8 +14,10 @@ Piano Visualizer combines your piano's MIDI input, a live camera feed, visual ef
 - 🎛️ VST3 plugin hosting
 - 📂 Drag-and-drop VST3 loading
 - 🔊 Real-time audio output
+- 🎬 MIDI and camera recording with synchronized playback
 - 🎥 External visualizer window capture
 - 💾 Persistent application and visualization settings
+
 
 
 ## Getting Started
