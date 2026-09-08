@@ -228,6 +228,8 @@ public:
 	void load(const Arguments & configArgs);
 
 	bool save(const std::string& presetName = "piano_visualizer");
+
+	bool saveToPath(const std::string& path);
 	
 	void reset();
 

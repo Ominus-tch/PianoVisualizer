@@ -356,6 +356,10 @@ private:
 
 	std::vector<std::filesystem::path> _availableRecordings;
 
+	std::filesystem::path _recordingToDelete;
+
+	bool _deleteRecordingPopupOpen = false;
+
 	bool _inputting = false;
 
 	struct MIDIDeviceEvent {

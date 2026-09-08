@@ -1255,6 +1255,7 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 	if (_playbackWindowOpen){
 		drawPlaybackSettings();
 	}
+
 	return action;
 }
 
@@ -3994,6 +3995,8 @@ void Viewer::drawPlaybackSettings()
 	// Recording selection
 	// ---------------------------------------------------------
 
+	bool openDeletePopup = false;
+
 	ImGui::Text("Recording");
 
 	if (_availableRecordings.empty())
@@ -4009,6 +4012,10 @@ void Viewer::drawPlaybackSettings()
 
 			const bool selected =
 				recording == _playbackRecordingDirectory;
+
+			ImGui::PushID(
+				recording.string().c_str()
+			);
 
 			if (ImGui::RadioButton(
 				name.c_str(),
@@ -4057,14 +4064,169 @@ void Viewer::drawPlaybackSettings()
 					);
 				}
 			}
+
+			ImGui::SameLine();
+
+			if (ImGui::SmallButton("X"))
+			{
+				_recordingToDelete =
+					recording;
+
+				_deleteRecordingPopupOpen =
+					true;
+
+				openDeletePopup =
+					true;
+			}
+
+			ImGui::PopID();
 		}
 	}
+
+	// ---------------------------------------------------------
+	// Delete confirmation
+	// ---------------------------------------------------------
+
+	if (openDeletePopup)
+	{
+		ImGui::OpenPopup(
+			"Delete Recording"
+		);
+	}
+
+	if (ImGui::BeginPopupModal(
+		"Delete Recording",
+		nullptr,
+		ImGuiWindowFlags_AlwaysAutoResize
+	))
+	{
+		const std::string name =
+			_recordingToDelete.filename().string();
+
+		ImGui::Text(
+			"Are you sure you want to delete:"
+		);
+
+		ImGui::Spacing();
+
+		ImGui::TextWrapped(
+			"\"%s\""
+			,
+			name.c_str()
+		);
+
+		ImGui::Spacing();
+
+		ImGui::Text(
+			"This will permanently delete the recording"
+		);
+
+		ImGui::Text(
+			"folder and everything inside it."
+		);
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		if (ImGui::Button(
+			"Delete",
+			ImVec2(120.0f, 0.0f)
+		))
+		{
+			const std::filesystem::path recording =
+				_recordingToDelete;
+
+			std::error_code error;
+
+			const uintmax_t removed =
+				std::filesystem::remove_all(
+					recording,
+					error
+				);
+
+			if (error)
+			{
+				Logger::Log(
+					"[Playback] Failed to delete recording: %s (%s)\n",
+					recording.string().c_str(),
+					error.message().c_str()
+				);
+			}
+			else
+			{
+				Logger::Log(
+					"[Playback] Deleted recording: %s (%llu entries)\n",
+					recording.string().c_str(),
+					static_cast<unsigned long long>(
+						removed
+						)
+				);
+
+				/*
+				 * The currently selected recording was deleted.
+				 */
+				if (
+					recording ==
+					_playbackRecordingDirectory
+					)
+				{
+					_playbackLoaded = false;
+					_playbackPlaying = false;
+					_playbackPaused = false;
+
+					_playbackRecordingDirectory.clear();
+					_playbackVideoPath.clear();
+					_playbackMidiPath.clear();
+
+					_shouldPlay = true;
+				}
+
+				/*
+				 * Remove it from the available recording list.
+				 */
+				_availableRecordings.erase(
+					std::remove(
+						_availableRecordings.begin(),
+						_availableRecordings.end(),
+						recording
+					),
+					_availableRecordings.end()
+				);
+			}
+
+			_recordingToDelete.clear();
+			_deleteRecordingPopupOpen = false;
+
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button(
+			"Cancel",
+			ImVec2(120.0f, 0.0f)
+		))
+		{
+			_recordingToDelete.clear();
+			_deleteRecordingPopupOpen = false;
+
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+
 
 	ImGui::Spacing();
 	ImGui::Separator();
 	ImGui::Spacing();
 
-	// Reverse scroll checkbox:
+
+	// ---------------------------------------------------------
+	// Reverse scroll
+	// ---------------------------------------------------------
+
 	bool reverseScroll =
 		!_state.reverseScroll;
 
@@ -4077,10 +4239,10 @@ void Viewer::drawPlaybackSettings()
 			!reverseScroll;
 	}
 
-	if (!_state.reverseScroll) {
+	if (!_state.reverseScroll)
+	{
 		ImGui::SameLine();
 
-		// Preroll time setting.
 		ImGui::SliderFloat(
 			"Preroll Time",
 			&_state.prerollTime,
@@ -4091,10 +4253,11 @@ void Viewer::drawPlaybackSettings()
 	}
 
 
-
 	ImGui::Spacing();
 	ImGui::Separator();
 	ImGui::Spacing();
+
+
 	// ---------------------------------------------------------
 	// Playback controls
 	// ---------------------------------------------------------
@@ -4118,7 +4281,9 @@ void Viewer::drawPlaybackSettings()
 		stopPlayback();
 	}
 
+
 	ImGui::Separator();
+
 
 	if (_playbackLoaded)
 	{
@@ -4130,14 +4295,25 @@ void Viewer::drawPlaybackSettings()
 			.c_str()
 		);
 
-		const char* label = _playbackPlaying ? _playbackPaused ? "Paused" : "Playing" : "Stopped";
+		const char* label =
+			_playbackPlaying
+			? _playbackPaused
+			? "Paused"
+			: "Playing"
+			: "Stopped";
 
-		ImGui::Text("Status: %s", label);
+		ImGui::Text(
+			"Status: %s",
+			label
+		);
 	}
 	else
 	{
-		ImGui::Text("No recording selected.");
+		ImGui::Text(
+			"No recording selected."
+		);
 	}
+
 
 	ImGui::End();
 }

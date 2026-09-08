@@ -7,11 +7,53 @@
 
 #include <wrl/client.h>
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <cstdint>
+#include <deque>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 using Microsoft::WRL::ComPtr;
+
+
+struct CameraVideoPlayerStatistics
+{
+    int width = 0;
+    int height = 0;
+
+    UINT32 fpsNumerator = 0;
+    UINT32 fpsDenominator = 1;
+
+    double videoFps = 0.0;
+
+    double decodeFps = 0.0;
+    double decodeFrameTimeMs = 0.0;
+
+    double uploadFps = 0.0;
+    double uploadFrameTimeMs = 0.0;
+
+    uint64_t framesDecoded = 0;
+    uint64_t framesUploaded = 0;
+    uint64_t framesDropped = 0;
+
+    size_t frameBytes = 0;
+
+    size_t queuedFrames = 0;
+    double bufferedTimeMs = 0.0;
+
+    double currentFrameTime = 0.0;
+    double targetTime = 0.0;
+
+    double decoderLeadMs = 0.0;
+
+    bool open = false;
+    bool threadRunning = false;
+    bool endOfStream = false;
+};
 
 
 class CameraVideoPlayer
@@ -51,19 +93,25 @@ public:
 
     int GetWidth() const
     {
-        return m_width;
+        return m_width.load(
+            std::memory_order_acquire
+        );
     }
 
 
     int GetHeight() const
     {
-        return m_height;
+        return m_height.load(
+            std::memory_order_acquire
+        );
     }
 
 
     bool IsOpen() const
     {
-        return m_open;
+        return m_open.load(
+            std::memory_order_acquire
+        );
     }
 
 
@@ -73,22 +121,49 @@ public:
     }
 
 
+    CameraVideoPlayerStatistics
+        GetStatistics() const;
+
+
 private:
 
-    bool ReadNextSample(
-        ComPtr<IMFSample>& sample,
-        LONGLONG& timestamp
+    struct DecodedFrame
+    {
+        double time = 0.0;
+
+        std::vector<uint8_t>
+            pixels;
+    };
+
+
+private:
+
+    void DecodeThread(
+        std::string filePath
     );
 
-    bool UploadSample(
-        IMFSample* sample
+
+    bool DecodeSample(
+        IMFSample* sample,
+        LONG sourceStride,
+        int width,
+        int height,
+        std::vector<uint8_t>& output
     );
 
-    bool Seek(
+
+    bool CreateTexture();
+
+
+    bool RequestSeek(
         double time
     );
 
-    bool CreateTexture();
+
+private:
+
+    static constexpr size_t
+        MAX_BUFFERED_FRAMES = 6;
 
 
 private:
@@ -100,10 +175,6 @@ private:
         m_context = nullptr;
 
 
-    ComPtr<IMFSourceReader>
-        m_reader;
-
-
     ComPtr<ID3D11Texture2D>
         m_texture;
 
@@ -112,35 +183,112 @@ private:
 
 
     std::vector<uint8_t>
-        m_frameBuffer;
+        m_uploadBuffer;
 
 
-    int
+    std::atomic<int>
         m_width = 0;
 
-    int
+    std::atomic<int>
         m_height = 0;
 
-    LONG
-        m_sourceStride = 0;
+
+    std::atomic<UINT32>
+        m_fpsNumerator = 0;
+
+    std::atomic<UINT32>
+        m_fpsDenominator = 1;
+
+
+    std::atomic<uint64_t>
+        m_framesDecoded = 0;
+
+    std::atomic<uint64_t>
+        m_framesUploaded = 0;
+
+    std::atomic<uint64_t>
+        m_framesDropped = 0;
+
+
+    std::atomic<bool>
+        m_threadRunning = false;
+
+    std::atomic<bool>
+        m_stopRequested = false;
+
+    std::atomic<bool>
+        m_open = false;
+
+    std::atomic<bool>
+        m_decoderFailed = false;
+
+
+    std::atomic<double>
+        m_lastDecodedFrameTime = 0.0;
+
+    std::atomic<double>
+        m_targetTime = 0.0;
+
+
+    std::atomic<double>
+        m_decodeFps = 0.0;
+
+    std::atomic<double>
+        m_decodeFrameTimeMs = 0.0;
+
+    std::atomic<double>
+        m_uploadFps = 0.0;
+
+    std::atomic<double>
+        m_uploadFrameTimeMs = 0.0;
+
+
+    std::atomic<uint64_t>
+        m_decodeStatFrameCount = 0;
+
+    std::atomic<double>
+        m_decodeFrameTimeAccumulatorMs = 0.0;
+
+    std::atomic<uint64_t>
+        m_uploadStatFrameCount = 0;
+
+    std::atomic<double>
+        m_uploadFrameTimeAccumulatorMs = 0.0;
+
+
+    std::chrono::steady_clock::time_point
+        m_decodeStatStart;
+
+    std::chrono::steady_clock::time_point
+        m_uploadStatStart;
 
 
     double
         m_currentFrameTime = 0.0;
 
 
-    ComPtr<IMFSample>
-        m_pendingSample;
+    std::deque<DecodedFrame>
+        m_frameQueue;
 
-    LONGLONG
-        m_pendingTimestamp = 0;
+    mutable std::mutex
+        m_queueMutex;
 
+    std::condition_variable
+        m_queueCondition;
+
+
+    std::thread
+        m_decodeThread;
+
+
+    bool
+        m_seekRequested = false;
+
+    double
+        m_seekTime = 0.0;
 
     bool
         m_endOfStream = false;
-
-    bool
-        m_open = false;
 
 
     std::string

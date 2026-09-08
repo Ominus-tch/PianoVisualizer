@@ -640,6 +640,17 @@ bool PianoVisualizer::InitializeMidiVisualizer()
     m_viewer->setOnStartPlayback(
         [this](const std::string& path)
         {
+            Config::LoadPianoConfigFromPath(
+                m_viewer->recordingDirectory() / "recordingPreset.json",
+                m_polygonPoints,
+                m_horizontalFovDegrees,
+                m_planeWidth,
+                m_planeDepth,
+                m_surfaceXOffset,
+                m_surfaceYOffset,
+                m_surfaceZOffset
+            );
+
             if (m_camera.IsOpen())
                 m_camera.CloseCamera();
 
@@ -933,6 +944,17 @@ void PianoVisualizer::onStopRecording()
     {
         Logger::Log("Failed to stop recording!\n");
     }
+
+    Config::SavePianoConfigToPath(
+        m_viewer->recordingDirectory() / "recordingPreset.json",
+        m_polygonPoints,
+        m_horizontalFovDegrees,
+        m_planeWidth,
+        m_planeDepth,
+        m_surfaceXOffset,
+        m_surfaceYOffset,
+        m_surfaceZOffset
+    );
 }
 
 // =========================================================
@@ -4203,122 +4225,294 @@ void PianoVisualizer::RenderStatistics()
         }
 
         // =====================================================
-        // CAMERA
+        // CAMERA / VIDEO PLAYER
         // =====================================================
 
-        const Camera::CameraStatistics cameraStats =
-            m_camera.GetStatistics();
+        const bool playback =
+            m_viewer &&
+            m_viewer->isPlaybackLoaded();
 
-        double configuredCameraFps = 0.0;
+        ImGui::SeparatorText(
+            playback
+            ? "VIDEO PLAYER"
+            : "CAMERA"
+        );
 
-        if (cameraStats.fpsDenominator != 0)
+        if (playback)
         {
-            configuredCameraFps =
-                static_cast<double>(cameraStats.fpsNumerator) /
-                static_cast<double>(cameraStats.fpsDenominator);
+            const CameraVideoPlayerStatistics videoStats =
+                m_cameraVideoPlayer.GetStatistics();
+
+            const double frameSizeMB =
+                static_cast<double>(videoStats.frameBytes) /
+                (1024.0 * 1024.0);
+
+            if (BeginStatsTable())
+            {
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Status",
+                    "%s",
+                    videoStats.open ? "Open" : "Closed"
+                );
+
+                Stat(
+                    "Thread",
+                    "%s",
+                    videoStats.threadRunning
+                    ? "Running"
+                    : "Stopped"
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Resolution",
+                    "%d x %d",
+                    videoStats.width,
+                    videoStats.height
+                );
+
+                Stat(
+                    "Video FPS",
+                    "%.2f FPS",
+                    videoStats.videoFps
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Decoded FPS",
+                    "%.2f FPS",
+                    videoStats.decodeFps
+                );
+
+                Stat(
+                    "Uploaded FPS",
+                    "%.2f FPS",
+                    videoStats.uploadFps
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Decode",
+                    "%.3f ms",
+                    videoStats.decodeFrameTimeMs
+                );
+
+                Stat(
+                    "D3D11 upload",
+                    "%.3f ms",
+                    videoStats.uploadFrameTimeMs
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Frames decoded",
+                    "%llu",
+                    static_cast<unsigned long long>(
+                        videoStats.framesDecoded
+                        )
+                );
+
+                Stat(
+                    "Frames uploaded",
+                    "%llu",
+                    static_cast<unsigned long long>(
+                        videoStats.framesUploaded
+                        )
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Frames dropped",
+                    "%llu",
+                    static_cast<unsigned long long>(
+                        videoStats.framesDropped
+                        )
+                );
+
+                Stat(
+                    "Queued frames",
+                    "%zu",
+                    videoStats.queuedFrames
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Buffered",
+                    "%.1f ms",
+                    videoStats.bufferedTimeMs
+                );
+
+                Stat(
+                    "Decoder lead",
+                    "%.1f ms",
+                    videoStats.decoderLeadMs
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Current time",
+                    "%.3f s",
+                    videoStats.currentFrameTime
+                );
+
+                Stat(
+                    "Target time",
+                    "%.3f s",
+                    videoStats.targetTime
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Frame size",
+                    "%.2f MB",
+                    frameSizeMB
+                );
+
+                Stat(
+                    "End of stream",
+                    "%s",
+                    videoStats.endOfStream
+                    ? "Yes"
+                    : "No"
+                );
+
+                EndStatsTable();
+            }
+        }
+        else
+        {
+            const Camera::CameraStatistics cameraStats =
+                m_camera.GetStatistics();
+
+            double configuredCameraFps = 0.0;
+
+            if (cameraStats.fpsDenominator != 0)
+            {
+                configuredCameraFps =
+                    static_cast<double>(
+                        cameraStats.fpsNumerator
+                        ) /
+                    static_cast<double>(
+                        cameraStats.fpsDenominator
+                        );
+            }
+
+            const double frameSizeMB =
+                static_cast<double>(cameraStats.frameBytes) /
+                (1024.0 * 1024.0);
+
+            if (BeginStatsTable())
+            {
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Status",
+                    "%s",
+                    cameraStats.open
+                    ? "Open"
+                    : "Closed"
+                );
+
+                Stat(
+                    "Thread",
+                    "%s",
+                    cameraStats.threadRunning
+                    ? "Running"
+                    : "Stopped"
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Resolution",
+                    "%d x %d",
+                    cameraStats.width,
+                    cameraStats.height
+                );
+
+                Stat(
+                    "Configured FPS",
+                    "%.2f FPS",
+                    configuredCameraFps
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Captured FPS",
+                    "%.2f FPS",
+                    cameraStats.captureFps
+                );
+
+                Stat(
+                    "Uploaded FPS",
+                    "%.2f FPS",
+                    cameraStats.uploadFps
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Decode",
+                    "%.3f ms",
+                    cameraStats.captureFrameTimeMs
+                );
+
+                Stat(
+                    "D3D11 upload",
+                    "%.3f ms",
+                    cameraStats.uploadFrameTimeMs
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Frames captured",
+                    "%llu",
+                    static_cast<unsigned long long>(
+                        cameraStats.framesCaptured
+                        )
+                );
+
+                Stat(
+                    "Frames uploaded",
+                    "%llu",
+                    static_cast<unsigned long long>(
+                        cameraStats.framesUploaded
+                        )
+                );
+
+                ImGui::TableNextRow();
+
+                Stat(
+                    "Frames dropped",
+                    "%llu",
+                    static_cast<unsigned long long>(
+                        cameraStats.framesDropped
+                        )
+                );
+
+                Stat(
+                    "Frame size",
+                    "%.2f MB",
+                    frameSizeMB
+                );
+
+                EndStatsTable();
+            }
         }
 
-        const double frameSizeMB =
-            static_cast<double>(cameraStats.frameBytes) /
-            (1024.0 * 1024.0);
-
-        ImGui::SeparatorText("CAMERA");
-
-        if (BeginStatsTable())
-        {
-            ImGui::TableNextRow();
-
-            Stat(
-                "Status",
-                "%s",
-                cameraStats.open ? "Open" : "Closed"
-            );
-
-            Stat(
-                "Thread",
-                "%s",
-                cameraStats.threadRunning ? "Running" : "Stopped"
-            );
-
-            ImGui::TableNextRow();
-
-            Stat(
-                "Resolution",
-                "%d x %d",
-                cameraStats.width,
-                cameraStats.height
-            );
-
-            Stat(
-                "Configured FPS",
-                "%.2f FPS",
-                configuredCameraFps
-            );
-
-            ImGui::TableNextRow();
-
-            Stat(
-                "Captured FPS",
-                "%.2f FPS",
-                cameraStats.captureFps
-            );
-
-            Stat(
-                "Uploaded FPS",
-                "%.2f FPS",
-                cameraStats.uploadFps
-            );
-
-            ImGui::TableNextRow();
-
-            Stat(
-                "Decode",
-                "%.3f ms",
-                cameraStats.captureFrameTimeMs
-            );
-
-            Stat(
-                "D3D11 upload",
-                "%.3f ms",
-                cameraStats.uploadFrameTimeMs
-            );
-
-            ImGui::TableNextRow();
-
-            Stat(
-                "Frames captured",
-                "%llu",
-                static_cast<unsigned long long>(
-                    cameraStats.framesCaptured
-                    )
-            );
-
-            Stat(
-                "Frames uploaded",
-                "%llu",
-                static_cast<unsigned long long>(
-                    cameraStats.framesUploaded
-                    )
-            );
-
-            ImGui::TableNextRow();
-
-            Stat(
-                "Frames dropped",
-                "%llu",
-                static_cast<unsigned long long>(
-                    cameraStats.framesDropped
-                    )
-            );
-
-            Stat(
-                "Frame size",
-                "%.2f MB",
-                frameSizeMB
-            );
-
-            EndStatsTable();
-        }
+        
 
         // =====================================================
         // AUDIO

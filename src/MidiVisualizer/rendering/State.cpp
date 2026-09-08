@@ -614,6 +614,122 @@ bool State::save(const std::string& presetName){
 	return true;
 }
 
+bool State::saveToPath(const std::string& path) {
+	std::string outputPath = path + "/state.ini";
+	std::ofstream configFile = System::openOutputFile(outputPath);
+	if (!configFile.is_open()) {
+		std::cout << "[Config]: Unable to save state to file at path " << outputPath << std::endl;
+		return false;
+	}
+	// Make sure the parameter pointers are up to date.
+	updateOptions();
+
+	configFile << "# MIDIVisualizer configuration file." << std::endl;
+	configFile << "# Version (do not modify)" << std::endl;
+	configFile << MIDIVIZ_VERSION_MAJOR << " " << MIDIVIZ_VERSION_MINOR << std::endl;
+
+	// Write all options.
+	for (const auto& param : _floatInfos) {
+		const auto& infos = _sharedInfos[param.first];
+		if (infos.legacy) {
+			continue;
+		}
+		configFile << std::endl << "# " << infos.description << " (";
+		configFile << infos.values << ")" << std::endl;
+		configFile << param.first << ": " << *param.second << std::endl;
+	}
+
+	for (const auto& param : _intInfos) {
+		const auto& infos = _sharedInfos[param.first];
+		if (infos.legacy) {
+			continue;
+		}
+		configFile << std::endl << "# " << infos.description << " (";
+		configFile << infos.values << ")" << std::endl;
+		configFile << param.first << ": " << *param.second << std::endl;
+	}
+
+	for (const auto& param : _boolInfos) {
+		const auto& infos = _sharedInfos[param.first];
+		if (infos.legacy) {
+			continue;
+		}
+		configFile << std::endl << "# " << infos.description << " (";
+		configFile << infos.values << ")" << std::endl;
+		configFile << param.first << ": " << (*(param.second) ? 1 : 0) << std::endl;
+	}
+
+	for (const auto& param : _vecInfos) {
+		const auto& infos = _sharedInfos[param.first];
+		if (infos.legacy) {
+			continue;
+		}
+		configFile << std::endl << "# " << infos.description << " (";
+		configFile << infos.values << ")" << std::endl;
+		const glm::vec3& val = *param.second;
+		configFile << param.first << ": " << val[0] << " " << val[1] << " " << val[2] << std::endl;
+	}
+
+	for (const auto& param : _pathInfos) {
+		const auto& infos = _sharedInfos[param.first];
+		if (infos.legacy) {
+			continue;
+		}
+
+		// Skip empty path collection.
+		if (param.second->empty()) {
+			continue;
+		}
+
+		configFile << std::endl << "# " << infos.description << " (";
+		configFile << infos.values << ")" << std::endl;
+		configFile << param.first << ":";
+		for (const std::string& str : *(param.second)) {
+			configFile << " " << str;
+		}
+		configFile << std::endl;
+	}
+
+	configFile << std::endl << "# " << _sharedInfos[s_quality_key].description << " (";
+	configFile << _sharedInfos[s_quality_key].values << ")" << std::endl;
+	configFile << s_quality_key << ": " << VisualizerQuality::availables.at(quality).name << std::endl;
+
+	configFile << std::endl << "# " << _sharedInfos[s_layers_key].description << " (";
+	configFile << _sharedInfos[s_layers_key].values << ")" << std::endl;
+	configFile << s_layers_key << ": ";
+	for (int i = 0; i < layersMap.size(); ++i) {
+		configFile << layersMap[i] << (i != (layersMap.size() - 1) ? " " : "");
+	}
+	configFile << std::endl;
+
+	configFile << std::endl << "# " << _sharedInfos[s_sets_separator_control_points_key].description << " (";
+	configFile << _sharedInfos[s_sets_separator_control_points_key].values << ")" << std::endl;
+	configFile << s_sets_separator_control_points_key << ": " << setOptions.toKeysString(" ") << std::endl;
+
+	configFile << std::endl << "# " << _sharedInfos[s_filter_hide_channels_key].description << " (";
+	configFile << _sharedInfos[s_filter_hide_channels_key].values << ")" << std::endl;
+	configFile << s_filter_hide_channels_key << ": " << filter.toHiddenChannelsString() << std::endl;
+
+	configFile << std::endl << "# " << _sharedInfos[s_filter_hide_tracks_key].description << " (";
+	configFile << _sharedInfos[s_filter_hide_tracks_key].values << ")" << std::endl;
+	configFile << s_filter_hide_tracks_key << ": " << filter.toHiddenTracksString() << std::endl;
+
+	// No need to save filter-show-tracks and filter-show-channels, they are complementary of the two above.
+
+	// Save enums manually
+	configFile << std::endl << "# " << _sharedInfos[s_sets_mode_key].description << " (";
+	configFile << _sharedInfos[s_sets_mode_key].values << ")" << std::endl;
+	configFile << s_sets_mode_key << ": " << int(setOptions.mode) << std::endl;
+
+	configFile << std::endl << "# " << _sharedInfos[s_pedal_location_key].description << " (";
+	configFile << _sharedInfos[s_pedal_location_key].values << ")" << std::endl;
+	configFile << s_pedal_location_key << ": " << int(pedals.location) << std::endl;
+
+	configFile.close();
+
+	return true;
+}
+
 bool State::load(const std::string& presetName){
 	std::filesystem::path path = Config::GetVisualizerConfigPath() / (presetName + ".ini");
 
