@@ -640,8 +640,9 @@ bool PianoVisualizer::InitializeMidiVisualizer()
     m_viewer->setOnStartPlayback(
         [this](const std::string& path)
         {
+
             Config::LoadPianoConfigFromPath(
-                m_viewer->recordingDirectory() / "recordingPreset.json",
+                m_viewer->selectedRecordingDirectory() / "recordingPreset.json",
                 m_polygonPoints,
                 m_horizontalFovDegrees,
                 m_planeWidth,
@@ -650,6 +651,8 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 m_surfaceYOffset,
                 m_surfaceZOffset
             );
+
+            m_cameraSelectedIndex = m_camera.GetCameraIndex();
 
             if (m_camera.IsOpen())
                 m_camera.CloseCamera();
@@ -662,6 +665,16 @@ bool PianoVisualizer::InitializeMidiVisualizer()
     m_viewer->setOnStopPlayback(
         [this]()
         {
+            Config::LoadPianoConfig(
+                m_polygonPoints,
+                m_horizontalFovDegrees,
+                m_planeWidth,
+                m_planeDepth,
+                m_surfaceXOffset,
+                m_surfaceYOffset,
+                m_surfaceZOffset
+            );
+
             m_cameraVideoPlayer.Close();
 
             if (!m_camera.IsOpen() && m_cameraSelectedIndex != -1)

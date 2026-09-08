@@ -28,6 +28,11 @@ namespace Config {
 
     inline std::filesystem::path GetConfigDirectory()
     {
+        static std::filesystem::path path;
+
+        if (!path.empty())
+            return path;
+
         PWSTR appDataPath = nullptr;
 
         HRESULT result = SHGetKnownFolderPath(
@@ -56,7 +61,8 @@ namespace Config {
         if (error)
             return {};
 
-        return configDirectory;
+        path = configDirectory;
+        return path;
     }
 
     // ============================================================
@@ -65,16 +71,27 @@ namespace Config {
 
     inline std::filesystem::path GetPianoConfigPath()
     {
+        static std::filesystem::path path;
+
+        if (!path.empty())
+            return path;
+
         const auto directory = GetConfigDirectory();
 
         if (directory.empty())
             return {};
 
-        return directory / "piano_config.json";
+        path = directory / "piano_config.json";
+        return path;
     }
 
     inline std::filesystem::path GetVisualizerConfigPath()
     {
+        static std::filesystem::path path;
+
+        if (!path.empty())
+            return path;
+
         const auto directory = GetConfigDirectory();
 
         if (directory.empty())
@@ -91,31 +108,49 @@ namespace Config {
         if (error)
             return {};
 
-        return presetsDirectory;
+        path = presetsDirectory;
+        return path;
     }
 
     inline std::filesystem::path GetVisualizerConfigurationPath()
     {
+        static std::filesystem::path path;
+
+        if (!path.empty())
+            return path;
+
         const auto directory = GetConfigDirectory();
 
         if (directory.empty())
             return {};
 
-        return directory / "visualizer_configuration.settings";
+        path = directory / "visualizer_configuration.settings";
+        return path;
     }
 
     inline std::filesystem::path GetVSTConfigPath()
     {
+        static std::filesystem::path path;
+
+        if (!path.empty())
+            return path;
+
         const auto directory = GetConfigDirectory();
 
         if (directory.empty())
             return {};
 
-        return directory / "vst_config.json";
+        path = directory / "vst_config.json";
+        return path;
     }
 
     inline std::filesystem::path GetVSTStateDirectory()
     {
+        static std::filesystem::path path;
+
+        if (!path.empty())
+            return path;
+
         const auto directory =
             GetConfigDirectory();
 
@@ -135,7 +170,8 @@ namespace Config {
         if (error)
             return {};
 
-        return stateDirectory;
+        path = stateDirectory;
+        return path;
     }
 
     inline std::filesystem::path GetVSTStatePath(
@@ -573,6 +609,8 @@ namespace Config {
         float& surfaceZOffset
     )
     {
+        Logger::Log("Loading piano config from %s\n", configPath.string().c_str());
+
         if (configPath.empty())
             return false;
 

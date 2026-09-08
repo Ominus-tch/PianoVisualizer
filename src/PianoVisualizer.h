@@ -326,6 +326,17 @@ private:
     bool m_showCameraError = false;
     std::string m_cameraErrorMessage;
 
+    bool m_showCameraSettings = false;
+    bool m_showAudioSettings = false;
+
+    int m_cameraSelectedIndex = -1;
+
+    int m_cameraSettingsWidth = 0;
+    int m_cameraSettingsHeight = 0;
+
+    UINT32 m_cameraSettingsFPSNumerator = 0;
+    UINT32 m_cameraSettingsFPSDenominator = 1;
+
     WindowCapture m_windowCapture;
 
     VirtualWindowRenderer m_virtualWindowRenderer;
@@ -454,17 +465,6 @@ private:
     Statistics m_statistics;
 
     bool m_showStatistics = false;
-
-    bool m_showCameraSettings = false;
-    bool m_showAudioSettings = false;
-
-    int m_cameraSelectedIndex = -1;
-
-    int m_cameraSettingsWidth = 0;
-    int m_cameraSettingsHeight = 0;
-
-    UINT32 m_cameraSettingsFPSNumerator = 0;
-    UINT32 m_cameraSettingsFPSDenominator = 1;
 
     // =========================================================
     // Application shutdown

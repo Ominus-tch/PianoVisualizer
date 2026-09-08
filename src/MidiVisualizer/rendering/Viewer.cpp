@@ -1206,6 +1206,7 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 			ImGuiSameLine();
 			ImGui::TextDisabled("(press D to hide)");
 			ImGui::Text("%.1f FPS / %.1f ms", ImGui::GetIO().Framerate, ImGui::GetIO().DeltaTime * 1000.0f);
+			ImGui::Text("Timer: %.2f s", _timer);
 			ImGui::Text("Render size: %dx%d, screen size: %dx%d", _renderFramebuffer->width(), _renderFramebuffer->height(), _camera.screenSize()[0], _camera.screenSize()[1]);
 			if (ImGui::Button("Print MIDI content to console")) {
 				_scene->print();
@@ -1734,27 +1735,22 @@ void Viewer::showBottomButtons()
 {
 	const fs::path presetDirectory = Config::GetVisualizerConfigPath();
 
-	std::error_code error;
-	fs::create_directories(presetDirectory, error);
-
 	// Build list of available presets.
+	std::error_code error;
 	std::vector<std::string> presets;
 
-	if (!error)
+	for (const auto& entry : fs::directory_iterator(presetDirectory, error))
 	{
-		for (const auto& entry : fs::directory_iterator(presetDirectory, error))
-		{
-			if (error)
-				break;
+		if (error)
+			break;
 
-			if (!entry.is_regular_file())
-				continue;
+		if (!entry.is_regular_file())
+			continue;
 
-			if (entry.path().extension() != ".ini")
-				continue;
+		if (entry.path().extension() != ".ini")
+			continue;
 
-			presets.push_back(entry.path().stem().string());
-		}
+		presets.push_back(entry.path().stem().string());
 	}
 
 	std::sort(presets.begin(), presets.end());
@@ -4028,14 +4024,16 @@ void Viewer::drawPlaybackSettings()
 						"cameraRecording.mp4"
 						).string();
 
+				std::filesystem::path _temp = _playbackRecordingDirectory;
+
+				_playbackRecordingDirectory =
+					recording;
+
 				if (
 					_onStartPlayback &&
 					_onStartPlayback(videoPath)
 					)
 				{
-					_playbackRecordingDirectory =
-						recording;
-
 					_playbackVideoPath =
 						videoPath;
 
@@ -4051,6 +4049,11 @@ void Viewer::drawPlaybackSettings()
 
 					_shouldPlay = false;
 
+
+					_timerStart = getCurrentTime();
+					_timer = 0.f;
+
+
 					Logger::Log(
 						"[Playback] Selected recording: %s\n",
 						name.c_str()
@@ -4058,6 +4061,7 @@ void Viewer::drawPlaybackSettings()
 				}
 				else
 				{
+					_playbackRecordingDirectory = _temp;
 					Logger::Log(
 						"[Playback] Failed to open video: %s\n",
 						videoPath.c_str()

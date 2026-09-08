@@ -100,6 +100,11 @@ public:
 	{
 		return _recordingDirectory;
 	}
+
+	const std::filesystem::path& selectedRecordingDirectory() const
+	{
+		return _playbackRecordingDirectory;
+	}
 	
 	/// Draw function
 	SystemAction draw(const float currentTime);
