@@ -5,7 +5,8 @@
 
 #include "Audio/vst/VSTAudio.h"
 
-#include <psapi.h>
+#include <Psapi.h>
+
 #pragma comment(lib, "Psapi.lib")
 
 static BOOL CALLBACK EnumWindowsProc(
@@ -288,7 +289,7 @@ bool PianoVisualizer::Initialize(
     // ---------------------------------------------------------
 
     Logger::Log(
-        "Piano Visualizer initialized!\n"
+        "[Piano Visualizer] Initialized!\n"
     );
 
     return true;
@@ -304,7 +305,7 @@ bool PianoVisualizer::InitializeRenderTarget()
     if (!m_device)
     {
         Logger::Log(
-            "Cannot initialize render target: device is null!\n"
+            "[Error] Cannot initialize render target: device is null!\n"
         );
 
         return false;
@@ -313,7 +314,7 @@ bool PianoVisualizer::InitializeRenderTarget()
     if (!m_context)
     {
         Logger::Log(
-            "Cannot initialize render target: context is null!\n"
+            "[Error] Cannot initialize render target: context is null!\n"
         );
 
         return false;
@@ -322,7 +323,7 @@ bool PianoVisualizer::InitializeRenderTarget()
     if (!m_swapChain)
     {
         Logger::Log(
-            "Cannot initialize render target: swap chain is null!\n"
+            "[Error] Cannot initialize render target: swap chain is null!\n"
         );
 
         return false;
@@ -331,7 +332,7 @@ bool PianoVisualizer::InitializeRenderTarget()
     if (!m_renderTargetView)
     {
         Logger::Log(
-            "Cannot initialize render target: RTV is null!\n"
+            "[Error] Cannot initialize render target: RTV is null!\n"
         );
 
         return false;
@@ -363,7 +364,7 @@ bool PianoVisualizer::InitializeCameraOutput()
     if (!m_device)
     {
         Logger::Log(
-            "Cannot initialize camera output: device is null!\n"
+            "[Error] Cannot initialize camera output: device is null!\n"
         );
 
         return false;
@@ -373,7 +374,7 @@ bool PianoVisualizer::InitializeCameraOutput()
         m_statistics.renderHeight == 0)
     {
         Logger::Log(
-            "Cannot initialize camera output: render size is invalid!\n"
+            "[Error] Cannot initialize camera output: render size is invalid!\n"
         );
 
         return false;
@@ -412,7 +413,7 @@ bool PianoVisualizer::InitializeCameraOutput()
     if (FAILED(hr))
     {
         Logger::Log(
-            "Failed to create camera output texture! HRESULT: 0x%08X\n",
+            "[Error] Failed to create camera output texture! HRESULT: 0x%08X\n",
             static_cast<unsigned int>(hr)
         );
 
@@ -429,7 +430,7 @@ bool PianoVisualizer::InitializeCameraOutput()
     if (FAILED(hr))
     {
         Logger::Log(
-            "Failed to create camera output render target view! HRESULT: 0x%08X\n",
+            "[Error] Failed to create camera output render target view! HRESULT: 0x%08X\n",
             static_cast<unsigned int>(hr)
         );
 
@@ -448,7 +449,7 @@ bool PianoVisualizer::InitializeCameraOutput()
     if (FAILED(hr))
     {
         Logger::Log(
-            "Failed to create camera output shader resource view! HRESULT: 0x%08X\n",
+            "[Error] Failed to create camera output shader resource view! HRESULT: 0x%08X\n",
             static_cast<unsigned int>(hr)
         );
 
@@ -459,7 +460,7 @@ bool PianoVisualizer::InitializeCameraOutput()
     }
 
     Logger::Log(
-        "Created %ux%u camera output texture.\n",
+        "[Camera] Created %ux%u camera output texture.\n",
         m_statistics.renderWidth,
         m_statistics.renderHeight
     );
@@ -475,7 +476,7 @@ bool PianoVisualizer::InitializeCameraOutput()
 bool PianoVisualizer::InitializeAudio()
 {
     Logger::Log(
-        "Initializing Audio Engine...\n\n"
+        "[Piano Visualizer] Initializing Audio Engine...\n\n"
     );
 
     m_audioEngine =
@@ -484,7 +485,7 @@ bool PianoVisualizer::InitializeAudio()
     if (!m_audioEngine->initialize())
     {
         Logger::Log(
-            "Failed to initialize Audio Engine!\n"
+            "[Error] Failed to initialize Audio Engine!\n"
         );
 
         delete m_audioEngine;
@@ -521,7 +522,7 @@ bool PianoVisualizer::InitializeAudio()
                 if (!m_audioEngine->start())
                 {
                     Logger::Log(
-                        "Failed to start Audio Engine!\n"
+                        "[Error] Failed to start Audio Engine!\n"
                     );
                 }
 
@@ -530,7 +531,7 @@ bool PianoVisualizer::InitializeAudio()
             else
             {
                 Logger::Log(
-                    "Failed to load plugin %s\n",
+                    "[Error] Failed to load plugin %s\n",
                     previousVstPath.string().c_str()
                 );
             }
@@ -559,6 +560,24 @@ bool PianoVisualizer::InitializeCamera()
         m_cameraErrorMessage = cameraError;
 
         m_camera.ClearLastError();
+    }
+
+    if (!m_cameraVideoPlayer.Initialize(
+        m_device,
+        m_context
+    ))
+    {
+        Logger::Log(
+            "[Playback] Failed to initialize video player.\n"
+        );
+
+        m_camera.Shutdown();
+
+        return false;
+    }
+    else
+    {
+        Logger::Log("[CameraVideoPlayer] Initialized.\n");
     }
 
     return true;
@@ -615,6 +634,27 @@ bool PianoVisualizer::InitializeMidiVisualizer()
         [this]()
         {
             onStopRecording();
+        }
+    );
+
+    m_viewer->setOnStartPlayback(
+        [this](const std::string& path)
+        {
+            if (m_camera.IsOpen())
+                m_camera.CloseCamera();
+
+            return m_cameraVideoPlayer.Open(path);
+        }
+    );
+
+
+    m_viewer->setOnStopPlayback(
+        [this]()
+        {
+            m_cameraVideoPlayer.Close();
+
+            if (!m_camera.IsOpen() && m_cameraSelectedIndex != -1)
+                m_camera.OpenCamera(m_cameraSelectedIndex);
         }
     );
 
@@ -741,7 +781,19 @@ void PianoVisualizer::Update()
     // Camera
     // ---------------------------------------------------------
 
-    m_camera.Update();
+    if (
+        m_viewer &&
+        m_viewer->isPlaybackLoaded()
+        )
+    {
+        m_cameraVideoPlayer.Update(
+            m_viewer->getTime()
+        );
+    }
+    else
+    {
+        m_camera.Update();
+    }
 
     // ---------------------------------------------------------
     // MIDI Visualizer
@@ -753,14 +805,11 @@ void PianoVisualizer::Update()
             gui::showSettings
         );
 
-        auto liveScene =
-            std::dynamic_pointer_cast<MIDISceneLive>(
-                m_viewer->scene()
-            );
+        auto scene = m_viewer->scene();
 
-        if (liveScene)
+        if (scene)
         {
-            liveScene->setAudioEngine(
+            scene->setAudioEngine(
                 m_audioEngine
             );
         }
@@ -1207,6 +1256,15 @@ void PianoVisualizer::Render()
         m_camera.ClearLastError();
     }
 
+    RenderCameraSettingsPanel();
+    RenderCameraErrorDialog();
+
+    // ---------------------------------------------------------
+    // Audio
+    // ---------------------------------------------------------
+
+    RenderAudioPanel();
+
     // ---------------------------------------------------------
     // Settings
     // ---------------------------------------------------------
@@ -1214,22 +1272,10 @@ void PianoVisualizer::Render()
     RenderSettings();
 
     // ---------------------------------------------------------
-    // Other Panels
+    // Statistics
     // ---------------------------------------------------------
 
     RenderStatistics();
-
-    RenderCameraSettingsPanel();
-    RenderCameraErrorDialog();
-
-    RenderAudioPanel();
-
-    // ---------------------------------------------------------
-    // VST drag/drop
-    // ---------------------------------------------------------
-
-    // HandleVSTDrop() already draws the drop overlay in
-    // Update(), so there is nothing additional required here.
 }
 
 
@@ -1245,11 +1291,51 @@ void PianoVisualizer::RenderCameraOutput()
     if (!m_cameraOutputRTV)
         return;
 
-    if (!m_camera.IsOpen())
-        return;
+    const bool playback =
+        m_viewer &&
+        m_viewer->isPlaybackLoaded();
 
-    ID3D11ShaderResourceView* cameraTexture =
-        m_camera.GetTexture();
+    ID3D11ShaderResourceView* cameraTexture = nullptr;
+
+    float cameraWidth = 0.0f;
+    float cameraHeight = 0.0f;
+
+    if (playback)
+    {
+        if (!m_cameraVideoPlayer.IsOpen())
+            return;
+
+        cameraTexture =
+            m_cameraVideoPlayer.GetTexture();
+
+        cameraWidth =
+            static_cast<float>(
+                m_cameraVideoPlayer.GetWidth()
+                );
+
+        cameraHeight =
+            static_cast<float>(
+                m_cameraVideoPlayer.GetHeight()
+                );
+    }
+    else
+    {
+        if (!m_camera.IsOpen())
+            return;
+
+        cameraTexture =
+            m_camera.GetTexture();
+
+        cameraWidth =
+            static_cast<float>(
+                m_camera.GetWidth()
+                );
+
+        cameraHeight =
+            static_cast<float>(
+                m_camera.GetHeight()
+                );
+    }
 
     if (!cameraTexture)
         return;
@@ -1264,20 +1350,12 @@ void PianoVisualizer::RenderCameraOutput()
             m_statistics.renderHeight
             );
 
-    const float cameraWidth =
-        static_cast<float>(
-            m_camera.GetWidth()
-            );
-
-    const float cameraHeight =
-        static_cast<float>(
-            m_camera.GetHeight()
-            );
-
-    if (outputWidth <= 0.0f ||
+    if (
+        outputWidth <= 0.0f ||
         outputHeight <= 0.0f ||
         cameraWidth <= 0.0f ||
-        cameraHeight <= 0.0f)
+        cameraHeight <= 0.0f
+        )
     {
         return;
     }
@@ -1306,13 +1384,17 @@ void PianoVisualizer::RenderCameraOutput()
     const float cameraAspect =
         cameraWidth / cameraHeight;
 
-    float drawWidth = outputWidth;
+    float drawWidth =
+        outputWidth;
+
     float drawHeight =
         drawWidth / cameraAspect;
 
     if (drawHeight > outputHeight)
     {
-        drawHeight = outputHeight;
+        drawHeight =
+            outputHeight;
+
         drawWidth =
             drawHeight * cameraAspect;
     }
@@ -1325,8 +1407,12 @@ void PianoVisualizer::RenderCameraOutput()
     cameraViewport.TopLeftY =
         (outputHeight - drawHeight) * 0.5f;
 
-    cameraViewport.Width = drawWidth;
-    cameraViewport.Height = drawHeight;
+    cameraViewport.Width =
+        drawWidth;
+
+    cameraViewport.Height =
+        drawHeight;
+
     cameraViewport.MinDepth = 0.0f;
     cameraViewport.MaxDepth = 1.0f;
 
@@ -1341,7 +1427,6 @@ void PianoVisualizer::RenderCameraOutput()
         0.0f
     );
 
-    // Unbind the camera SRV before the next rendering pass.
     ID3D11ShaderResourceView* nullSRV =
         nullptr;
 
@@ -1424,7 +1509,7 @@ void PianoVisualizer::RenderVisualizer()
 
 void PianoVisualizer::RenderCamera()
 {
-    if (!m_camera.IsOpen())
+    if (!m_camera.IsOpen() && !m_cameraVideoPlayer.IsOpen())
         return;
 
     ImGuiViewport* viewport =
@@ -1608,15 +1693,50 @@ void PianoVisualizer::RenderCameraFeed()
     ImVec2 available =
         ImGui::GetContentRegionAvail();
 
-    float cameraWidth =
-        static_cast<float>(
-            m_camera.GetWidth()
-            );
+    ID3D11ShaderResourceView* texture = nullptr;
 
-    float cameraHeight =
-        static_cast<float>(
-            m_camera.GetHeight()
-            );
+    float cameraWidth = 0.0f;
+    float cameraHeight = 0.0f;
+
+    // ---------------------------------------------------------
+    // Draw camera output
+    // ---------------------------------------------------------
+
+    if (
+        m_viewer &&
+        m_viewer->isPlaybackLoaded()
+        )
+    {
+        texture =
+            m_cameraVideoPlayer.GetTexture();
+
+        cameraWidth =
+            static_cast<float>(
+                m_cameraVideoPlayer.GetWidth()
+                );
+
+        cameraHeight =
+            static_cast<float>(
+                m_cameraVideoPlayer.GetHeight()
+                );
+
+        //Logger::Log("%fx%f\n", cameraWidth, cameraHeight);
+    }
+    else
+    {
+        texture =
+            m_cameraOutputSRV.Get();
+
+        cameraWidth =
+            static_cast<float>(
+                m_camera.GetWidth()
+                );
+
+        cameraHeight =
+            static_cast<float>(
+                m_camera.GetHeight()
+                );
+    }
 
     if (
         cameraWidth <= 0.0f ||
@@ -1647,12 +1767,7 @@ void PianoVisualizer::RenderCameraFeed()
             height *
             aspect;
     }
-
-    // ---------------------------------------------------------
-    // Draw camera output
-    // ---------------------------------------------------------
-
-    ID3D11ShaderResourceView* texture = m_cameraOutputSRV.Get();
+    //);
 
     ImGui::Image(
         (ImTextureID)texture,
@@ -1688,6 +1803,27 @@ void PianoVisualizer::RenderCameraFeed()
         };
 
     // ---------------------------------------------------------
+    // Screen -> camera conversion
+    // ---------------------------------------------------------
+
+    auto ScreenToCamera =
+        [&](float screenX, float screenY)
+        {
+            float cameraX =
+                (screenX - imagePos.x) *
+                (cameraWidth / width);
+
+            float cameraY =
+                (screenY - imagePos.y) *
+                (cameraHeight / height);
+
+            return ImVec2(
+                cameraX,
+                cameraY
+            );
+        };
+
+    // ---------------------------------------------------------
     // Piano overlay
     // ---------------------------------------------------------
 
@@ -1702,7 +1838,8 @@ void PianoVisualizer::RenderCameraFeed()
 
     DrawSelectedPolygon(
         drawList,
-        CameraToScreen
+        CameraToScreen,
+        ScreenToCamera
     );
 
     // ---------------------------------------------------------
@@ -2197,15 +2334,40 @@ void PianoVisualizer::RenderPianoOverlay()
     ImVec2 P4 =
         m_polygonPoints[3];
 
-    float cameraWidth =
-        static_cast<float>(
-            m_camera.GetWidth()
-            );
+    float cameraWidth = 0.0f;
+    float cameraHeight = 0.0f;
 
-    float cameraHeight =
-        static_cast<float>(
-            m_camera.GetHeight()
-            );
+    // ---------------------------------------------------------
+    // Draw camera output
+    // ---------------------------------------------------------
+
+    if (
+        m_viewer &&
+        m_viewer->isPlaybackLoaded()
+        )
+    {
+        cameraWidth =
+            static_cast<float>(
+                m_cameraVideoPlayer.GetWidth()
+                );
+
+        cameraHeight =
+            static_cast<float>(
+                m_cameraVideoPlayer.GetHeight()
+                );
+    }
+    else
+    {
+        cameraWidth =
+            static_cast<float>(
+                m_camera.GetWidth()
+                );
+
+        cameraHeight =
+            static_cast<float>(
+                m_camera.GetHeight()
+                );
+    }
 
     PianoCameraPose pose =
         CalculatePianoCameraPose(
@@ -2435,7 +2597,8 @@ void PianoVisualizer::RenderPianoOverlay()
 
 void PianoVisualizer::DrawSelectedPolygon(
     ImDrawList* drawList,
-    const std::function<ImVec2(float, float)>& cameraToScreen
+    const std::function<ImVec2(float, float)>& cameraToScreen,
+    const std::function<ImVec2(float, float)>& screenToCamera
 )
 {
     if (!gui::showDebugLines && !gui::choosingPoints)
@@ -2458,6 +2621,87 @@ void PianoVisualizer::DrawSelectedPolygon(
                 m_polygonPoints[i].x,
                 m_polygonPoints[i].y
             );
+    }
+
+    // ---------------------------------------------------------
+    // Handle point interaction
+    // ---------------------------------------------------------
+
+    ImGuiIO& io = ImGui::GetIO();
+
+    static int draggingPoint = -1;
+
+    for (
+        size_t i = 0;
+        i < m_polygonPoints.size() &&
+        i < 4;
+        ++i
+        )
+    {
+        const float dx =
+            io.MousePos.x - points[i].x;
+
+        const float dy =
+            io.MousePos.y - points[i].y;
+
+        const float distanceSquared =
+            dx * dx +
+            dy * dy;
+
+        const float hoverRadius = 10.0f;
+
+        const bool hovered =
+            distanceSquared <=
+            hoverRadius * hoverRadius;
+
+        // -----------------------------------------------------
+        // Start dragging
+        // -----------------------------------------------------
+
+        if (
+            hovered &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left)
+            )
+        {
+            draggingPoint =
+                static_cast<int>(i);
+        }
+
+        // -----------------------------------------------------
+        // Move point while dragging
+        // -----------------------------------------------------
+
+        if (
+            draggingPoint ==
+            static_cast<int>(i)
+            )
+        {
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+            {
+                ImVec2 cameraPosition =
+                    screenToCamera(
+                        io.MousePos.x,
+                        io.MousePos.y
+                    );
+
+                m_polygonPoints[i].x =
+                    cameraPosition.x;
+
+                m_polygonPoints[i].y =
+                    cameraPosition.y;
+
+                // Recalculate screen position
+                points[i] =
+                    cameraToScreen(
+                        m_polygonPoints[i].x,
+                        m_polygonPoints[i].y
+                    );
+            }
+            else
+            {
+                draggingPoint = -1;
+            }
+        }
     }
 
     // ---------------------------------------------------------
@@ -2517,15 +2761,57 @@ void PianoVisualizer::DrawSelectedPolygon(
         ++i
         )
     {
+        const float dx =
+            io.MousePos.x - points[i].x;
+
+        const float dy =
+            io.MousePos.y - points[i].y;
+
+        const bool hovered =
+            dx * dx + dy * dy <=
+            10.0f * 10.0f;
+
+        const bool dragging =
+            draggingPoint ==
+            static_cast<int>(i);
+
+        ImU32 pointColor;
+
+        if (dragging)
+        {
+            pointColor =
+                IM_COL32(
+                    100,
+                    200,
+                    255,
+                    255
+                );
+        }
+        else if (hovered)
+        {
+            pointColor =
+                IM_COL32(
+                    200,
+                    230,
+                    255,
+                    255
+                );
+        }
+        else
+        {
+            pointColor =
+                IM_COL32(
+                    255,
+                    255,
+                    255,
+                    255
+                );
+        }
+
         drawList->AddCircleFilled(
             points[i],
             7.0f,
-            IM_COL32(
-                255,
-                255,
-                255,
-                255
-            )
+            pointColor
         );
 
         drawList->AddCircle(
@@ -3758,7 +4044,7 @@ void PianoVisualizer::UpdateStatistics()
         m_camera.GetHeight();
 
     // ---------------------------------------------------------
-    // Process memory
+    // Process stats
     // ---------------------------------------------------------
 
     PROCESS_MEMORY_COUNTERS pmc{};
@@ -3778,6 +4064,7 @@ void PianoVisualizer::UpdateStatistics()
                 (1024ull * 1024ull)
                 );
     }
+
 
     //PROCESS_MEMORY_COUNTERS_EX pmc{};
     //pmc.cb = sizeof(pmc);
@@ -4269,6 +4556,12 @@ void PianoVisualizer::RenderStatistics()
         {
             ImGui::TableNextRow();
 
+            //Stat(
+            //    "CPU Usage",
+            //    "%.2f%%",
+            //    m_statistics.processCpuPercent
+            //);
+
             Stat(
                 "Process memory",
                 "%llu MB",
@@ -4277,23 +4570,7 @@ void PianoVisualizer::RenderStatistics()
                     )
             );
 
-            Stat(
-                "ImGui FPS",
-                "%.1f",
-                ImGui::GetIO().Framerate
-            );
-
-            ImGui::TableNextRow();
-
-            Stat(
-                "ImGui frame time",
-                "%.3f ms",
-                1000.0f /
-                std::max(
-                    ImGui::GetIO().Framerate,
-                    0.001f
-                )
-            );
+        
 
             EndStatsTable();
         }
@@ -4364,6 +4641,8 @@ void PianoVisualizer::RenderCameraSettingsPanel()
                             m_cameraSettingsHeight = 0;
                             m_cameraSettingsFPSNumerator = 0;
                             m_cameraSettingsFPSDenominator = 1;
+
+                            m_cameraSelectedIndex = i;
                         }
                         else
                         {
@@ -6082,6 +6361,8 @@ void PianoVisualizer::ShutdownAudio()
 
 void PianoVisualizer::ShutdownCamera()
 {
+    m_cameraVideoPlayer.Shutdown();
+
     m_camera.Shutdown();
 }
 

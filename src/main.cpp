@@ -641,12 +641,6 @@ INT APIENTRY WinMain(
         return 1;
     }
 
-
-    Logger::Log(
-        "PianoVisualizer initialized!\n"
-    );
-
-
     // =========================================================
     // Console shutdown handler
     // =========================================================
@@ -662,7 +656,7 @@ INT APIENTRY WinMain(
     // =========================================================
 
     Logger::Log(
-        "Loop starting...\n"
+        "[main] Loop starting...\n"
     );
 
 

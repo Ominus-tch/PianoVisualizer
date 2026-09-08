@@ -6,13 +6,16 @@
 #include "../helpers/System.h"
 #include "../rendering/State.h"
 
+#include "../../../util/Logger.h"
+
 MIDIFile::MIDIFile(){};
 
 MIDIFile::MIDIFile(const std::string & filePath){
 	std::ifstream input = System::openInputFile(filePath, true);
 
+	Logger::Log("[MIDI File]: Loading MIDI file %s\n", filePath.c_str());
 	if(!input.is_open()) {
-		std::cerr << "[ERROR]: Couldn't find file at path " << filePath << std::endl;
+		Logger::Log("[Error]: Couldn't find file at path %s\n", filePath.c_str());
 		throw "BadInput";
 	}
 	
@@ -24,7 +27,7 @@ MIDIFile::MIDIFile(const std::string & filePath){
 
 	// Check midi header
 	if(buffer.size() < 5 || !(buffer[0] == 'M' && buffer[1] == 'T' && buffer[2] == 'h' && buffer[3] == 'd') || read32(buffer, 4) != 6){
-		std::cerr << "[ERROR]: " << filePath << " is not a midi file." << std::endl;
+		Logger::Log("[Error]: %s is not a midi file.\n", filePath.c_str());
 		throw "BadInput";
 	}
 	
@@ -33,22 +36,22 @@ MIDIFile::MIDIFile(const std::string & filePath){
 
 	const std::vector<std::string> formatNames = { "Single track (0)", "Tempo track (1)", "Multiple songs (2)"};
 
-	std::cout << "[INFO]: " << tracksCount << " tracks ";
-	std::cout << "(" << formatNames[int(_format)] << ")." << std::endl;
+	Logger::Log("[MIDI File]: %d tracks ", tracksCount);
+	Logger::Log("(%s).\n", formatNames[int(_format)].c_str());
 
 	if(_format == multipleSongs){
-		std::cerr << "[ERROR]: " << "Unsupported MIDI file (type 2)." << std::endl;
+		Logger::Log("[Error]: %s is not a supported MIDI file (type 2).\n", filePath.c_str());
 		throw "Unsupported MIDI type (2)";
 	}
 
 	if(tracksCount == 0){
-		std::cerr << "[ERROR]: " << "No tracks." << std::endl;
+		Logger::Log("[Error]: %s has no tracks.\n", filePath.c_str());
 		throw "BadInput";
 	}
 
 	bool shouldMerge = false;
 	if(_format == singleTrack && tracksCount > 1){
-		std::cerr << "[WARNING]: " << "Too many tracks, will merge all tracks." << std::endl;
+		Logger::Log("[Warning]: %s has too many tracks, will merge all tracks.\n", filePath.c_str());
 		shouldMerge = true;
 	}
 
@@ -63,14 +66,14 @@ MIDIFile::MIDIFile(const std::string & filePath){
 		uint16_t fpsIndicator = ((division >> 8) & 0b1100000) >> 5;
 		fpsIndicator = (std::min)(fpsIndicator, uint16_t(int(fpsValues.size()) - 1));
 		_framesPerSeconds = fpsValues[fpsIndicator];
-		std::cout << "[INFO]: " << _unitsPerFrame << " units per frame, " << _framesPerSeconds << " frames per second." << std::endl;
-		std::cout << "[WARN]: " << " Division mode is not well supported." << std::endl;
+		Logger::Log("[MIDI File]: %d units per frame, %f frames per second.\n", _unitsPerFrame, _framesPerSeconds);
+		Logger::Log("[MIDI File]: Division mode is not well supported.\n");
 		_unitsPerQuarterNote = 1;
 		
 	} else {
 		// In that case the 15th bit is 0, nothing to do.
 		_unitsPerQuarterNote = division;
-		std::cout << "[INFO]: " << _unitsPerQuarterNote << " units per quarter note ." << std::endl;
+		Logger::Log("[MIDI File]: %d units per quarter note.\n", _unitsPerQuarterNote);
 		_unitsPerFrame = 0;
 		_framesPerSeconds = 0.0f;
 	}
@@ -78,13 +81,14 @@ MIDIFile::MIDIFile(const std::string & filePath){
 	// Parse tracks.
 	size_t pos = 14;
 	for(size_t trackId = 0; trackId < tracksCount; ++trackId){
-		std::cout << "[INFO]: " << "Reading track " << trackId << "." << std::endl;
+		Logger::Log("[MIDI File]: Reading track %d.\n", trackId);
 		_tracks.emplace_back();
 		pos = _tracks.back().readTrack(buffer, pos);
 	}
 
 	// Extract tempos and the signature.
 	populateTemposAndSignature();
+	populatePlaybackEvents();
 
 	// Update seconds per measure.
 	_secondsPerMeasure = computeMeasureDuration(_tempos[0].tempo, _signature);
@@ -122,7 +126,7 @@ MIDIFile::MIDIFile(const std::string & filePath){
 
 void MIDIFile::print() const {
 	for(size_t tid = 0; tid < _tracks.size(); ++tid){
-		std::cout << "[INFO]: ---- Track " << tid << std::endl;
+		Logger::Log("[MIDI File]: ---- Track %d\n", tid);
 		_tracks[tid].print();
 	}
 }
@@ -162,6 +166,93 @@ void MIDIFile::populateTemposAndSignature(){
 		currentTime += computeUnitsDuration(_tempos[tid-1].tempo, delta, _unitsPerQuarterNote);
 		_tempos[tid].timestamp = currentTime;
 	}
+}
+
+void MIDIFile::populatePlaybackEvents()
+{
+	_playbackEvents.clear();
+
+	for (const auto& track : _tracks)
+	{
+		size_t timeInUnits = 0;
+
+		for (const auto& event : track.events())
+		{
+			timeInUnits += event.delta;
+
+			if (event.category != EventCategory::MIDI)
+			{
+				continue;
+			}
+
+			if (
+				event.type != noteOn &&
+				event.type != noteOff &&
+				event.type != controllerChange
+				)
+			{
+				continue;
+			}
+
+			double time = 0.0;
+
+			for (size_t tid = 0; tid < _tempos.size(); ++tid)
+			{
+				if (
+					tid == _tempos.size() - 1 ||
+					_tempos[tid + 1].start > timeInUnits
+					)
+				{
+					time =
+						_tempos[tid].timestamp +
+						computeUnitsDuration(
+							_tempos[tid].tempo,
+							timeInUnits - _tempos[tid].start,
+							_unitsPerQuarterNote
+						);
+
+					break;
+				}
+			}
+
+			time /= 1000000.0;
+
+			MIDIPlaybackEvent playbackEvent;
+
+			playbackEvent.time = time;
+			playbackEvent.type =
+				static_cast<MIDIEventType>(event.type);
+
+			playbackEvent.channel =
+				event.data.size() > 0
+				? event.data[0]
+				: 0;
+
+			playbackEvent.data1 =
+				event.data.size() > 1
+				? event.data[1]
+				: 0;
+
+			playbackEvent.data2 =
+				event.data.size() > 2
+				? event.data[2]
+				: 0;
+
+			_playbackEvents.push_back(
+				playbackEvent
+			);
+		}
+	}
+
+	std::sort(
+		_playbackEvents.begin(),
+		_playbackEvents.end(),
+		[](const MIDIPlaybackEvent& a,
+			const MIDIPlaybackEvent& b)
+		{
+			return a.time < b.time;
+		}
+	);
 }
 
 void MIDIFile::mergeTracks(){

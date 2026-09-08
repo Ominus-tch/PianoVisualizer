@@ -18,8 +18,6 @@
 #include <vector>
 #include <functional>
 
-#include "../../../Audio/AudioEngine.h"
-
 #define VIRTUAL_DEVICE_NAME "VIRTUAL"
 
 class MIDISceneLive : public MIDIScene {
@@ -69,11 +67,6 @@ public:
 	static const int availablePortsCount()
 	{
 		return shared().get_port_count();
-	}
-
-	void setAudioEngine(audio::AudioEngine* engine)
-	{
-		_audioEngine = engine;
 	}
 
 	using DeviceCallback =
@@ -149,8 +142,6 @@ private:
 
 	static std::vector<std::string> _availablePorts;
 	static int _refreshIndex;
-
-	audio::AudioEngine* _audioEngine = nullptr;
 
 	static DeviceCallback _deviceCallback;
 	static std::mutex _callbackMutex;

@@ -6,6 +6,8 @@
 
 #include <fstream>
 
+#include "../../../Audio/AudioEngine.h"
+
 class MIDIScene {
 
 public:
@@ -74,6 +76,11 @@ public:
 
 	void setUpToDate() { _dirtyNotes = false; _dirtyNotesRange = {0, 0}; }
 
+	void setAudioEngine(audio::AudioEngine* engine)
+	{
+		_audioEngine = engine;
+	}
+
 protected:
 
 	std::vector<GPUNote> _notes;
@@ -84,6 +91,6 @@ protected:
 
 	glm::ivec2 _dirtyNotesRange{0,0};
 	bool _dirtyNotes = true;
-	// Active keys, particles and pedals are always dirty.
 
+	audio::AudioEngine* _audioEngine = nullptr;
 };

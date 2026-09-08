@@ -10,6 +10,8 @@
 #include <functional>
 #include <optional>
 
+#include "../helpers/System.h"
+
 #include "Framebuffer.h"
 #include "camera/MidiCamera.h"
 #include "scene/MIDIScene.h"
@@ -61,12 +63,23 @@ public:
 
 	using RecordingCallback = std::function<void()>;
 
+	using PlaybackStartCallback = std::function<bool(const std::string&)>;
+	using PlaybackStopCallback = std::function<void()>;
+
 	void setOnStartRecording(
 		RecordingCallback callback
 	);
 
 	void setOnStopRecording(
 		RecordingCallback callback
+	);
+
+	void setOnStartPlayback(
+		PlaybackStartCallback callback
+	);
+
+	void setOnStopPlayback(
+		PlaybackStopCallback callback
 	);
 
 	bool startRecording();
@@ -129,6 +142,35 @@ public:
 
 	double getElapsedRecordingTime() {
 		return (_timer * _state.scrollSpeed) - _recordingStartTime;
+	}
+
+	double getCurrentTime() {
+		return DEBUG_SPEED * float(System::time());
+	}
+
+	bool isPlaybackLoaded() const
+	{
+		return _playbackLoaded;
+	}
+
+	bool isPlaybackPlaying() const
+	{
+		return _playbackPlaying;
+	}
+
+	bool isPlaybackPaused() const
+	{
+		return _playbackPaused;
+	}
+
+	double getTime() const
+	{
+		return _timer;
+	}
+
+	double getTimeAdjusted() const
+	{
+		return std::max(0.0f, _timer);
 	}
 
 private:
@@ -298,12 +340,19 @@ private:
 	bool _recordCamera = true;
 	bool _shouldOpenRecordingPopup = false;
 
+	PlaybackStartCallback _onStartPlayback;
+	PlaybackStopCallback _onStopPlayback;
+
 	bool _playbackWindowOpen = false;
 	bool _playbackLoaded = false;
 	bool _playbackPlaying = false;
+	bool _playbackPaused = false;
+
+	double _playbackPauseStart = 0.0;
 
 	std::filesystem::path _playbackRecordingDirectory;
 	std::string _playbackVideoPath;
+	std::string _playbackMidiPath;
 
 	std::vector<std::filesystem::path> _availableRecordings;
 

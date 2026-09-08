@@ -33,9 +33,16 @@ public:
 
 	const int & tracksCount() const { return _trackCount; }
 
+	const std::vector<MIDIPlaybackEvent>& playbackEvents() const
+	{
+		return _playbackEvents;
+	}
+
+
 private:
 
 	void populateTemposAndSignature();
+	void populatePlaybackEvents();
 
 	void mergeTracks();
 
@@ -52,6 +59,7 @@ private:
 	std::vector<MIDITrack> _tracks;
 	std::vector<MIDITempo> _tempos;
 
+	std::vector<MIDIPlaybackEvent> _playbackEvents;
 };
 
 #endif // MIDI_FILE_H

@@ -26,6 +26,7 @@
 
 #include "../util/Logger.h"
 #include "../util/camera/Camera.h"
+#include "../util/camera/CameraVideoPlayer.h"
 #include "../util/capture/WindowCapture.h"
 #include "../util/renderer/VirtualWindowRenderer.h"
 #include "../util/DragDrop/FileDropTarget.h"
@@ -227,7 +228,8 @@ private:
 
     void DrawSelectedPolygon(
         ImDrawList* drawList,
-        const std::function<ImVec2(float, float)>& cameraToScreen
+        const std::function<ImVec2(float, float)>& cameraToScreen,
+        const std::function<ImVec2(float, float)>& screenToCamera
     );
 
     // =========================================================
@@ -319,6 +321,7 @@ private:
     // =========================================================
 
     Camera m_camera;
+    CameraVideoPlayer m_cameraVideoPlayer;
 
     bool m_showCameraError = false;
     std::string m_cameraErrorMessage;
@@ -438,6 +441,7 @@ private:
         UINT cameraHeight = 0;
 
         uint64_t processMemoryMB = 0;
+        double processCpuPercent = 0.0;
 
         double lastUpdateTime = 0.0;
         double fpsAccumulator = 0.0;
@@ -453,6 +457,8 @@ private:
 
     bool m_showCameraSettings = false;
     bool m_showAudioSettings = false;
+
+    int m_cameraSelectedIndex = -1;
 
     int m_cameraSettingsWidth = 0;
     int m_cameraSettingsHeight = 0;

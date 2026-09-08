@@ -8,6 +8,8 @@
 #include "../../helpers/ProgramUtilities.h"
 #include "../../helpers/ResourcesManager.h"
 
+#include "../../../../util/Logger.h"
+
 #include "MIDISceneFile.h"
 
 #ifdef _WIN32
@@ -19,20 +21,27 @@ MIDISceneFile::~MIDISceneFile(){}
 
 MIDISceneFile::MIDISceneFile(const std::string & midiFilePath, const SetOptions & options, const FilterOptions& filter) : MIDIScene() {
 
+	Logger::Log("[MIDI Scene File]: Loading MIDI file %s\n", midiFilePath.c_str());
+
 	_filePath = midiFilePath;
 	// MIDI processing.
 	_midiFile = MIDIFile(_filePath);
 
+	Logger::Log("[MIDI Scene File]: Updating sets and visible notes...\n");
 	updateSetsAndVisibleNotes( options, filter );
 
-	std::cout << "[INFO]: Final track duration " << _midiFile.duration() << " sec." << std::endl;
+	Logger::Log("[MIDI Scene File]: Final track duration %f sec.\n", _midiFile.duration());
 }
 
 
 void MIDISceneFile::updateSetsAndVisibleNotes( const SetOptions& options, const FilterOptions& filter )
 {
 	_midiFile.updateSets( options );
+
+	Logger::Log("[MIDI Scene File]: Sets updated.\n");
 	updateVisibleNotes( filter );
+
+	Logger::Log("[MIDI Scene File]: Visible notes updated.\n");
 }
 
 void MIDISceneFile::updateVisibleNotes( const FilterOptions& filter )
@@ -78,6 +87,48 @@ void MIDISceneFile::updateVisibleNotes( const FilterOptions& filter )
 }
 
 void MIDISceneFile::updatesActiveNotes(double time, double speed, const FilterOptions& filter){
+
+	if (_audioEngine) {
+		const auto& events =
+			_midiFile.playbackEvents();
+
+		while (
+			_nextPlaybackEvent < events.size() &&
+			events[_nextPlaybackEvent].time <= time
+			)
+		{
+			const auto& event =
+				events[_nextPlaybackEvent];
+
+			if (event.type == noteOn)
+			{
+				_audioEngine->noteOn(
+					event.channel,
+					event.data1,
+					float(event.data2) / 127.0f
+				);
+			}
+			else if (event.type == noteOff)
+			{
+				_audioEngine->noteOff(
+					event.channel,
+					event.data1,
+					float(event.data2) / 127.0f
+				);
+			}
+			else if (event.type == controllerChange)
+			{
+				_audioEngine->controlChange(
+					static_cast<int16_t>(event.channel),
+					static_cast<int16_t>(event.data1),
+					event.data2
+				);
+			}
+
+			++_nextPlaybackEvent;
+		}
+	}
+
 	// Update the particle systems lifetimes.
 	for(auto & particle : _particles){
 		// Give a bit of a head start to the animation.
@@ -96,7 +147,14 @@ void MIDISceneFile::updatesActiveNotes(double time, double speed, const FilterOp
 		const auto & note = actives[i];
 		_actives[i] = note.enabled ? note.set : -1;
 		// Check if the note was triggered at this frame.
-		if(note.start > _previousTime && note.start <= time){
+		if (note.start > _previousTime && note.start <= time)
+		{
+			Logger::Log(
+				"[MIDI Playback] Scheduling note: %d at %.3f sec.\n",
+				i,
+				note.start
+			);
+
 			// Find an available particles system and update it with the note parameters.
 			for(auto & particle : _particles){
 				if(particle.note < 0){

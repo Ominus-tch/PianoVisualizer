@@ -3,7 +3,6 @@
 #include "../helpers/ProgramUtilities.h"
 #include "../helpers/ResourcesManager.h"
 #include "../helpers/ImGuiStyle.h"
-#include "../helpers/System.h"
 #include "../resources/strings.h"
 
 #include <cstring>
@@ -277,7 +276,9 @@ Viewer::Viewer(
 	}
 }
 
-Viewer::~Viewer() {}
+Viewer::~Viewer() {
+	Logger::Log("Viewer closed!\n");
+}
 
 bool Viewer::loadFile(const std::string& midiFilePath) {
 	std::shared_ptr<MIDIScene> scene(nullptr);
@@ -761,6 +762,11 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 
 	SystemAction action = SystemAction::NONE;
 
+	auto liveScene =
+		std::dynamic_pointer_cast<MIDISceneLive>(
+			_scene
+		);
+
 	if (_shouldOpenRecordingPopup)
 	{
 		ImGui::OpenPopup("Start Recording");
@@ -793,16 +799,13 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 				ImGui::CloseCurrentPopup();
 			}
 			else {
-				/*
-				 * MIDI recording is handled by the Viewer/MIDISceneLive.
-				 *
-				 * Only notify PianoVisualizer if the user also
-				 * requested camera recording.
-				 */
 				if (_recordCamera && _onStartRecording)
 				{
 					_onStartRecording();
 				}
+
+				_recordingStartTime = _timer * _state.scrollSpeed;
+				liveScene->startRecording(_recordingStartTime);
 			}
 
 			ImGui::CloseCurrentPopup();
@@ -915,12 +918,6 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 		}
 		showDevices();
 		
-
-		auto liveScene =
-			std::dynamic_pointer_cast<MIDISceneLive>(
-				_scene
-			);
-
 		if (liveScene) {
 			// Recording
 			ImGui::SameLine();
@@ -934,8 +931,6 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 					liveScene->stopRecording();
 				}
 				else {
-					_recordingStartTime = _timer * _state.scrollSpeed;
-					liveScene->startRecording(_recordingStartTime);
 					startRecording();
 				}
 			}
@@ -3402,7 +3397,7 @@ void Viewer::keyPressed(int key, int action)
 
 void Viewer::reset() {
 	_timer = -_state.prerollTime;
-	_timerStart = DEBUG_SPEED * float(System::time()) + (_shouldPlay ? _state.prerollTime : 0.0f);
+	_timerStart = getCurrentTime() + (_shouldPlay ? _state.prerollTime : 0.0f);
 	_scene->resetParticles();
 }
 
@@ -3495,6 +3490,22 @@ void Viewer::setOnStopRecording(
 		std::move(callback);
 }
 
+void Viewer::setOnStartPlayback(
+	PlaybackStartCallback callback
+)
+{
+	_onStartPlayback =
+		std::move(callback);
+}
+
+void Viewer::setOnStopPlayback(
+	PlaybackStopCallback callback
+)
+{
+	_onStopPlayback =
+		std::move(callback);
+}
+
 bool Viewer::startRecording()
 {
 	if (_recording)
@@ -3570,6 +3581,8 @@ bool Viewer::stopRecording()
 		"[Recording] Saved MIDI recording: %s\n",
 		midiFilePath.c_str()
 	);
+
+	refreshRecordings();
 
 	return true;
 }
@@ -3815,7 +3828,6 @@ bool Viewer::createRecordingDirectory()
 void Viewer::refreshRecordings()
 {
 	_availableRecordings.clear();
-	Logger::Log("Temp dir: %s\n", _tempDirectory.string().c_str());
 
 	if (
 		_tempDirectory.empty() ||
@@ -3837,8 +3849,6 @@ void Viewer::refreshRecordings()
 		_availableRecordings.push_back(
 			entry.path()
 		);
-
-		Logger::Log("entry: %s\n", entry.path().string().c_str());
 	}
 
 	/*
@@ -3867,11 +3877,41 @@ void Viewer::startPlayback()
 		return;
 	}
 
-	_playbackPlaying = true;
+	
+	std::shared_ptr<MIDIScene> scene(nullptr);
+
+	try {
+		scene = std::make_shared<MIDISceneFile>(_playbackMidiPath, _state.setOptions, _state.filter);
+	}
+	catch (...) {
+		Logger::Log("[Error] Failed to create recording scene!\n");
+		return;
+	}
+
+	// Player.
+
+
+	_timerStart = getCurrentTime();
+
+	if (!_state.reverseScroll)
+		_timerStart += _state.prerollTime;
+
+	_shouldPlay = true;
+	_liveplay = false;
+
+
+	// Init objects.
+	_scene = scene;
+	applyAllSettings();
 
 	Logger::Log(
 		"[Playback] Started.\n"
 	);
+
+	_playbackPlaying = true;
+	_playbackPaused = false;
+
+	return;
 }
 
 void Viewer::pausePlayback()
@@ -3881,8 +3921,24 @@ void Viewer::pausePlayback()
 		return;
 	}
 
-	_playbackPlaying = false;
+	_playbackPaused = !_playbackPaused;
+	_shouldPlay = !_playbackPaused;
 
+	double currentTime = getCurrentTime();
+
+
+	if (_shouldPlay)
+	{
+		_timerStart += (
+			currentTime -
+			_playbackPauseStart
+			);
+	}
+	else
+	{
+		_playbackPauseStart = currentTime;
+	}
+	
 	Logger::Log(
 		"[Playback] Paused.\n"
 	);
@@ -3890,7 +3946,32 @@ void Viewer::pausePlayback()
 
 void Viewer::stopPlayback()
 {
+	_playbackLoaded = false;
 	_playbackPlaying = false;
+	_playbackPaused = false;
+	_playbackWindowOpen = false;
+
+	_playbackRecordingDirectory.clear();
+	_playbackVideoPath.clear();
+	_playbackMidiPath.clear();
+	_playbackPauseStart = 0;
+
+	_shouldPlay = true;
+
+	_scene.reset(new MIDIScene());
+
+	if (MIDISceneLive::availablePortsCount()-1 >= _selectedPort)
+	{
+		connectDevice(_selectedPort);
+	}
+	else if (MIDISceneLive::availablePortsCount() > 0)
+	{
+		_selectedPort = 0;
+		connectDevice(_selectedPort);
+	}
+
+	if (_onStopPlayback)
+		_onStopPlayback();
 
 	Logger::Log(
 		"[Playback] Stopped.\n"
@@ -3934,28 +4015,86 @@ void Viewer::drawPlaybackSettings()
 				selected
 			))
 			{
-				_playbackRecordingDirectory =
-					recording;
-
-				_playbackVideoPath =
+				const std::string videoPath =
 					(
 						recording /
-						"Recording.mp4"
+						"cameraRecording.mp4"
 						).string();
 
-				_playbackLoaded = true;
-				_playbackPlaying = false;
+				if (
+					_onStartPlayback &&
+					_onStartPlayback(videoPath)
+					)
+				{
+					_playbackRecordingDirectory =
+						recording;
 
-				Logger::Log(
-					"[Playback] Selected recording: %s\n",
-					name.c_str()
-				);
+					_playbackVideoPath =
+						videoPath;
+
+					_playbackMidiPath =
+						(
+							recording /
+							"midiRecording.mid"
+							).string();
+
+					_playbackLoaded = true;
+					_playbackPlaying = false;
+					_playbackPaused = false;
+
+					_shouldPlay = false;
+
+					Logger::Log(
+						"[Playback] Selected recording: %s\n",
+						name.c_str()
+					);
+				}
+				else
+				{
+					Logger::Log(
+						"[Playback] Failed to open video: %s\n",
+						videoPath.c_str()
+					);
+				}
 			}
 		}
 	}
 
+	ImGui::Spacing();
 	ImGui::Separator();
+	ImGui::Spacing();
 
+	// Reverse scroll checkbox:
+	bool reverseScroll =
+		!_state.reverseScroll;
+
+	if (ImGui::Checkbox(
+		"Reverse Scroll",
+		&reverseScroll
+	))
+	{
+		_state.reverseScroll =
+			!reverseScroll;
+	}
+
+	if (!_state.reverseScroll) {
+		ImGui::SameLine();
+
+		// Preroll time setting.
+		ImGui::SliderFloat(
+			"Preroll Time",
+			&_state.prerollTime,
+			0.0f,
+			10.0f,
+			"%.1f s"
+		);
+	}
+
+
+
+	ImGui::Spacing();
+	ImGui::Separator();
+	ImGui::Spacing();
 	// ---------------------------------------------------------
 	// Playback controls
 	// ---------------------------------------------------------
@@ -3991,12 +4130,9 @@ void Viewer::drawPlaybackSettings()
 			.c_str()
 		);
 
-		ImGui::Text(
-			"Status: %s",
-			_playbackPlaying
-			? "Playing"
-			: "Paused"
-		);
+		const char* label = _playbackPlaying ? _playbackPaused ? "Paused" : "Playing" : "Stopped";
+
+		ImGui::Text("Status: %s", label);
 	}
 	else
 	{

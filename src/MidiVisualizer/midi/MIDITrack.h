@@ -30,6 +30,11 @@ public:
 
 	void updateSets(const SetOptions & options);
 
+	const std::vector<MIDIEvent>& events() const
+	{
+		return _events;
+	}
+
 private:
 
 	std::pair<double, double> computeNoteTimings(const std::vector<MIDITempo> & tempos, size_t start,size_t end, uint16_t upqn) const;

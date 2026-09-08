@@ -49,6 +49,17 @@ struct MIDIEvent {
 
 };
 
+struct MIDIPlaybackEvent
+{
+	double time = 0.0;
+
+	MIDIEventType type = ignoreType;
+
+	short channel = 0;
+	short data1 = 0;
+	short data2 = 0;
+};
+
 struct MIDITempo {
 
 	MIDITempo();
