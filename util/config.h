@@ -309,7 +309,6 @@ namespace Config {
         float surfaceZOffset,
 
         // PianoRoll Scene
-        bool pianoRollTransparent,
         float pianoRollVisualizerHeight,
         float pianoRollCameraSourceScale
     )
@@ -378,9 +377,6 @@ namespace Config {
         config["settings"]["surfaceZOffset"] =
             surfaceZOffset;
 
-        config["settings"]["pianoRollTransparent"] =
-            pianoRollTransparent;
-
         config["settings"]["pianoRollVisualizerHeight"] =
             pianoRollVisualizerHeight;
 
@@ -415,7 +411,6 @@ namespace Config {
         float surfaceZOffset,
 
         // PianoRoll Scene
-        bool pianoRollTransparent,
         float pianoRollVisualizerHeight,
         float pianoRollCameraSourceScale
     )
@@ -434,7 +429,6 @@ namespace Config {
             surfaceYOffset,
             surfaceZOffset,
 
-            pianoRollTransparent,
             pianoRollVisualizerHeight,
             pianoRollCameraSourceScale);
     }
@@ -458,7 +452,6 @@ namespace Config {
         float& surfaceZOffset,
 
         // PianoRoll Scene
-        bool& pianoRollTransparent,
         float& pianoRollVisualizerHeight,
         float& pianoRollCameraSourceScale
     )
@@ -584,12 +577,6 @@ namespace Config {
                         .get<float>();
                 }
 
-                if (settings.contains("pianoRollTransparent"))
-                {
-                    pianoRollTransparent =
-                        settings["pianoRollTransparent"].get<bool>();
-                }
-
                 if (settings.contains("pianoRollVisualizerHeight"))
                 {
                     pianoRollVisualizerHeight =
@@ -630,7 +617,6 @@ namespace Config {
         float& surfaceZOffset,
 
         // PianoRoll Scene
-        bool& pianoRollTransparent,
         float& pianoRollVisualizerHeight,
         float& pianoRollCameraSourceScale
     )
@@ -649,7 +635,6 @@ namespace Config {
             surfaceYOffset,
             surfaceZOffset,
 
-            pianoRollTransparent,
             pianoRollVisualizerHeight,
             pianoRollCameraSourceScale);
     }

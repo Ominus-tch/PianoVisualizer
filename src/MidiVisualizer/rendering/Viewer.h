@@ -113,7 +113,7 @@ public:
 	}
 	
 	/// Draw function
-	SystemAction draw(const float currentTime);
+	SystemAction draw(const float currentTime, bool transparentBG = true);
 	ID3D11ShaderResourceView* getTexture() { return _texture.Get(); }
 
 	std::shared_ptr<MIDIScene> scene() const
@@ -219,7 +219,7 @@ private:
 
 	SystemAction drawGUI(const float currentTime);
 
-	void drawScene(bool transparentBG);
+	void drawScene(bool transparentBG = true);
 
 	SystemAction showTopButtons(double currentTime);
 

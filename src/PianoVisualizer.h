@@ -413,8 +413,6 @@ private:
     PianoScene m_pianoScene =
         PianoScene::Perspective;
 
-    bool m_pianoRollTransparent = true;
-
     float m_pianoRollVisualizerHeight = 0.5f;
     float m_pianoRollCameraSourceScale = 1.0f;
 

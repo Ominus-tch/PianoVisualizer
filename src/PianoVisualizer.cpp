@@ -664,7 +664,6 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 m_surfaceXOffset,
                 m_surfaceYOffset,
                 m_surfaceZOffset,
-                m_pianoRollTransparent,
                 m_pianoRollVisualizerHeight,
                 m_pianoRollCameraSourceScale
             );
@@ -698,7 +697,6 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 m_surfaceXOffset,
                 m_surfaceYOffset,
                 m_surfaceZOffset,
-                m_pianoRollTransparent,
                 m_pianoRollVisualizerHeight,
                 m_pianoRollCameraSourceScale
             );
@@ -743,7 +741,6 @@ void PianoVisualizer::LoadPianoConfiguration()
                 m_surfaceXOffset,
                 m_surfaceYOffset,
                 m_surfaceZOffset,
-                m_pianoRollTransparent,
                 m_pianoRollVisualizerHeight,
                 m_pianoRollCameraSourceScale
             ))
@@ -771,7 +768,6 @@ void PianoVisualizer::SavePianoConfiguration()
         m_surfaceXOffset,
         m_surfaceYOffset,
         m_surfaceZOffset,
-        m_pianoRollTransparent,
         m_pianoRollVisualizerHeight,
         m_pianoRollCameraSourceScale
     ))
@@ -1019,7 +1015,6 @@ void PianoVisualizer::onStopRecording()
         m_surfaceXOffset,
         m_surfaceYOffset,
         m_surfaceZOffset,
-        m_pianoRollTransparent,
         m_pianoRollVisualizerHeight,
         m_pianoRollCameraSourceScale
     );
@@ -1460,7 +1455,7 @@ void PianoVisualizer::RenderCameraOutput()
         0.0f,
         0.0f,
         0.0f,
-        m_pianoRollTransparent ? 0.0f : 1.0f
+        1.0f
     };
 
     ID3D11RenderTargetView* renderTarget =
@@ -3946,13 +3941,6 @@ void PianoVisualizer::RenderSettings()
                 );
 
                 ImGui::helpTooltip("Use to also capture what is infront of the piano");
-
-                ImGui::Spacing();
-
-                ImGui::Checkbox(
-                    "Transparent Visualizer",
-                    &m_pianoRollTransparent
-                );
             }
         }
 
@@ -4458,7 +4446,6 @@ void PianoVisualizer::RenderSettings()
                     m_surfaceXOffset,
                     m_surfaceYOffset,
                     m_surfaceZOffset,
-                    m_pianoRollTransparent,
                     m_pianoRollVisualizerHeight,
                     m_pianoRollCameraSourceScale
                 )

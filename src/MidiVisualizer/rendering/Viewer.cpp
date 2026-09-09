@@ -441,7 +441,8 @@ bool Viewer::connectDevice(const int port) {
 }
 
 SystemAction Viewer::draw(
-	float currentTime
+	float currentTime,
+	bool transparentBG
 )
 {
 	handleMIDIDeviceEvent();
@@ -453,7 +454,7 @@ SystemAction Viewer::draw(
 
 	// Render the complete scene, including the final
 	// post-processing step, into _finalFramebuffer.
-	drawScene(true);
+	drawScene(transparentBG);
 
 	_texture = _finalFramebuffer->textureId();
 
@@ -544,7 +545,9 @@ void Viewer::drawScene(bool transparentBG)
 		0.0f,
 		0.0f,
 		0.0f,
-		0.0f
+		transparentBG
+			? 0.0f
+			: 1.0f
 	};
 
 	_context->ClearRenderTargetView(
