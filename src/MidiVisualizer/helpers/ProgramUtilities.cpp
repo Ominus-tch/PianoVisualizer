@@ -14,6 +14,8 @@
 
 #include "../../../util/Logger.h"
 
+#include <wrl/client.h>
+
 // ============================================================
 // D3D11 error handling
 // ============================================================
@@ -1216,6 +1218,32 @@ ComPtr<ID3D11ShaderResourceView> loadTexture(
         channels
     );
 
+    Logger::Log(
+        "[D3D11] Loaded image: %s\n",
+        path.c_str()
+    );
+
+    Logger::Log(
+        "[D3D11] Dimensions: %d x %d\n",
+        width,
+        height
+    );
+
+    Logger::Log(
+        "[D3D11] Source channels: %d\n",
+        sourceChannels
+    );
+
+    Logger::Log(
+        "[D3D11] Requested channels: %u\n",
+        channels
+    );
+
+    Logger::Log(
+        "[D3D11] Image pointer: %p\n",
+        static_cast<void*>(image)
+    );
+
     stbi_set_flip_vertically_on_load(false);
 
     if (!image)
@@ -1247,6 +1275,12 @@ ComPtr<ID3D11ShaderResourceView> loadTexture(
     unsigned int channels,
     bool sRGB)
 {
+    if (!device)
+    {
+        Logger::Log("[D3D11] loadTexture: device is null\n");
+        return nullptr;
+    }
+
     DXGI_FORMAT format;
 
     switch (channels)
@@ -1271,6 +1305,8 @@ ComPtr<ID3D11ShaderResourceView> loadTexture(
         Logger::Log("[D3D11] Unsupported texture channel count: %u\n", channels);
         return nullptr;
     }
+
+
 
 
     // Convert RGB -> RGBA.

@@ -11,6 +11,8 @@
 #include <unordered_map>
 #include <array>
 
+#include <wrl/client.h>
+
 #define MIDIVIZ_VERSION_MAJOR 7
 #define MIDIVIZ_VERSION_MINOR 3
 
@@ -164,8 +166,11 @@ public:
 		float minorTexAlpha; ///< Intensity for the minor texture
 		bool majorTexScroll; ///< Scrolling for the major texture
 		bool minorTexScroll; ///< Scrolling for the minor texture
-		ID3D11ShaderResourceView* majorTex = nullptr;
-		ID3D11ShaderResourceView* minorTex = nullptr;
+
+		bool texturesConnected = false; ///< Use the same texture settings for major and minor notes.
+
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> majorTex;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> minorTex;
 	};
 
 	struct FlashesState {

@@ -656,6 +656,7 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 m_horizontalFovDegrees,
                 m_planeWidth,
                 m_planeDepth,
+                m_planePivot,
                 m_surfaceXOffset,
                 m_surfaceYOffset,
                 m_surfaceZOffset
@@ -681,6 +682,7 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 m_horizontalFovDegrees,
                 m_planeWidth,
                 m_planeDepth,
+                m_planePivot,
                 m_surfaceXOffset,
                 m_surfaceYOffset,
                 m_surfaceZOffset
@@ -717,6 +719,7 @@ void PianoVisualizer::LoadPianoConfiguration()
                 m_horizontalFovDegrees,
                 m_planeWidth,
                 m_planeDepth,
+                m_planePivot,
                 m_surfaceXOffset,
                 m_surfaceYOffset,
                 m_surfaceZOffset
@@ -738,6 +741,7 @@ void PianoVisualizer::SavePianoConfiguration()
         m_horizontalFovDegrees,
         m_planeWidth,
         m_planeDepth,
+        m_planePivot,
         m_surfaceXOffset,
         m_surfaceYOffset,
         m_surfaceZOffset
@@ -982,6 +986,7 @@ void PianoVisualizer::onStopRecording()
         m_horizontalFovDegrees,
         m_planeWidth,
         m_planeDepth,
+        m_planePivot,
         m_surfaceXOffset,
         m_surfaceYOffset,
         m_surfaceZOffset
@@ -1986,16 +1991,38 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
         return;
     }
 
-    const float worldHeight =
-        -m_planeDepth *
+    float surfaceHeight =
+        m_planeDepth *
         m_heightScale;
+
+    float angleRadians =
+        m_planePivot *
+        3.14159265358979323846f /
+        180.0f;
+
+    // ---------------------------------------------------------
+    // Rotate the virtual surface around the X axis.
+    //
+    // 90° = current vertical orientation
+    //  0° = flat along the piano
+    //
+    // The surface extends in local +Y / -Z.
+    // ---------------------------------------------------------
+
+    float rotatedY =
+        surfaceHeight *
+        std::cos(angleRadians);
+
+    float rotatedZ =
+        -surfaceHeight *
+        std::sin(angleRadians);
 
     float x1, y1;
     float x2, y2;
     float x3, y3;
     float x4, y4;
 
-    const bool valid1 =
+    bool valid1 =
         ProjectPianoPoint(
             pose,
             m_surfaceXOffset,
@@ -2005,7 +2032,7 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
             y1
         );
 
-    const bool valid2 =
+    bool valid2 =
         ProjectPianoPoint(
             pose,
             m_planeWidth +
@@ -2016,25 +2043,27 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
             y2
         );
 
-    const bool valid3 =
+    bool valid3 =
         ProjectPianoPoint(
             pose,
             m_planeWidth +
             m_surfaceXOffset,
-            m_surfaceYOffset,
-            worldHeight +
-            m_surfaceZOffset,
+            m_surfaceYOffset +
+            rotatedY,
+            m_surfaceZOffset +
+            rotatedZ,
             x3,
             y3
         );
 
-    const bool valid4 =
+    bool valid4 =
         ProjectPianoPoint(
             pose,
             m_surfaceXOffset,
-            m_surfaceYOffset,
-            worldHeight +
-            m_surfaceZOffset,
+            m_surfaceYOffset +
+            rotatedY,
+            m_surfaceZOffset +
+            rotatedZ,
             x4,
             y4
         );
@@ -2436,9 +2465,31 @@ void PianoVisualizer::RenderPianoOverlay()
     if (!pose.valid)
         return;
 
-    float worldHeight =
-        -m_planeDepth *
+    float surfaceHeight =
+        m_planeDepth *
         m_heightScale;
+
+    float angleRadians =
+        m_planePivot *
+        3.14159265358979323846f /
+        180.0f;
+
+    // ---------------------------------------------------------
+    // Rotate the virtual surface around the X axis.
+    //
+    // 90° = current vertical orientation
+    //  0° = flat along the piano
+    //
+    // The surface extends in local +Y / -Z.
+    // ---------------------------------------------------------
+
+    float rotatedY =
+        surfaceHeight *
+        std::cos(angleRadians);
+
+    float rotatedZ =
+        -surfaceHeight *
+        std::sin(angleRadians);
 
     float x1, y1;
     float x2, y2;
@@ -2471,9 +2522,10 @@ void PianoVisualizer::RenderPianoOverlay()
             pose,
             m_planeWidth +
             m_surfaceXOffset,
-            m_surfaceYOffset,
-            worldHeight +
-            m_surfaceZOffset,
+            m_surfaceYOffset +
+            rotatedY,
+            m_surfaceZOffset +
+            rotatedZ,
             x3,
             y3
         );
@@ -2482,9 +2534,10 @@ void PianoVisualizer::RenderPianoOverlay()
         ProjectPianoPoint(
             pose,
             m_surfaceXOffset,
-            m_surfaceYOffset,
-            worldHeight +
-            m_surfaceZOffset,
+            m_surfaceYOffset +
+            rotatedY,
+            m_surfaceZOffset +
+            rotatedZ,
             x4,
             y4
         );
@@ -3247,6 +3300,14 @@ void PianoVisualizer::RenderSettings()
                 "%.3f"
             );
 
+            ImGui::SliderFloat(
+                "Plane Pivot",
+                &m_planePivot,
+                0.0f,
+                180.0f,
+                "%.1f°"
+            );
+
             ImGui::Spacing();
 
             ImGui::TextDisabled(
@@ -3773,6 +3834,7 @@ void PianoVisualizer::RenderSettings()
                     m_horizontalFovDegrees,
                     m_planeWidth,
                     m_planeDepth,
+                    m_planePivot,
                     m_surfaceXOffset,
                     m_surfaceYOffset,
                     m_surfaceZOffset

@@ -15,6 +15,8 @@
 
 #include "../../../util/Logger.h"
 
+#include <wrl/client.h>
+
 #ifdef _WIN32
 #undef MIN
 #undef MAX
@@ -263,7 +265,8 @@ void Renderer::renderSetup(
 		_device,
 		"notes_vert",
 		"notes_frag",
-		ShaderProgram::InputLayoutType::QuadWithNoteData
+		ShaderProgram::InputLayoutType::QuadWithNoteData,
+		true
 	);
 
 	_programFlashes.init(
@@ -870,7 +873,7 @@ void Renderer::drawNotes(
 		_programNotes.texture(
 			_context,
 			"majorTexture",
-			state.majorTex
+			state.majorTex.Get()
 		);
 	}
 
@@ -879,7 +882,7 @@ void Renderer::drawNotes(
 		_programNotes.texture(
 			_context,
 			"minorTexture",
-			state.minorTex
+			state.minorTex.Get()
 		);
 	}
 

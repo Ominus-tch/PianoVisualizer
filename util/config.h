@@ -298,6 +298,7 @@ namespace Config {
         float horizontalFovDegrees,
         float planeWidth,
         float planeDepth,
+        float planePivot,
         float surfaceXOffset,
         float surfaceYOffset,
         float surfaceZOffset
@@ -354,6 +355,9 @@ namespace Config {
         config["settings"]["planeDepth"] =
             planeDepth;
 
+        config["settings"]["planePivot"] =
+            planePivot;
+
         config["settings"]["surfaceXOffset"] =
             surfaceXOffset;
 
@@ -385,6 +389,7 @@ namespace Config {
         float horizontalFovDegrees,
         float planeWidth,
         float planeDepth,
+        float planePivot,
         float surfaceXOffset,
         float surfaceYOffset,
         float surfaceZOffset
@@ -442,6 +447,9 @@ namespace Config {
         config["settings"]["planeDepth"] =
             planeDepth;
 
+        config["settings"]["planePivot"] =
+            planePivot;
+
         config["settings"]["surfaceXOffset"] =
             surfaceXOffset;
 
@@ -476,6 +484,7 @@ namespace Config {
         float& horizontalFovDegrees,
         float& planeWidth,
         float& planeDepth,
+        float& planePivot,
         float& surfaceXOffset,
         float& surfaceYOffset,
         float& surfaceZOffset
@@ -568,6 +577,13 @@ namespace Config {
                         .get<float>();
                 }
 
+                if (settings.contains("planePivot"))
+                {
+                    planePivot =
+                        settings["planePivot"]
+                        .get<float>();
+                }
+
                 if (settings.contains("surfaceXOffset"))
                 {
                     surfaceXOffset =
@@ -604,6 +620,7 @@ namespace Config {
         float& horizontalFovDegrees,
         float& planeWidth,
         float& planeDepth,
+        float& planePivot,
         float& surfaceXOffset,
         float& surfaceYOffset,
         float& surfaceZOffset
@@ -693,6 +710,13 @@ namespace Config {
                 {
                     planeDepth =
                         settings["planeDepth"]
+                        .get<float>();
+                }
+
+                if (settings.contains("planePivot"))
+                {
+                    planePivot =
+                        settings["planePivot"]
                         .get<float>();
                 }
 

@@ -507,9 +507,22 @@ static bool ProjectPianoPoint(
     // Behind camera
     // --------------------------------------------------------
 
-    if (cameraPoint.z <= 0.000001f)
-        return false;
+    //if (cameraPoint.z <= 0.000001f)
+    //{
+    //    Logger::Log(
+    //        "Point behind camera: %.3f %.3f %.3f\n",
+    //        cameraPoint.x,
+    //        cameraPoint.y,
+    //        cameraPoint.z
+    //    );
 
+    //    return false;
+    //}
+
+    if (cameraPoint.z == 0.0f)
+        cameraPoint.z = 0.000001f;
+
+    cameraPoint.z = std::abs(cameraPoint.z);
 
     // --------------------------------------------------------
     // Perspective projection

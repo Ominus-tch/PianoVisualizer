@@ -16,6 +16,7 @@
 #include <windows.h>
 #include <shobjidl.h>
 #include <stdio.h>
+#include <commdlg.h>
 
 #include <imgui/imgui.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -31,6 +32,9 @@
 #include <mfidl.h>
 #include <mfreadwrite.h>
 #include <wrl/client.h>
+
+#pragma comment(lib, "Comdlg32.lib")
+
 namespace fs = std::filesystem;
 
 using Microsoft::WRL::ComPtr;
@@ -79,6 +83,37 @@ static double GetVideoDuration(const fs::path& path)
 
 	// Media Foundation duration is in 100-nanosecond units.
 	return static_cast<double>(duration) / 10'000'000.0;
+}
+
+static std::filesystem::path OpenImageFileDialog()
+{
+	char fileName[MAX_PATH] = {};
+
+	OPENFILENAMEA dialog{};
+	dialog.lStructSize = sizeof(dialog);
+	dialog.lpstrFile = fileName;
+	dialog.nMaxFile = MAX_PATH;
+	dialog.lpstrFilter =
+		"Image Files\0"
+		"*.jpg;*.jpeg;*.png\0"
+		"JPEG Files\0"
+		"*.jpg;*.jpeg\0"
+		"PNG Files\0"
+		"*.png\0"
+		"All Files\0"
+		"*.*\0";
+	dialog.nFilterIndex = 1;
+	dialog.Flags =
+		OFN_PATHMUSTEXIST |
+		OFN_FILEMUSTEXIST |
+		OFN_NOCHANGEDIR;
+
+	if (GetOpenFileNameA(&dialog))
+	{
+		return std::filesystem::path(fileName);
+	}
+
+	return {};
 }
 
 Viewer::Viewer(
@@ -1157,60 +1192,6 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 				updateMinMaxKeys();
 			}
 			ImGui::helpTooltip(s_max_key_dsc);
-
-			//if (ImGui::InputFloat("Preroll", &_state.prerollTime, 0.1f, 1.0f, "%.1fs")) {
-			//	reset();
-			//}
-			//ImGui::helpTooltip(s_preroll_dsc);
-
-			//if(_liveplay){
-			//	ImGui::BeginDisabled();
-			//}
-			//ImGuiSameLine(COLUMN_SIZE);
-			//if(ImGui::SliderFloat("Speed", &_state.scrollSpeed, 0.1f, 5.0f, "%.1fx")){
-			//	_state.scrollSpeed = (std::max)(0.01f, _state.scrollSpeed);
-			//}
-			//if(_liveplay){
-			//	ImGui::EndDisabled();
-			//	if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)){
-			//		ImGui::SetTooltip("Not available in liveplay");
-			//	}
-			//} else {
-			//	ImGui::helpTooltip(s_scroll_speed_dsc);
-			//}
-			//ImGui::PopItemWidth();
-
-			//if(ImGui::Checkbox("Horizontal scroll", &_state.horizontalScroll)){
-			//	_renderer.setOrientation(_state.horizontalScroll);
-			//}
-			//ImGui::helpTooltip(s_scroll_horizontal_dsc);
-
-			/*if(_liveplay){
-				ImGui::BeginDisabled();
-			}
-			ImGuiSameLine(COLUMN_SIZE);
-			ImGui::Checkbox("Reverse scroll", &_state.reverseScroll);
-			if(_liveplay){
-				ImGui::EndDisabled();
-				if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)){
-					ImGui::SetTooltip("Not available in liveplay");
-				}
-			} else {
-				ImGui::helpTooltip(s_scroll_reverse_dsc);
-			}*/
-
-			/*if(_liveplay){
-				ImGui::BeginDisabled();
-			}*/
-			//ImGui::Checkbox("Loop", &_state.loop);
-			//if(_liveplay){
-			//	ImGui::EndDisabled();
-			//	if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)){
-			//		ImGui::SetTooltip("Not available in liveplay");
-			//	}
-			//} else {
-			//	ImGui::helpTooltip(s_loop_dsc);
-			//}
 		}
 
 		if(ImGui::CollapsingHeader("Notes##HEADER")){
@@ -1383,6 +1364,245 @@ void Viewer::showNoteOptions() {
 	}
 	ImGui::helpTooltip(s_color_minor_dsc);
 	ImGuiSameLine(COLUMN_SIZE);
+
+	if (ImGui::Button("Use background images...")) {
+		ImGui::OpenPopup("Note background textures");
+	}
+	ImGui::helpTooltip("Define background textures for major and minor notes");
+
+	if (ImGui::BeginPopup("Note background textures"))
+	{
+		struct BackgroundTextureParams {
+			const char* name;
+			std::vector<std::string>& paths;
+			float& scale;
+			float& alpha;
+			bool& scroll;
+			ComPtr<ID3D11ShaderResourceView>& tex;
+		};
+
+		ImGui::Checkbox(
+			"Connect",
+			&_state.notes.texturesConnected
+		);
+
+		ImGui::helpTooltip(
+			"Use the same texture, scale, intensity, and scroll settings for major and minor notes"
+		);
+
+		ImGui::Separator();
+
+		if (_state.notes.texturesConnected)
+		{
+			// Major is the master when connected.
+			_state.notes.minorImagePath =
+				_state.notes.majorImagePath;
+
+			_state.notes.minorTexScale =
+				_state.notes.majorTexScale;
+
+			_state.notes.minorTexAlpha =
+				_state.notes.majorTexAlpha;
+
+			_state.notes.minorTexScroll =
+				_state.notes.majorTexScroll;
+
+			_state.notes.minorTex =
+				_state.notes.majorTex;
+		}
+
+		BackgroundTextureParams paramGroups[2] = {
+			{
+				"Major notes",
+				_state.notes.majorImagePath,
+				_state.notes.majorTexScale,
+				_state.notes.majorTexAlpha,
+				_state.notes.majorTexScroll,
+				_state.notes.majorTex
+			},
+			{
+				"Minor notes",
+				_state.notes.minorImagePath,
+				_state.notes.minorTexScale,
+				_state.notes.minorTexAlpha,
+				_state.notes.minorTexScroll,
+				_state.notes.minorTex
+			},
+		};
+
+		const char* paramDescs[2][4] = {
+			{
+				"Load an image for major notes",
+				s_notes_major_img_scale_dsc,
+				s_notes_major_img_intensity_dsc,
+				s_notes_major_img_scroll_dsc
+			},
+			{
+				"Load an image for minor notes",
+				s_notes_minor_img_scale_dsc,
+				s_notes_minor_img_intensity_dsc,
+				s_notes_minor_img_scroll_dsc
+			},
+		};
+
+		for (unsigned int i = 0; i < 2; ++i)
+		{
+			BackgroundTextureParams& group =
+				paramGroups[i];
+
+			const bool isConnectedMinor =
+				_state.notes.texturesConnected && i == 1;
+
+			if (isConnectedMinor)
+				ImGui::BeginDisabled();
+
+			ImGui::PushID(group.name);
+
+			ImGui::AlignTextToFramePadding();
+
+			ImGui::Text("%s", group.name);
+
+			ImGuiSameLine(100);
+
+			if (ImGui::Button("Load..."))
+			{
+				const std::filesystem::path path =
+					OpenImageFileDialog();
+
+				if (!path.empty())
+				{
+					const std::string imagePath =
+						path.string();
+
+					ComPtr<ID3D11ShaderResourceView> texture =
+						loadTexture(
+							_device,
+							imagePath,
+							4,
+							false
+						);
+
+					if (texture)
+					{
+						group.paths =
+						{
+							imagePath
+						};
+
+						group.tex =
+							std::move(texture);
+					}
+					else
+					{
+						Logger::Log(
+							"[Notes] Failed to load %s texture: %s\n",
+							group.name,
+							imagePath.c_str()
+						);
+					}
+				}
+			}
+
+			ImGui::helpTooltip(
+				paramDescs[i][0]
+			);
+
+			ImGuiSameLine();
+
+			if (ImGui::Button("Clear"))
+			{
+				group.paths.clear();
+				group.tex.Reset();
+			}
+
+			ImGui::helpTooltip(
+				"Remove the current image"
+			);
+
+			ImGuiSameLine();
+
+			ImGuiPushItemWidth(100);
+
+			if (ImGui::SliderFloat(
+				"Scale",
+				&group.scale,
+				0.1f,
+				15.0f,
+				"%.2fx"
+			))
+			{
+				group.scale =
+					glm::max(
+						group.scale,
+						0.001f
+					);
+			}
+
+			ImGui::helpTooltip(
+				paramDescs[i][1]
+			);
+
+			ImGuiSameLine();
+
+			if (ImGui::SliderPercent(
+				"Intensity",
+				&group.alpha,
+				0.0f,
+				1.0f
+			))
+			{
+				group.alpha =
+					glm::clamp(
+						group.alpha,
+						0.0f,
+						1.0f
+					);
+			}
+
+			ImGui::helpTooltip(
+				paramDescs[i][2]
+			);
+
+			ImGuiSameLine();
+
+			ImGui::Checkbox(
+				"Scroll",
+				&group.scroll
+			);
+
+			ImGui::helpTooltip(
+				paramDescs[i][3]
+			);
+
+			ImGui::PopItemWidth();
+
+			ImGui::PopID();
+
+			if (isConnectedMinor)
+				ImGui::EndDisabled();
+		}
+
+		// Keep Minor synchronized with Major after any UI changes.
+		if (_state.notes.texturesConnected)
+		{
+			_state.notes.minorImagePath =
+				_state.notes.majorImagePath;
+
+			_state.notes.minorTexScale =
+				_state.notes.majorTexScale;
+
+			_state.notes.minorTexAlpha =
+				_state.notes.majorTexAlpha;
+
+			_state.notes.minorTexScroll =
+				_state.notes.majorTexScroll;
+
+			_state.notes.minorTex =
+				_state.notes.majorTex;
+		}
+
+		ImGui::EndPopup();
+	}
 
 	ImGuiPushItemWidth(100);
 	bool smw0 = ImGui::InputFloat("Scale", &_state.scale, 0.01f, 0.1f, "%.2fx");
@@ -4688,6 +4908,8 @@ void Viewer::drawPlaybackSettings()
 			_shouldPlay =
 				true;
 		}
+
+		_renderer.clearFlashes();
 	}
 
 	if (ImGui::IsItemHovered())

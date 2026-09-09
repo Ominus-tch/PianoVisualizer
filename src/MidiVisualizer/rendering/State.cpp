@@ -1023,8 +1023,8 @@ void State::reset(){
 	notes.minorTexScroll = true;
 	notes.majorImagePath.clear();
 	notes.minorImagePath.clear();
-	notes.minorTex = 0;
-	notes.majorTex = 0;
+	notes.minorTex.Reset();
+	notes.majorTex.Reset();
 	
 	minKey = 21;
 	maxKey = 108;
