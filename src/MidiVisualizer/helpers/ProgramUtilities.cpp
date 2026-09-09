@@ -1218,32 +1218,6 @@ ComPtr<ID3D11ShaderResourceView> loadTexture(
         channels
     );
 
-    Logger::Log(
-        "[D3D11] Loaded image: %s\n",
-        path.c_str()
-    );
-
-    Logger::Log(
-        "[D3D11] Dimensions: %d x %d\n",
-        width,
-        height
-    );
-
-    Logger::Log(
-        "[D3D11] Source channels: %d\n",
-        sourceChannels
-    );
-
-    Logger::Log(
-        "[D3D11] Requested channels: %u\n",
-        channels
-    );
-
-    Logger::Log(
-        "[D3D11] Image pointer: %p\n",
-        static_cast<void*>(image)
-    );
-
     stbi_set_flip_vertically_on_load(false);
 
     if (!image)

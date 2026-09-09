@@ -2207,10 +2207,6 @@ bool Camera::CaptureFrame()
         return false;
 
     // -----------------------------------------------------
-    // Record frame
-    // -----------------------------------------------------
-
-    // -----------------------------------------------------
     // Publish frame
     // -----------------------------------------------------
 
@@ -2498,9 +2494,6 @@ bool Camera::StartRecording(
 
         return false;
     }
-
-    m_recordingStartTime =
-        std::chrono::steady_clock::now();
 
     m_recording.store(
         true,

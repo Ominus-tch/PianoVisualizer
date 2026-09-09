@@ -265,8 +265,7 @@ void Renderer::renderSetup(
 		_device,
 		"notes_vert",
 		"notes_frag",
-		ShaderProgram::InputLayoutType::QuadWithNoteData,
-		true
+		ShaderProgram::InputLayoutType::QuadWithNoteData
 	);
 
 	_programFlashes.init(

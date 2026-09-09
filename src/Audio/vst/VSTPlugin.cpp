@@ -1575,16 +1575,9 @@ namespace vst
          * --------------------------------------------------------
          */
 
-        Logger::Log(
-            "[VST] editor->isPlatformTypeSupported START\n");
-
         auto platformResult =
             _editor->isPlatformTypeSupported(
                 Steinberg::kPlatformTypeHWND);
-
-        Logger::Log(
-            "[VST] editor->isPlatformTypeSupported END result=%d\n",
-            platformResult);
 
         if (platformResult !=
             Steinberg::kResultTrue)
@@ -1607,16 +1600,9 @@ namespace vst
 
         Steinberg::ViewRect rect{};
 
-        Logger::Log(
-            "[VST] editor->getSize START\n");
-
         auto sizeResult =
             _editor->getSize(
                 &rect);
-
-        Logger::Log(
-            "[VST] editor->getSize END result=%d\n",
-            sizeResult);
 
         if (sizeResult !=
             Steinberg::kResultTrue)
@@ -1635,11 +1621,6 @@ namespace vst
 
         const int height =
             rect.getHeight();
-
-        Logger::Log(
-            "[VST] Editor size: %d x %d\n",
-            width,
-            height);
 
 
         /*
@@ -1696,8 +1677,6 @@ namespace vst
 
         if (!windowClassRegistered)
         {
-            Logger::Log(
-                "[VST] Registering editor host window class START\n");
 
             WNDCLASSA wc{};
 
@@ -1737,9 +1716,6 @@ namespace vst
 
             windowClassRegistered =
                 true;
-
-            Logger::Log(
-                "[VST] Registering editor host window class END\n");
         }
 
 
@@ -1748,9 +1724,6 @@ namespace vst
          * Create host window
          * --------------------------------------------------------
          */
-
-        Logger::Log(
-            "[VST] CreateWindowExA START\n");
 
         _editorWindow =
             CreateWindowExA(
@@ -1766,10 +1739,6 @@ namespace vst
                 nullptr,
                 instance,
                 nullptr);
-
-        Logger::Log(
-            "[VST] CreateWindowExA END hwnd=%p\n",
-            _editorWindow);
 
         if (!_editorWindow)
         {
@@ -1796,17 +1765,10 @@ namespace vst
          * --------------------------------------------------------
          */
 
-        Logger::Log(
-            "[VST] editor->attached START\n");
-
         const auto result =
             _editor->attached(
                 _editorWindow,
                 Steinberg::kPlatformTypeHWND);
-
-        Logger::Log(
-            "[VST] editor->attached END result=%d\n",
-            result);
 
         if (result !=
             Steinberg::kResultOk)
@@ -1861,21 +1823,13 @@ namespace vst
             return;
         }
 
-        Logger::Log(
-            "[VST] Destroying editor\n");
-
         _destroyingEditor =
             true;
 
         if (_editor)
         {
-            Logger::Log(
-                "[VST] editor->removed START\n");
 
             _editor->removed();
-
-            Logger::Log(
-                "[VST] editor->removed END\n");
 
             _editor =
                 nullptr;
@@ -1888,15 +1842,8 @@ namespace vst
                 GWLP_USERDATA,
                 0);
 
-            Logger::Log(
-                "[VST] DestroyWindow(editor) START hwnd=%p\n",
-                _editorWindow);
-
             DestroyWindow(
                 _editorWindow);
-
-            Logger::Log(
-                "[VST] DestroyWindow(editor) END\n");
 
             _editorWindow =
                 nullptr;
@@ -2003,13 +1950,8 @@ namespace vst
 
         if (_editor)
         {
-            Logger::Log(
-                "[VST] editor->removed START\n");
 
             _editor->removed();
-
-            Logger::Log(
-                "[VST] editor->removed END\n");
 
             _editor =
                 nullptr;

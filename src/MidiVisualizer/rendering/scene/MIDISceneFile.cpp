@@ -20,28 +20,17 @@
 MIDISceneFile::~MIDISceneFile(){}
 
 MIDISceneFile::MIDISceneFile(const std::string & midiFilePath, const SetOptions & options, const FilterOptions& filter) : MIDIScene() {
-
-	Logger::Log("[MIDI Scene File]: Loading MIDI file %s\n", midiFilePath.c_str());
-
 	_filePath = midiFilePath;
 	// MIDI processing.
 	_midiFile = MIDIFile(_filePath);
-
-	Logger::Log("[MIDI Scene File]: Updating sets and visible notes...\n");
 	updateSetsAndVisibleNotes( options, filter );
-
-	Logger::Log("[MIDI Scene File]: Final track duration %f sec.\n", _midiFile.duration());
 }
 
 
 void MIDISceneFile::updateSetsAndVisibleNotes( const SetOptions& options, const FilterOptions& filter )
 {
 	_midiFile.updateSets( options );
-
-	Logger::Log("[MIDI Scene File]: Sets updated.\n");
 	updateVisibleNotes( filter );
-
-	Logger::Log("[MIDI Scene File]: Visible notes updated.\n");
 }
 
 void MIDISceneFile::updateVisibleNotes( const FilterOptions& filter )

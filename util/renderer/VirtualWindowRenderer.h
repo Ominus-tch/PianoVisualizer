@@ -5,6 +5,8 @@
 
 #include <wrl/client.h>
 
+#include "../camera/Homography.h"
+
 using Microsoft::WRL::ComPtr;
 
 class VirtualWindowRenderer
@@ -17,6 +19,8 @@ public:
         int gridY = 36;
 
         bool drawDebugLines = false;
+
+        float sourceBottomScale = 1.0f;
 
         ImU32 tint =
             IM_COL32(
@@ -31,6 +35,10 @@ public:
         ID3D11Device* device
     );
 
+    void InvalidateHomographyCache() {
+        m_hasCachedHomography = false;
+    }
+
     void Render(
         ImDrawList* drawList,
         ImTextureID texture,
@@ -39,6 +47,23 @@ public:
         const ImVec2& topRight,
         const ImVec2& bottomRight,
         const ImVec2& bottomLeft,
+
+        const Settings& settings
+    );
+
+    void Render(
+        ImDrawList* drawList,
+        ImTextureID texture,
+
+        const ImVec2& sourceTopLeft,
+        const ImVec2& sourceTopRight,
+        const ImVec2& sourceBottomRight,
+        const ImVec2& sourceBottomLeft,
+
+        const ImVec2& destinationTopLeft,
+        const ImVec2& destinationTopRight,
+        const ImVec2& destinationBottomRight,
+        const ImVec2& destinationBottomLeft,
 
         const Settings& settings
     );
@@ -82,4 +107,9 @@ private:
     ComPtr<ID3D11Buffer> m_d3dIndexBuffer;
     ComPtr<ID3D11SamplerState> m_d3dSamplerState;
     ComPtr<ID3D11BlendState> m_d3dBlendState;
+
+    Homography m_cachedHomography;
+    ImVec2 m_cachedSource[4]{};
+    ImVec2 m_cachedDestination[4]{};
+    bool m_hasCachedHomography = false;
 };

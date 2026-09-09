@@ -13,7 +13,6 @@ MIDIFile::MIDIFile(){};
 MIDIFile::MIDIFile(const std::string & filePath){
 	std::ifstream input = System::openInputFile(filePath, true);
 
-	Logger::Log("[MIDI File]: Loading MIDI file %s\n", filePath.c_str());
 	if(!input.is_open()) {
 		Logger::Log("[Error]: Couldn't find file at path %s\n", filePath.c_str());
 		throw "BadInput";
@@ -35,9 +34,6 @@ MIDIFile::MIDIFile(const std::string & filePath){
 	const uint16_t tracksCount = read16(buffer, 10);
 
 	const std::vector<std::string> formatNames = { "Single track (0)", "Tempo track (1)", "Multiple songs (2)"};
-
-	Logger::Log("[MIDI File]: %d tracks ", tracksCount);
-	Logger::Log("(%s).\n", formatNames[int(_format)].c_str());
 
 	if(_format == multipleSongs){
 		Logger::Log("[Error]: %s is not a supported MIDI file (type 2).\n", filePath.c_str());
@@ -73,7 +69,6 @@ MIDIFile::MIDIFile(const std::string & filePath){
 	} else {
 		// In that case the 15th bit is 0, nothing to do.
 		_unitsPerQuarterNote = division;
-		Logger::Log("[MIDI File]: %d units per quarter note.\n", _unitsPerQuarterNote);
 		_unitsPerFrame = 0;
 		_framesPerSeconds = 0.0f;
 	}
@@ -81,7 +76,6 @@ MIDIFile::MIDIFile(const std::string & filePath){
 	// Parse tracks.
 	size_t pos = 14;
 	for(size_t trackId = 0; trackId < tracksCount; ++trackId){
-		Logger::Log("[MIDI File]: Reading track %d.\n", trackId);
 		_tracks.emplace_back();
 		pos = _tracks.back().readTrack(buffer, pos);
 	}

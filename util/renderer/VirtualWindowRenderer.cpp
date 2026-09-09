@@ -9,319 +9,6 @@
 
 #include "../Logger.h"
 
-// =============================================================
-// Small 3x3 matrix solver
-//
-// Solves:
-//
-//     A * x = b
-//
-// using Gaussian elimination.
-// =============================================================
-
-static bool Solve8x8(
-    double A[8][8],
-    double b[8],
-    double x[8]
-)
-{
-    for (int i = 0; i < 8; ++i)
-    {
-        // -----------------------------------------------------
-        // Find pivot
-        // -----------------------------------------------------
-
-        int pivot = i;
-
-        double maxValue =
-            std::abs(A[i][i]);
-
-        for (int r = i + 1; r < 8; ++r)
-        {
-            double value =
-                std::abs(A[r][i]);
-
-            if (value > maxValue)
-            {
-                maxValue = value;
-                pivot = r;
-            }
-        }
-
-        if (maxValue < 1e-12)
-            return false;
-
-
-        // -----------------------------------------------------
-        // Swap rows
-        // -----------------------------------------------------
-
-        if (pivot != i)
-        {
-            for (int c = i; c < 8; ++c)
-            {
-                std::swap(
-                    A[i][c],
-                    A[pivot][c]
-                );
-            }
-
-            std::swap(
-                b[i],
-                b[pivot]
-            );
-        }
-
-
-        // -----------------------------------------------------
-        // Normalize pivot row
-        // -----------------------------------------------------
-
-        const double divisor =
-            A[i][i];
-
-        for (int c = i; c < 8; ++c)
-        {
-            A[i][c] /= divisor;
-        }
-
-        b[i] /= divisor;
-
-
-        // -----------------------------------------------------
-        // Eliminate column
-        // -----------------------------------------------------
-
-        for (int r = 0; r < 8; ++r)
-        {
-            if (r == i)
-                continue;
-
-            const double factor =
-                A[r][i];
-
-            if (std::abs(factor) < 1e-12)
-                continue;
-
-            for (int c = i; c < 8; ++c)
-            {
-                A[r][c] -=
-                    factor * A[i][c];
-            }
-
-            b[r] -=
-                factor * b[i];
-        }
-    }
-
-
-    for (int i = 0; i < 8; ++i)
-    {
-        x[i] = b[i];
-    }
-
-    return true;
-}
-
-
-// =============================================================
-// HOMOGRAPHY
-//
-// Maps:
-//
-//     (u,v)
-//
-// to:
-//
-//     (screenX, screenY)
-//
-//
-//
-// Source:
-//
-//     (0,0) ---------------- (1,0)
-//       |                       |
-//       |                       |
-//       |                       |
-//     (0,1) ---------------- (1,1)
-//
-// Destination:
-//
-//     topLeft ---------------- topRight
-//       |                         |
-//       |                         |
-//       |                         |
-//     P1/bottomLeft -------- P4/bottomRight
-//
-// =============================================================
-
-struct Homography
-{
-    double h11;
-    double h12;
-    double h13;
-
-    double h21;
-    double h22;
-    double h23;
-
-    double h31;
-    double h32;
-
-    bool valid = false;
-
-
-    ImVec2 Project(
-        float u,
-        float v
-    ) const
-    {
-        const double denominator =
-            h31 * u +
-            h32 * v +
-            1.0;
-
-        if (std::abs(denominator) < 1e-12)
-        {
-            return ImVec2(
-                0.0f,
-                0.0f
-            );
-        }
-
-
-        const double x =
-            (
-                h11 * u +
-                h12 * v +
-                h13
-                ) / denominator;
-
-
-        const double y =
-            (
-                h21 * u +
-                h22 * v +
-                h23
-                ) / denominator;
-
-
-        return ImVec2(
-            static_cast<float>(x),
-            static_cast<float>(y)
-        );
-    }
-};
-
-
-// =============================================================
-// CALCULATE HOMOGRAPHY
-// =============================================================
-
-static Homography CalculateHomography(
-    const ImVec2 src[4],
-    const ImVec2 dst[4]
-)
-{
-    Homography result{};
-
-
-    double A[8][8] = {};
-    double b[8] = {};
-
-
-    for (int i = 0; i < 4; ++i)
-    {
-        const double x =
-            src[i].x;
-
-        const double y =
-            src[i].y;
-
-        const double X =
-            dst[i].x;
-
-        const double Y =
-            dst[i].y;
-
-
-        const int row =
-            i * 2;
-
-
-        // -----------------------------------------------------
-        // X equation
-        // -----------------------------------------------------
-
-        A[row][0] = x;
-        A[row][1] = y;
-        A[row][2] = 1.0;
-
-        A[row][3] = 0.0;
-        A[row][4] = 0.0;
-        A[row][5] = 0.0;
-
-        A[row][6] =
-            -X * x;
-
-        A[row][7] =
-            -X * y;
-
-        b[row] = X;
-
-
-        // -----------------------------------------------------
-        // Y equation
-        // -----------------------------------------------------
-
-        A[row + 1][0] = 0.0;
-        A[row + 1][1] = 0.0;
-        A[row + 1][2] = 0.0;
-
-        A[row + 1][3] = x;
-        A[row + 1][4] = y;
-        A[row + 1][5] = 1.0;
-
-        A[row + 1][6] =
-            -Y * x;
-
-        A[row + 1][7] =
-            -Y * y;
-
-        b[row + 1] = Y;
-    }
-
-
-    double x[8] = {};
-
-
-    if (!Solve8x8(
-        A,
-        b,
-        x
-    ))
-    {
-        return result;
-    }
-
-
-    result.h11 = x[0];
-    result.h12 = x[1];
-    result.h13 = x[2];
-
-    result.h21 = x[3];
-    result.h22 = x[4];
-    result.h23 = x[5];
-
-    result.h31 = x[6];
-    result.h32 = x[7];
-
-    result.valid = true;
-
-
-    return result;
-}
-
 bool VirtualWindowRenderer::InitializeD3D11Resources(
     ID3D11Device* device
 )
@@ -632,12 +319,46 @@ void VirtualWindowRenderer::Render(
     const Settings& settings
 )
 {
+    Render(
+        drawList,
+        texture,
+
+        ImVec2(0.0f, 0.0f),
+        ImVec2(1.0f, 0.0f),
+        ImVec2(1.0f, 1.0f),
+        ImVec2(0.0f, 1.0f),
+
+        topLeft,
+        topRight,
+        bottomRight,
+        bottomLeft,
+
+        settings
+    );
+}
+
+void VirtualWindowRenderer::Render(
+    ImDrawList* drawList,
+    ImTextureID texture,
+
+    const ImVec2& sourceTopLeft,
+    const ImVec2& sourceTopRight,
+    const ImVec2& sourceBottomRight,
+    const ImVec2& sourceBottomLeft,
+
+    const ImVec2& destinationTopLeft,
+    const ImVec2& destinationTopRight,
+    const ImVec2& destinationBottomRight,
+    const ImVec2& destinationBottomLeft,
+
+    const Settings& settings
+)
+{
     if (!drawList)
         return;
 
     if (!texture)
         return;
-
 
     const int gridX =
         settings.gridX;
@@ -645,172 +366,299 @@ void VirtualWindowRenderer::Render(
     const int gridY =
         settings.gridY;
 
-
-    if (gridX < 1 ||
-        gridY < 1)
+    if (
+        gridX < 1 ||
+        gridY < 1
+        )
     {
         return;
     }
-
-
-    // =========================================================
-    // SOURCE RECTANGLE
-    //
-    // This is the captured window.
-    //
-    // topLeft     = (0,0)
-    // topRight    = (1,0)
-    // bottomRight = (1,1)
-    // bottomLeft  = (0,1)
-    // =========================================================
-
-    const ImVec2 source[4] =
-    {
-        ImVec2(0.0f, 0.0f),
-        ImVec2(1.0f, 0.0f),
-        ImVec2(1.0f, 1.0f),
-        ImVec2(0.0f, 1.0f)
-    };
-
-
-    // =========================================================
-    // DESTINATION
-    //
-    // IMPORTANT:
-    //
-    // Your physical keyboard is:
-    //
-    //     P1 ---------------- P4
-    //      |                    |
-    //      |                    |
-    //     P2 ---------------- P3
-    //
-    //
-    // But the virtual window has:
-    //
-    //     topLeft -------- topRight
-    //        |                 |
-    //        |                 |
-    //     P1 ---------------- P4
-    //
-    // Therefore:
-    //
-    // bottomLeft  = P1
-    // bottomRight = P4
-    //
-    // exactly as you described.
-    // =========================================================
-
-    const ImVec2 destination[4] =
-    {
-        topLeft,
-        topRight,
-        bottomRight,
-        bottomLeft
-    };
-
 
     // =========================================================
     // CALCULATE PROJECTIVE TRANSFORMATION
     // =========================================================
 
-    const Homography H =
-        CalculateHomography(
-            source,
-            destination
-        );
+    const ImVec2 source[4] =
+    {
+        sourceTopLeft,
+        sourceTopRight,
+        sourceBottomRight,
+        sourceBottomLeft
+    };
 
-
-    if (!H.valid)
-        return;
-
+    const ImVec2 destination[4] =
+    {
+        destinationTopLeft,
+        destinationTopRight,
+        destinationBottomRight,
+        destinationBottomLeft
+    };
 
     // =========================================================
-    // DRAW PERSPECTIVE-WARPED TEXTURE
+    // HOMOGRAPHY CACHE
     // =========================================================
+
+    bool homographyChanged =
+        !m_hasCachedHomography;
+
+    if (!homographyChanged)
+    {
+        for (int i = 0; i < 4; ++i)
+        {
+            if (
+                m_cachedSource[i].x != source[i].x ||
+                m_cachedSource[i].y != source[i].y ||
+                m_cachedDestination[i].x != destination[i].x ||
+                m_cachedDestination[i].y != destination[i].y
+                )
+            {
+                homographyChanged = true;
+                break;
+            }
+        }
+    }
+
+    if (homographyChanged)
+    {
+        m_cachedHomography =
+            CalculateHomography(
+                source,
+                destination
+            );
+
+        if (!m_cachedHomography.valid)
+        {
+            m_hasCachedHomography = false;
+            return;
+        }
+
+        for (int i = 0; i < 4; ++i)
+        {
+            m_cachedSource[i] =
+                source[i];
+
+            m_cachedDestination[i] =
+                destination[i];
+        }
+
+        m_hasCachedHomography = true;
+    }
+
+    const Homography& H =
+        m_cachedHomography;
+
+    // =========================================================
+    // SOURCE BOTTOM SCALING
+    // =========================================================
+
+    const float scale =
+        settings.sourceBottomScale;
+
+    const ImVec2 scaledBottomLeft(
+        sourceTopLeft.x +
+        (
+            sourceBottomLeft.x -
+            sourceTopLeft.x
+            ) * scale,
+
+        sourceTopLeft.y +
+        (
+            sourceBottomLeft.y -
+            sourceTopLeft.y
+            ) * scale
+    );
+
+    const ImVec2 scaledBottomRight(
+        sourceTopRight.x +
+        (
+            sourceBottomRight.x -
+            sourceTopRight.x
+            ) * scale,
+
+        sourceTopRight.y +
+        (
+            sourceBottomRight.y -
+            sourceTopRight.y
+            ) * scale
+    );
+
+    // =========================================================
+    // PRECOMPUTE GRID VALUES
+    // =========================================================
+
+    const float invGridX =
+        1.0f / static_cast<float>(gridX);
+
+    const float invGridY =
+        1.0f / static_cast<float>(gridY);
 
     for (int y = 0; y < gridY; ++y)
     {
+        const float v0 =
+            static_cast<float>(y) * invGridY;
+
+        const float v1 =
+            static_cast<float>(y + 1) * invGridY;
+
         for (int x = 0; x < gridX; ++x)
         {
             const float u0 =
-                static_cast<float>(x) /
-                static_cast<float>(gridX);
+                static_cast<float>(x) * invGridX;
 
             const float u1 =
-                static_cast<float>(x + 1) /
-                static_cast<float>(gridX);
-
-
-            const float v0 =
-                static_cast<float>(y) /
-                static_cast<float>(gridY);
-
-            const float v1 =
-                static_cast<float>(y + 1) /
-                static_cast<float>(gridY);
-
+                static_cast<float>(x + 1) * invGridX;
 
             // -------------------------------------------------
-            // PROJECT EACH CORNER
+            // SOURCE TOP EDGE
+            // -------------------------------------------------
+
+            const ImVec2 sourceTop0(
+                sourceTopLeft.x +
+                (
+                    sourceTopRight.x -
+                    sourceTopLeft.x
+                    ) * u0,
+
+                sourceTopLeft.y +
+                (
+                    sourceTopRight.y -
+                    sourceTopLeft.y
+                    ) * u0
+            );
+
+            const ImVec2 sourceTop1(
+                sourceTopLeft.x +
+                (
+                    sourceTopRight.x -
+                    sourceTopLeft.x
+                    ) * u1,
+
+                sourceTopLeft.y +
+                (
+                    sourceTopRight.y -
+                    sourceTopLeft.y
+                    ) * u1
+            );
+
+            // -------------------------------------------------
+            // SOURCE BOTTOM EDGE
+            // -------------------------------------------------
+
+            const ImVec2 sourceBottom0(
+                scaledBottomLeft.x +
+                (
+                    scaledBottomRight.x -
+                    scaledBottomLeft.x
+                    ) * u0,
+
+                scaledBottomLeft.y +
+                (
+                    scaledBottomRight.y -
+                    scaledBottomLeft.y
+                    ) * u0
+            );
+
+            const ImVec2 sourceBottom1(
+                scaledBottomLeft.x +
+                (
+                    scaledBottomRight.x -
+                    scaledBottomLeft.x
+                    ) * u1,
+
+                scaledBottomLeft.y +
+                (
+                    scaledBottomRight.y -
+                    scaledBottomLeft.y
+                    ) * u1
+            );
+
+            // -------------------------------------------------
+            // SOURCE QUAD
+            // -------------------------------------------------
+
+            const ImVec2 source00(
+                sourceTop0.x +
+                (
+                    sourceBottom0.x -
+                    sourceTop0.x
+                    ) * v0,
+
+                sourceTop0.y +
+                (
+                    sourceBottom0.y -
+                    sourceTop0.y
+                    ) * v0
+            );
+
+            const ImVec2 source10(
+                sourceTop1.x +
+                (
+                    sourceBottom1.x -
+                    sourceTop1.x
+                    ) * v0,
+
+                sourceTop1.y +
+                (
+                    sourceBottom1.y -
+                    sourceTop1.y
+                    ) * v0
+            );
+
+            const ImVec2 source11(
+                sourceTop1.x +
+                (
+                    sourceBottom1.x -
+                    sourceTop1.x
+                    ) * v1,
+
+                sourceTop1.y +
+                (
+                    sourceBottom1.y -
+                    sourceTop1.y
+                    ) * v1
+            );
+
+            const ImVec2 source01(
+                sourceTop0.x +
+                (
+                    sourceBottom0.x -
+                    sourceTop0.x
+                    ) * v1,
+
+                sourceTop0.y +
+                (
+                    sourceBottom0.y -
+                    sourceTop0.y
+                    ) * v1
+            );
+
+            // -------------------------------------------------
+            // PROJECT SOURCE POSITIONS
             // -------------------------------------------------
 
             const ImVec2 p00 =
                 H.Project(
-                    u0,
-                    v0
+                    source00.x,
+                    source00.y
                 );
-
 
             const ImVec2 p10 =
                 H.Project(
-                    u1,
-                    v0
+                    source10.x,
+                    source10.y
                 );
-
 
             const ImVec2 p11 =
                 H.Project(
-                    u1,
-                    v1
+                    source11.x,
+                    source11.y
                 );
-
 
             const ImVec2 p01 =
                 H.Project(
-                    u0,
-                    v1
+                    source01.x,
+                    source01.y
                 );
-
-
-            // -------------------------------------------------
-            // UVs
-            //
-            // No flipping.
-            //
-            // Source and destination have the same orientation.
-            // -------------------------------------------------
-
-            const ImVec2 uv00(
-                u0,
-                v0
-            );
-
-            const ImVec2 uv10(
-                u1,
-                v0
-            );
-
-            const ImVec2 uv11(
-                u1,
-                v1
-            );
-
-            const ImVec2 uv01(
-                u0,
-                v1
-            );
-
 
             // -------------------------------------------------
             // DRAW
@@ -824,24 +672,37 @@ void VirtualWindowRenderer::Render(
                 p11,
                 p01,
 
-                uv00,
-                uv10,
-                uv11,
-                uv01,
+                source00,
+                source10,
+                source11,
+                source01,
 
                 settings.tint
             );
         }
     }
 
-    if (settings.drawDebugLines) {
-        // =========================================================
-        // DEBUG OUTLINE
-        // =========================================================
+    // =========================================================
+    // DEBUG OUTLINE
+    // =========================================================
+
+    if (settings.drawDebugLines)
+    {
+        const ImVec2 extendedDestinationBottomLeft =
+            H.Project(
+                scaledBottomLeft.x,
+                scaledBottomLeft.y
+            );
+
+        const ImVec2 extendedDestinationBottomRight =
+            H.Project(
+                scaledBottomRight.x,
+                scaledBottomRight.y
+            );
 
         drawList->AddLine(
-            topLeft,
-            topRight,
+            destinationTopLeft,
+            destinationTopRight,
             IM_COL32(
                 0,
                 150,
@@ -851,10 +712,9 @@ void VirtualWindowRenderer::Render(
             2.0f
         );
 
-
         drawList->AddLine(
-            topRight,
-            bottomRight,
+            destinationTopRight,
+            extendedDestinationBottomRight,
             IM_COL32(
                 0,
                 150,
@@ -864,10 +724,9 @@ void VirtualWindowRenderer::Render(
             2.0f
         );
 
-
         drawList->AddLine(
-            bottomRight,
-            bottomLeft,
+            extendedDestinationBottomRight,
+            extendedDestinationBottomLeft,
             IM_COL32(
                 0,
                 150,
@@ -877,10 +736,9 @@ void VirtualWindowRenderer::Render(
             2.0f
         );
 
-
         drawList->AddLine(
-            bottomLeft,
-            topLeft,
+            extendedDestinationBottomLeft,
+            destinationTopLeft,
             IM_COL32(
                 0,
                 150,

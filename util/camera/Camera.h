@@ -592,9 +592,6 @@ private:
     std::string
         m_recordingFilePath;
 
-    std::chrono::steady_clock::time_point
-        m_recordingStartTime{};
-
     std::vector<RecordedFrame> m_recordedFrames;
 
 

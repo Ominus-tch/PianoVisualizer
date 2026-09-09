@@ -207,25 +207,25 @@ static PianoCameraPose CalculatePianoCameraPose(
     // to provide manually.
     // --------------------------------------------------------
 
-    float pi =
+    const float pi =
         3.14159265358979323846f;
 
-    float fovRadians =
+    const float fovRadians =
         horizontalFovDegrees *
         pi /
         180.0f;
 
-    float fx =
+    const float fx =
         (imageWidth * 0.5f) /
         std::tan(fovRadians * 0.5f);
 
-    float fy =
+    const float fy =
         fx;
 
-    float cx =
+    const float cx =
         imageWidth * 0.5f;
 
-    float cy =
+    const float cy =
         imageHeight * 0.5f;
 
 
@@ -245,30 +245,26 @@ static PianoCameraPose CalculatePianoCameraPose(
     // --------------------------------------------------------
     // Plane coordinates
     //
-    // We use:
-    //
     // P1 = (0,0)
     // P2 = (0,1)
     // P3 = (1,1)
     // P4 = (1,0)
-    //
     // --------------------------------------------------------
 
-    float src[4][2] =
+    const ImVec2 src[4] =
     {
-        { 0.0f, 0.0f }, // P1
-        { 0.0f, 1.0f }, // P2
-        { 1.0f, 1.0f }, // P3
-        { 1.0f, 0.0f }  // P4
+        ImVec2(0.0f, 0.0f), // P1
+        ImVec2(0.0f, 1.0f), // P2
+        ImVec2(1.0f, 1.0f), // P3
+        ImVec2(1.0f, 0.0f)  // P4
     };
 
-
-    float dst[4][2] =
+    const ImVec2 dst[4] =
     {
-        { P1.x, P1.y },
-        { P2.x, P2.y },
-        { P3.x, P3.y },
-        { P4.x, P4.y }
+        P1,
+        P2,
+        P3,
+        P4
     };
 
 
@@ -277,6 +273,12 @@ static PianoCameraPose CalculatePianoCameraPose(
             src,
             dst
         );
+
+
+    if (!H.valid)
+    {
+        return pose;
+    }
 
 
     // --------------------------------------------------------
@@ -291,25 +293,48 @@ static PianoCameraPose CalculatePianoCameraPose(
     // K^-1 can be applied directly.
     // --------------------------------------------------------
 
-    float B[3][3]{};
+    double B[3][3]{};
 
-    for (int column = 0; column < 3; ++column)
-    {
-        B[0][column] =
-            (
-                H.h[0][column] -
-                cx * H.h[2][column]
-                ) / fx;
+    // H =
+    //
+    // [ h11 h12 h13 ]
+    // [ h21 h22 h23 ]
+    // [ h31 h32  1  ]
 
-        B[1][column] =
-            (
-                H.h[1][column] -
-                cy * H.h[2][column]
-                ) / fy;
+    B[0][0] =
+        (H.h11 - cx * H.h31) /
+        fx;
 
-        B[2][column] =
-            H.h[2][column];
-    }
+    B[0][1] =
+        (H.h12 - cx * H.h32) /
+        fx;
+
+    B[0][2] =
+        (H.h13 - cx) /
+        fx;
+
+
+    B[1][0] =
+        (H.h21 - cy * H.h31) /
+        fy;
+
+    B[1][1] =
+        (H.h22 - cy * H.h32) /
+        fy;
+
+    B[1][2] =
+        (H.h23 - cy) /
+        fy;
+
+
+    B[2][0] =
+        H.h31;
+
+    B[2][1] =
+        H.h32;
+
+    B[2][2] =
+        1.0;
 
 
     // --------------------------------------------------------
@@ -318,23 +343,23 @@ static PianoCameraPose CalculatePianoCameraPose(
 
     Vec3 b1 =
     {
-        B[0][0],
-        B[1][0],
-        B[2][0]
+        static_cast<float>(B[0][0]),
+        static_cast<float>(B[1][0]),
+        static_cast<float>(B[2][0])
     };
 
     Vec3 b2 =
     {
-        B[0][1],
-        B[1][1],
-        B[2][1]
+        static_cast<float>(B[0][1]),
+        static_cast<float>(B[1][1]),
+        static_cast<float>(B[2][1])
     };
 
     Vec3 b3 =
     {
-        B[0][2],
-        B[1][2],
-        B[2][2]
+        static_cast<float>(B[0][2]),
+        static_cast<float>(B[1][2]),
+        static_cast<float>(B[2][2])
     };
 
 
@@ -342,10 +367,10 @@ static PianoCameraPose CalculatePianoCameraPose(
     // Both r1 and r2 should have the same scale.
     // --------------------------------------------------------
 
-    float norm1 =
+    const float norm1 =
         Vec3Length(b1);
 
-    float norm2 =
+    const float norm2 =
         Vec3Length(b2);
 
     if (
@@ -357,7 +382,7 @@ static PianoCameraPose CalculatePianoCameraPose(
     }
 
 
-    float lambda =
+    const float lambda =
         2.0f /
         (norm1 + norm2);
 
@@ -385,7 +410,7 @@ static PianoCameraPose CalculatePianoCameraPose(
     // This removes small numerical errors.
     // --------------------------------------------------------
 
-    float projection =
+    const float projection =
         Vec3Dot(
             r1,
             r2
@@ -446,7 +471,8 @@ static PianoCameraPose CalculatePianoCameraPose(
     pose.translation =
         translation;
 
-    pose.valid = true;
+    pose.valid =
+        true;
 
     return pose;
 }

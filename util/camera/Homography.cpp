@@ -1,6 +1,5 @@
 #include "Homography.h"
 
-#include <cmath>
 #include <algorithm>
 
 
@@ -8,105 +7,105 @@
 // Solve an 8x8 linear system using Gaussian elimination
 // ============================================================
 
-static bool SolveLinearSystem(
-    float A[8][9],
-    float result[8]
+static bool Solve8x8(
+    double A[8][8],
+    double b[8],
+    double x[8]
 )
 {
     for (int i = 0; i < 8; ++i)
     {
-        // ----------------------------------------------------
-        // Find pivot row
-        // ----------------------------------------------------
+        // -----------------------------------------------------
+        // Find pivot
+        // -----------------------------------------------------
 
-        int pivotRow = i;
+        int pivot = i;
 
-        float largest =
-            std::fabs(A[i][i]);
+        double maxValue =
+            std::abs(A[i][i]);
 
-        for (int row = i + 1; row < 8; ++row)
+        for (int r = i + 1; r < 8; ++r)
         {
-            float value =
-                std::fabs(A[row][i]);
+            double value =
+                std::abs(A[r][i]);
 
-            if (value > largest)
+            if (value > maxValue)
             {
-                largest = value;
-                pivotRow = row;
+                maxValue = value;
+                pivot = r;
             }
         }
 
-        // ----------------------------------------------------
-        // Matrix is singular
-        // ----------------------------------------------------
-
-        if (largest < 0.000001f)
-        {
+        if (maxValue < 1e-12)
             return false;
-        }
 
-        // ----------------------------------------------------
+
+        // -----------------------------------------------------
         // Swap rows
-        // ----------------------------------------------------
+        // -----------------------------------------------------
 
-        if (pivotRow != i)
+        if (pivot != i)
         {
-            for (int column = i; column < 9; ++column)
+            for (int c = i; c < 8; ++c)
             {
                 std::swap(
-                    A[i][column],
-                    A[pivotRow][column]
+                    A[i][c],
+                    A[pivot][c]
                 );
             }
+
+            std::swap(
+                b[i],
+                b[pivot]
+            );
         }
 
-        // ----------------------------------------------------
-        // Normalize pivot row
-        // ----------------------------------------------------
 
-        float pivot =
+        // -----------------------------------------------------
+        // Normalize pivot row
+        // -----------------------------------------------------
+
+        const double divisor =
             A[i][i];
 
-        for (int column = i; column < 9; ++column)
+        for (int c = i; c < 8; ++c)
         {
-            A[i][column] /= pivot;
+            A[i][c] /= divisor;
         }
 
-        // ----------------------------------------------------
-        // Eliminate this column from all other rows
-        // ----------------------------------------------------
+        b[i] /= divisor;
 
-        for (int row = 0; row < 8; ++row)
+
+        // -----------------------------------------------------
+        // Eliminate column
+        // -----------------------------------------------------
+
+        for (int r = 0; r < 8; ++r)
         {
-            if (row == i)
-            {
+            if (r == i)
                 continue;
-            }
 
-            float factor =
-                A[row][i];
+            const double factor =
+                A[r][i];
 
-            if (std::fabs(factor) < 0.000001f)
-            {
+            if (std::abs(factor) < 1e-12)
                 continue;
+
+            for (int c = i; c < 8; ++c)
+            {
+                A[r][c] -=
+                    factor * A[i][c];
             }
 
-            for (int column = i; column < 9; ++column)
-            {
-                A[row][column] -=
-                    factor *
-                    A[i][column];
-            }
+            b[r] -=
+                factor * b[i];
         }
     }
 
-    // --------------------------------------------------------
-    // Extract solution
-    // --------------------------------------------------------
 
     for (int i = 0; i < 8; ++i)
     {
-        result[i] = A[i][8];
+        x[i] = b[i];
     }
 
     return true;
@@ -118,302 +117,105 @@ static bool SolveLinearSystem(
 // ============================================================
 
 Homography CalculateHomography(
-    const float src[4][2],
-    const float dst[4][2]
+    const ImVec2 src[4],
+    const ImVec2 dst[4]
 )
 {
-    Homography H{};
+    Homography result{};
 
-    // --------------------------------------------------------
-    // We solve for:
-    //
-    // h11 h12 h13
-    // h21 h22 h23
-    // h31 h32  1
-    //
-    // The final element is fixed to 1.
-    //
-    // This leaves 8 unknowns.
-    // --------------------------------------------------------
 
-    float A[8][9] = {};
+    double A[8][8] = {};
+    double b[8] = {};
 
-    int row = 0;
 
     for (int i = 0; i < 4; ++i)
     {
-        float x = src[i][0];
-        float y = src[i][1];
+        const double x =
+            src[i].x;
 
-        float X = dst[i][0];
-        float Y = dst[i][1];
+        const double y =
+            src[i].y;
 
-        // ----------------------------------------------------
-        // Equation for X
-        //
-        // X = (h11*x + h12*y + h13) /
-        //     (h31*x + h32*y + 1)
-        // ----------------------------------------------------
+        const double X =
+            dst[i].x;
+
+        const double Y =
+            dst[i].y;
+
+
+        const int row =
+            i * 2;
+
+
+        // -----------------------------------------------------
+        // X equation
+        // -----------------------------------------------------
 
         A[row][0] = x;
         A[row][1] = y;
-        A[row][2] = 1.0f;
+        A[row][2] = 1.0;
 
-        A[row][3] = 0.0f;
-        A[row][4] = 0.0f;
-        A[row][5] = 0.0f;
+        A[row][3] = 0.0;
+        A[row][4] = 0.0;
+        A[row][5] = 0.0;
 
-        A[row][6] = -X * x;
-        A[row][7] = -X * y;
+        A[row][6] =
+            -X * x;
 
-        A[row][8] = X;
+        A[row][7] =
+            -X * y;
 
-        ++row;
+        b[row] = X;
 
-        // ----------------------------------------------------
-        // Equation for Y
-        // ----------------------------------------------------
 
-        A[row][0] = 0.0f;
-        A[row][1] = 0.0f;
-        A[row][2] = 0.0f;
+        // -----------------------------------------------------
+        // Y equation
+        // -----------------------------------------------------
 
-        A[row][3] = x;
-        A[row][4] = y;
-        A[row][5] = 1.0f;
+        A[row + 1][0] = 0.0;
+        A[row + 1][1] = 0.0;
+        A[row + 1][2] = 0.0;
 
-        A[row][6] = -Y * x;
-        A[row][7] = -Y * y;
+        A[row + 1][3] = x;
+        A[row + 1][4] = y;
+        A[row + 1][5] = 1.0;
 
-        A[row][8] = Y;
+        A[row + 1][6] =
+            -Y * x;
 
-        ++row;
+        A[row + 1][7] =
+            -Y * y;
+
+        b[row + 1] = Y;
     }
 
-    // --------------------------------------------------------
-    // Solve
-    // --------------------------------------------------------
 
-    float solution[8] = {};
+    double x[8] = {};
 
-    if (!SolveLinearSystem(A, solution))
+
+    if (!Solve8x8(
+        A,
+        b,
+        x
+    ))
     {
-        // ----------------------------------------------------
-        // Return identity matrix if the points are invalid
-        // or the system cannot be solved.
-        // ----------------------------------------------------
-
-        H.h[0][0] = 1.0f;
-        H.h[0][1] = 0.0f;
-        H.h[0][2] = 0.0f;
-
-        H.h[1][0] = 0.0f;
-        H.h[1][1] = 1.0f;
-        H.h[1][2] = 0.0f;
-
-        H.h[2][0] = 0.0f;
-        H.h[2][1] = 0.0f;
-        H.h[2][2] = 1.0f;
-
-        return H;
+        return result;
     }
 
-    // --------------------------------------------------------
-    // Build matrix
-    // --------------------------------------------------------
 
-    H.h[0][0] = solution[0];
-    H.h[0][1] = solution[1];
-    H.h[0][2] = solution[2];
+    result.h11 = x[0];
+    result.h12 = x[1];
+    result.h13 = x[2];
 
-    H.h[1][0] = solution[3];
-    H.h[1][1] = solution[4];
-    H.h[1][2] = solution[5];
+    result.h21 = x[3];
+    result.h22 = x[4];
+    result.h23 = x[5];
 
-    H.h[2][0] = solution[6];
-    H.h[2][1] = solution[7];
-    H.h[2][2] = 1.0f;
+    result.h31 = x[6];
+    result.h32 = x[7];
 
-    return H;
-}
+    result.valid = true;
 
 
-// ============================================================
-// Transform Point
-// ============================================================
-
-void TransformPoint(
-    const Homography& H,
-    float x,
-    float y,
-    float& outX,
-    float& outY
-)
-{
-    // --------------------------------------------------------
-    // Homogeneous transformation:
-    //
-    // [X]   [h00 h01 h02] [x]
-    // [Y] = [h10 h11 h12] [y]
-    // [W]   [h20 h21 h22] [1]
-    //
-    // Final coordinates:
-    //
-    // x' = X / W
-    // y' = Y / W
-    // --------------------------------------------------------
-
-    float X =
-        H.h[0][0] * x +
-        H.h[0][1] * y +
-        H.h[0][2];
-
-    float Y =
-        H.h[1][0] * x +
-        H.h[1][1] * y +
-        H.h[1][2];
-
-    float W =
-        H.h[2][0] * x +
-        H.h[2][1] * y +
-        H.h[2][2];
-
-    // --------------------------------------------------------
-    // Avoid division by zero
-    // --------------------------------------------------------
-
-    if (std::fabs(W) < 0.000001f)
-    {
-        outX = 0.0f;
-        outY = 0.0f;
-        return;
-    }
-
-    outX = X / W;
-    outY = Y / W;
-}
-
-// ============================================================
-// Build Virtual Piano Corners
-// ============================================================
-//
-// Input:
-//
-//     physicalTopLeft      = P0
-//     physicalBottomLeft   = P1
-//     physicalBottomRight  = P2
-//     physicalTopRight     = P3
-//
-// The virtual piano is anchored to:
-//
-//     P1 ---------------- P2
-//       bottom edge
-//
-// The top edge is generated by extending the two physical
-// side directions:
-//
-//     P1 -> P0
-//     P2 -> P3
-//
-// heightScale controls how tall the virtual piano is.
-//
-//     1.0 = same depth as the selected piano area
-//     0.5 = half as deep
-//     2.0 = twice as deep
-//
-// Output order:
-//
-//     0 = top-left
-//     1 = bottom-left
-//     2 = bottom-right
-//     3 = top-right
-//
-// ============================================================
-
-void BuildVirtualPianoCorners(
-    const float topLeft[2],
-    const float bottomLeft[2],
-    const float bottomRight[2],
-    const float topRight[2],
-    float heightScale,
-    float outCorners[4][2]
-)
-{
-    // --------------------------------------------------------
-    // The virtual piano is anchored to:
-    //
-    // P1 ---------------- P4
-    //
-    // which is the TOP edge of the selected piano.
-    //
-    // P2 and P3 are used to determine the direction in which
-    // the virtual piano extends.
-    // --------------------------------------------------------
-
-
-    // --------------------------------------------------------
-    // Left direction:
-    //
-    // P1 -> P2
-    // --------------------------------------------------------
-
-    float leftDirectionX =
-        bottomLeft[0] - topLeft[0];
-
-    float leftDirectionY =
-        bottomLeft[1] - topLeft[1];
-
-
-    // --------------------------------------------------------
-    // Right direction:
-    //
-    // P4 -> P3
-    // --------------------------------------------------------
-
-    float rightDirectionX =
-        bottomRight[0] - topRight[0];
-
-    float rightDirectionY =
-        bottomRight[1] - topRight[1];
-
-
-    // --------------------------------------------------------
-    // Bottom of virtual piano = P1 -> P4
-    // --------------------------------------------------------
-
-    outCorners[0][0] =
-        topLeft[0];
-
-    outCorners[0][1] =
-        topLeft[1];
-
-
-    outCorners[3][0] =
-        topRight[0];
-
-    outCorners[3][1] =
-        topRight[1];
-
-
-    // --------------------------------------------------------
-    // Generate the opposite edge by extending from P1/P4
-    // toward P2/P3.
-    // --------------------------------------------------------
-
-    outCorners[1][0] =
-        topLeft[0] +
-        leftDirectionX * heightScale;
-
-    outCorners[1][1] =
-        topLeft[1] +
-        leftDirectionY * heightScale;
-
-
-    outCorners[2][0] =
-        topRight[0] +
-        rightDirectionX * heightScale;
-
-    outCorners[2][1] =
-        topRight[1] +
-        rightDirectionY * heightScale;
+    return result;
 }

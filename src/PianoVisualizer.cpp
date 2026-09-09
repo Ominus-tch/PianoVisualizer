@@ -1,5 +1,6 @@
 #include "PianoVisualizer.h"
 
+#include <cmath>
 #include <algorithm>
 #include <iostream>
 
@@ -650,17 +651,25 @@ bool PianoVisualizer::InitializeMidiVisualizer()
 
             bool success = m_cameraVideoPlayer.Open(path);
 
+            int scene;
+
             Config::LoadPianoConfigFromPath(
                 m_viewer->selectedRecordingDirectory() / "recordingPreset.json",
                 m_polygonPoints,
+                scene,
                 m_horizontalFovDegrees,
                 m_planeWidth,
                 m_planeDepth,
                 m_planePivot,
                 m_surfaceXOffset,
                 m_surfaceYOffset,
-                m_surfaceZOffset
+                m_surfaceZOffset,
+                m_pianoRollTransparent,
+                m_pianoRollVisualizerHeight,
+                m_pianoRollCameraSourceScale
             );
+
+            m_pianoScene = static_cast<PianoScene>(scene);
 
             return success;
         }
@@ -677,16 +686,24 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 m_camera.OpenCamera(m_cameraSelectedIndex);
             }
 
+            int scene;
+
             Config::LoadPianoConfig(
                 m_polygonPoints,
+                scene,
                 m_horizontalFovDegrees,
                 m_planeWidth,
                 m_planeDepth,
                 m_planePivot,
                 m_surfaceXOffset,
                 m_surfaceYOffset,
-                m_surfaceZOffset
+                m_surfaceZOffset,
+                m_pianoRollTransparent,
+                m_pianoRollVisualizerHeight,
+                m_pianoRollCameraSourceScale
             );
+
+            m_pianoScene = static_cast<PianoScene>(scene);
         }
     );
 
@@ -714,21 +731,29 @@ void PianoVisualizer::LoadPianoConfiguration()
         gui::onceFlag,
         [&]()
         {
+            int scene;
+
             if (!Config::LoadPianoConfig(
                 m_polygonPoints,
+                scene,
                 m_horizontalFovDegrees,
                 m_planeWidth,
                 m_planeDepth,
                 m_planePivot,
                 m_surfaceXOffset,
                 m_surfaceYOffset,
-                m_surfaceZOffset
+                m_surfaceZOffset,
+                m_pianoRollTransparent,
+                m_pianoRollVisualizerHeight,
+                m_pianoRollCameraSourceScale
             ))
             {
                 Logger::Log(
                     "No piano config found. Using defaults.\n"
                 );
             }
+
+            m_pianoScene = static_cast<PianoScene>(scene);
         }
     );
 }
@@ -738,13 +763,17 @@ void PianoVisualizer::SavePianoConfiguration()
 {
     if (Config::SavePianoConfig(
         m_polygonPoints,
+        static_cast<int>(m_pianoScene),
         m_horizontalFovDegrees,
         m_planeWidth,
         m_planeDepth,
         m_planePivot,
         m_surfaceXOffset,
         m_surfaceYOffset,
-        m_surfaceZOffset
+        m_surfaceZOffset,
+        m_pianoRollTransparent,
+        m_pianoRollVisualizerHeight,
+        m_pianoRollCameraSourceScale
     ))
     {
         m_configSaveMessage =
@@ -825,20 +854,19 @@ void PianoVisualizer::Update()
     // Camera
     // ---------------------------------------------------------
 
-    double time = m_viewer->getTime();
 
-    if (
-        m_viewer &&
-        m_viewer->isPlaybackLoaded()
-        )
+    if (m_viewer) 
     {
-        m_cameraVideoPlayer.Update(
-            time
-        );
-    }
-    else
-    {
-        m_camera.Update(time);
+        if (m_viewer->isPlaybackLoaded())
+        {
+            double time = m_viewer->getTime();
+            m_cameraVideoPlayer.Update(time);
+        }
+        else
+        {
+            double time = m_viewer->getElapsedRecordingTime();
+            m_camera.Update(time);
+        }
     }
 
     // ---------------------------------------------------------
@@ -946,7 +974,7 @@ void PianoVisualizer::StartWindowCapture(
     if (!m_windowCapture.Start(window))
     {
         Logger::Log(
-            "Failed to start window capture!\n"
+            "[PianoVisualizer] Failed to start window capture!\n"
         );
 
         m_windowCapture.Stop();
@@ -961,7 +989,7 @@ void PianoVisualizer::StartWindowCapture(
         window;
 
     Logger::Log(
-        "Window capture started.\n"
+        "[WindowCapture] Started.\n"
     );
 }
 
@@ -969,7 +997,7 @@ void PianoVisualizer::onStartRecording()
 {
     if (!m_camera.StartRecording((m_viewer->recordingDirectory() / "cameraRecording.mp4").string()))
     {
-        Logger::Log("Failed to start recording!\n");
+        Logger::Log("[Recording] Failed to start!\n");
     }
 }
 
@@ -977,19 +1005,23 @@ void PianoVisualizer::onStopRecording()
 {
     if (!m_camera.StopRecording())
     {
-        Logger::Log("Failed to stop recording!\n");
+        Logger::Log("[Recording] Failed to stop!\n");
     }
 
     Config::SavePianoConfigToPath(
         m_viewer->recordingDirectory() / "recordingPreset.json",
         m_polygonPoints,
+        static_cast<int>(m_pianoScene),
         m_horizontalFovDegrees,
         m_planeWidth,
         m_planeDepth,
         m_planePivot,
         m_surfaceXOffset,
         m_surfaceYOffset,
-        m_surfaceZOffset
+        m_surfaceZOffset,
+        m_pianoRollTransparent,
+        m_pianoRollVisualizerHeight,
+        m_pianoRollCameraSourceScale
     );
 }
 
@@ -1262,9 +1294,6 @@ void PianoVisualizer::Render()
 
     // ---------------------------------------------------------
     // Virtual camera output
-    //
-    // Send the completed camera output into the shared
-    // 1920x1080 texture.
     // ---------------------------------------------------------
 
     RenderVirtualCameraFrame();
@@ -1292,16 +1321,24 @@ void PianoVisualizer::Render()
     );
 
     // ---------------------------------------------------------
-    // MIDI Visualizer
+    // Scene
     // ---------------------------------------------------------
 
-    RenderVisualizer();
+    switch (m_pianoScene)
+    {
+    case PianoScene::Perspective:
+        RenderVisualizer();
+        RenderCamera();
+        break;
+
+    case PianoScene::PianoRoll:
+        RenderPianoRoll();
+        break;
+    }
 
     // ---------------------------------------------------------
-    // Camera
+    // Camera errors
     // ---------------------------------------------------------
-
-    RenderCamera();
 
     std::string cameraError =
         m_camera.GetLastError();
@@ -1418,11 +1455,12 @@ void PianoVisualizer::RenderCameraOutput()
         return;
     }
 
-    constexpr float clearColor[4]{
+
+    float clearColor[4]{
         0.0f,
         0.0f,
         0.0f,
-        1.0f
+        m_pianoRollTransparent ? 0.0f : 1.0f
     };
 
     ID3D11RenderTargetView* renderTarget =
@@ -1558,6 +1596,392 @@ void PianoVisualizer::RenderVisualizer()
     );
 
     m_drawVisualizer = false;
+}
+
+
+// =========================================================
+// Piano Roll
+// =========================================================
+
+void PianoVisualizer::RenderPianoRoll()
+{
+    if (!m_viewer)
+        return;
+
+    // ---------------------------------------------------------
+    // Render MIDI visualizer
+    // ---------------------------------------------------------
+
+    m_viewer->draw(
+        DEBUG_SPEED *
+        float(System::time())
+    );
+
+    // ---------------------------------------------------------
+    // Restore main render target / viewport
+    // ---------------------------------------------------------
+
+    m_context->OMSetRenderTargets(
+        1,
+        &m_renderTargetView,
+        nullptr
+    );
+
+    D3D11_VIEWPORT d3dviewport{};
+
+    d3dviewport.TopLeftX = 0.0f;
+    d3dviewport.TopLeftY = 0.0f;
+
+    d3dviewport.Width =
+        static_cast<float>(
+            m_statistics.renderWidth
+            );
+
+    d3dviewport.Height =
+        static_cast<float>(
+            m_statistics.renderHeight
+            );
+
+    d3dviewport.MinDepth = 0.0f;
+    d3dviewport.MaxDepth = 1.0f;
+
+    m_context->RSSetViewports(
+        1,
+        &d3dviewport
+    );
+
+    // ---------------------------------------------------------
+    // Camera
+    // ---------------------------------------------------------
+
+    float cameraWidth = 0.0f;
+    float cameraHeight = 0.0f;
+
+    ID3D11ShaderResourceView* cameraTexture =
+        nullptr;
+
+    if (
+        m_viewer->isPlaybackLoaded() &&
+        m_cameraVideoPlayer.IsOpen()
+        )
+    {
+        cameraTexture =
+            m_cameraVideoPlayer.GetTexture();
+
+        cameraWidth =
+            static_cast<float>(
+                m_cameraVideoPlayer.GetWidth()
+                );
+
+        cameraHeight =
+            static_cast<float>(
+                m_cameraVideoPlayer.GetHeight()
+                );
+    }
+    else if (m_camera.IsOpen())
+    {
+        cameraTexture =
+            m_camera.GetTexture();
+
+        cameraWidth =
+            static_cast<float>(
+                m_camera.GetWidth()
+                );
+
+        cameraHeight =
+            static_cast<float>(
+                m_camera.GetHeight()
+                );
+    }
+
+    if (
+        !cameraTexture ||
+        cameraWidth <= 0.0f ||
+        cameraHeight <= 0.0f
+        )
+    {
+        return;
+    }
+
+    // ---------------------------------------------------------
+    // Viewport
+    // ---------------------------------------------------------
+
+    ImGuiViewport* viewport =
+        ImGui::GetMainViewport();
+
+    const float outputWidth =
+        viewport->WorkSize.x;
+
+    const float outputHeight =
+        viewport->WorkSize.y;
+
+    const float visualizerHeight =
+        outputHeight *
+        std::clamp(
+            m_pianoRollVisualizerHeight,
+            0.00f,
+            1.00f
+        );
+
+    const float topWidth =
+        std::hypot(
+            m_polygonPoints[3].x - m_polygonPoints[0].x,
+            m_polygonPoints[3].y - m_polygonPoints[0].y
+        );
+
+    const float bottomWidth =
+        std::hypot(
+            m_polygonPoints[2].x - m_polygonPoints[1].x,
+            m_polygonPoints[2].y - m_polygonPoints[1].y
+        );
+
+    const float leftHeight =
+        std::hypot(
+            m_polygonPoints[1].x - m_polygonPoints[0].x,
+            m_polygonPoints[1].y - m_polygonPoints[0].y
+        );
+
+    const float rightHeight =
+        std::hypot(
+            m_polygonPoints[2].x - m_polygonPoints[3].x,
+            m_polygonPoints[2].y - m_polygonPoints[3].y
+        );
+
+    const float regionWidth =
+        (topWidth + bottomWidth) * 0.5f;
+
+    const float regionHeight =
+        (leftHeight + rightHeight) * 0.5f;
+
+    const float regionAspectRatio =
+        regionHeight / regionWidth;
+
+    const float cameraDisplayHeight =
+        outputWidth * regionAspectRatio;
+
+    // ---------------------------------------------------------
+    // Camera destination
+    // ---------------------------------------------------------
+
+    const float cameraY =
+        viewport->WorkPos.y +
+        visualizerHeight;
+
+    const ImVec2 cameraTopLeft(
+        viewport->WorkPos.x,
+        cameraY
+    );
+
+    const ImVec2 cameraTopRight(
+        viewport->WorkPos.x +
+        outputWidth,
+        cameraY
+    );
+
+    const ImVec2 cameraBottomRight(
+        viewport->WorkPos.x +
+        outputWidth,
+        cameraY +
+        cameraDisplayHeight
+    );
+
+    const ImVec2 cameraBottomLeft(
+        viewport->WorkPos.x,
+        cameraY +
+        cameraDisplayHeight
+    );
+
+    // ---------------------------------------------------------
+    // Camera source quad
+    //
+    // P1 = top-left
+    // P2 = bottom-left
+    // P3 = bottom-right
+    // P4 = top-right
+    // ---------------------------------------------------------
+
+    if (m_polygonPoints.size() == 4)
+    {
+        const ImVec2 sourceTopLeft(
+            m_polygonPoints[0].x / cameraWidth,
+            m_polygonPoints[0].y / cameraHeight
+        );
+
+        const ImVec2 sourceTopRight(
+            m_polygonPoints[3].x / cameraWidth,
+            m_polygonPoints[3].y / cameraHeight
+        );
+
+        const ImVec2 sourceBottomRight(
+            m_polygonPoints[2].x / cameraWidth,
+            m_polygonPoints[2].y / cameraHeight
+        );
+
+        const ImVec2 sourceBottomLeft(
+            m_polygonPoints[1].x / cameraWidth,
+            m_polygonPoints[1].y / cameraHeight
+        );
+
+        ImDrawList* drawList =
+            ImGui::GetBackgroundDrawList();
+
+        ImTextureID cameraTextureId =
+            reinterpret_cast<ImTextureID>(
+                cameraTexture
+                );
+
+        VirtualWindowRenderer::Settings cameraSettings;
+
+        cameraSettings.gridX = 64;
+        cameraSettings.gridY = 36;
+
+        cameraSettings.drawDebugLines =
+            gui::showDebugLines;
+
+        cameraSettings.sourceBottomScale =
+            m_pianoRollCameraSourceScale;
+
+        // -----------------------------------------------------
+        // Draw calibrated piano region
+        // -----------------------------------------------------
+
+        m_virtualWindowRenderer.Render(
+            drawList,
+            cameraTextureId,
+
+            sourceTopLeft,
+            sourceTopRight,
+            sourceBottomRight,
+            sourceBottomLeft,
+
+            cameraTopLeft,
+            cameraTopRight,
+            cameraBottomRight,
+            cameraBottomLeft,
+
+            cameraSettings
+        );
+    }
+
+    // ---------------------------------------------------------
+    // Visualizer
+    // ---------------------------------------------------------
+
+    RenderPianoRollVisualizer();
+}
+
+// =========================================================
+// Piano Roll Visualizer
+// =========================================================
+
+void PianoVisualizer::RenderPianoRollVisualizer()
+{
+    if (!m_viewer)
+        return;
+
+    ID3D11ShaderResourceView* texture =
+        nullptr;
+
+    // ---------------------------------------------------------
+    // Select renderer
+    // ---------------------------------------------------------
+
+    if (
+        gui::renderer ==
+        gui::VisualizerRenderer::OtherVisualizer
+        )
+    {
+        m_windowCapture.Update();
+
+        texture =
+            m_windowCapture.GetTexture();
+    }
+    else
+    {
+        texture =
+            m_viewer->getTexture();
+    }
+
+    if (!texture)
+        return;
+
+    // ---------------------------------------------------------
+    // Viewport
+    // ---------------------------------------------------------
+
+    ImGuiViewport* viewport =
+        ImGui::GetMainViewport();
+
+    const float width =
+        viewport->WorkSize.x;
+
+    const float height =
+        viewport->WorkSize.y;
+
+    const float visualizerHeight =
+        height *
+        std::clamp(
+            m_pianoRollVisualizerHeight,
+            0.00f,
+            1.00f
+        );
+
+    const ImVec2 topLeft(
+        viewport->WorkPos.x,
+        viewport->WorkPos.y
+    );
+
+    const ImVec2 topRight(
+        viewport->WorkPos.x +
+        width,
+        viewport->WorkPos.y
+    );
+
+    const ImVec2 bottomRight(
+        viewport->WorkPos.x +
+        width,
+        viewport->WorkPos.y +
+        visualizerHeight
+    );
+
+    const ImVec2 bottomLeft(
+        viewport->WorkPos.x,
+        viewport->WorkPos.y +
+        visualizerHeight
+    );
+
+    // ---------------------------------------------------------
+    // Draw visualizer
+    // ---------------------------------------------------------
+
+    ImDrawList* drawList =
+        ImGui::GetBackgroundDrawList();
+
+    ImTextureID textureId =
+        reinterpret_cast<ImTextureID>(
+            texture
+            );
+
+    VirtualWindowRenderer::Settings settings;
+
+    settings.gridX = 64;
+    settings.gridY = 36;
+
+    settings.drawDebugLines =
+        gui::showDebugLines;
+
+    m_virtualWindowRenderer.Render(
+        drawList,
+        textureId,
+
+        topLeft,
+        topRight,
+        bottomRight,
+        bottomLeft,
+
+        settings
+    );
 }
 
 
@@ -1738,6 +2162,83 @@ void PianoVisualizer::RenderPolygonSelectionTooltip()
     }
 }
 
+
+// =========================================================
+// Piano Roll Geometry
+// =========================================================
+
+bool PianoVisualizer::CalculatePianoRollGeometry(
+    float outputWidth,
+    float outputHeight,
+    float cameraWidth,
+    float cameraHeight,
+    ImVec2& visualizerTopLeft,
+    ImVec2& visualizerTopRight,
+    ImVec2& boundaryLeft,
+    ImVec2& boundaryRight,
+    ImVec2& cameraBottomLeft,
+    ImVec2& cameraBottomRight
+)
+{
+    if (
+        outputWidth <= 0.0f ||
+        outputHeight <= 0.0f ||
+        cameraWidth <= 0.0f ||
+        cameraHeight <= 0.0f
+        )
+    {
+        return false;
+    }
+
+    if (m_polygonPoints.size() != 4)
+        return false;
+
+    const float visualizerHeight =
+        outputHeight *
+        std::clamp(
+            m_pianoRollVisualizerHeight,
+            0.05f,
+            0.95f
+        );
+
+    visualizerTopLeft =
+        ImVec2(
+            0.0f,
+            0.0f
+        );
+
+    visualizerTopRight =
+        ImVec2(
+            outputWidth,
+            0.0f
+        );
+
+    boundaryLeft =
+        ImVec2(
+            0.0f,
+            visualizerHeight
+        );
+
+    boundaryRight =
+        ImVec2(
+            outputWidth,
+            visualizerHeight
+        );
+
+    cameraBottomLeft =
+        ImVec2(
+            0.0f,
+            outputHeight
+        );
+
+    cameraBottomRight =
+        ImVec2(
+            outputWidth,
+            outputHeight
+        );
+
+    return true;
+}
 
 // =========================================================
 // Camera Feed
@@ -3194,6 +3695,13 @@ void PianoVisualizer::RenderSettings()
 
         ImGui::Spacing();
 
+        ImGui::Checkbox(
+            "Show Selection",
+            &gui::showDebugLines
+        );
+
+        ImGui::Spacing();
+
 
         // =====================================================
         // Setup
@@ -3203,140 +3711,249 @@ void PianoVisualizer::RenderSettings()
             "SETUP"
         ))
         {
+            ImGui::Separator();
             ImGui::Spacing();
 
-            ImGui::Checkbox(
-                "Show Debug Lines",
-                &gui::showDebugLines
+            // =================================================
+            // Scene
+            // =================================================
+
+            ImGui::Text(
+                "SCENE"
             );
 
             ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
+
+            const char* sceneName =
+                nullptr;
+
+            switch (m_pianoScene)
+            {
+            case PianoScene::Perspective:
+                sceneName =
+                    "Perspective";
+                break;
+
+            case PianoScene::PianoRoll:
+                sceneName =
+                    "Piano Roll";
+                break;
+
+            default:
+                sceneName =
+                    "Unknown";
+                break;
+            }
+
+            if (ImGui::BeginCombo(
+                "Scene",
+                sceneName
+            ))
+            {
+                if (ImGui::Selectable(
+                    "Perspective",
+                    m_pianoScene ==
+                    PianoScene::Perspective
+                ))
+                {
+                    m_pianoScene =
+                        PianoScene::Perspective;
+                }
+
+                if (ImGui::Selectable(
+                    "Piano Roll",
+                    m_pianoScene ==
+                    PianoScene::PianoRoll
+                ))
+                {
+                    m_pianoScene =
+                        PianoScene::PianoRoll;
+                }
+
+                ImGui::EndCombo();
+            }
 
             // =================================================
             // Piano Surface
             // =================================================
 
-            ImGui::Text(
-                "PIANO SURFACE"
-            );
-
-            ImGui::Spacing();
-
-            if (!m_choosingPolygonPoints)
+            if (m_pianoScene == PianoScene::Perspective)
             {
-                if (ImGui::Button(
-                    "Choose Piano Corners",
-                    ImVec2(-1.0f, 36.0f)
-                ))
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                ImGui::Text(
+                    "PIANO SURFACE"
+                );
+
+                ImGui::Spacing();
+
+                if (!m_choosingPolygonPoints)
                 {
-                    m_savedPolygonPoints =
-                        m_polygonPoints;
+                    if (ImGui::Button(
+                        "Choose Piano Corners",
+                        ImVec2(-1.0f, 36.0f)
+                    ))
+                    {
+                        m_savedPolygonPoints =
+                            m_polygonPoints;
 
-                    m_polygonPoints.clear();
+                        m_polygonPoints.clear();
 
-                    m_polygonClickCount = 0;
+                        m_polygonClickCount = 0;
 
-                    m_choosingPolygonPoints =
-                        true;
+                        m_choosingPolygonPoints =
+                            true;
 
-                    Logger::Log(
-                        "Waiting for 4 piano corner points...\n"
-                    );
+                        Logger::Log(
+                            "[Piano Visualizer] Waiting for 4 piano corner points...\n"
+                        );
+                    }
                 }
+                else
+                {
+                    ImGui::PushStyleColor(
+                        ImGuiCol_Button,
+                        ImVec4(
+                            0.20f,
+                            0.45f,
+                            0.75f,
+                            1.0f
+                        )
+                    );
+
+                    ImGui::Button(
+                        "Click 4 piano corners...",
+                        ImVec2(-1.0f, 36.0f)
+                    );
+
+                    ImGui::PopStyleColor();
+                }
+
+
+                // =================================================
+                // Projection & Transform
+                // =================================================
+
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                ImGui::TextDisabled(
+                    "PROJECTION & TRANSFORM"
+                );
+
+                ImGui::Spacing();
+
+                ImGui::SliderFloat(
+                    "FOV",
+                    &m_horizontalFovDegrees,
+                    0.1f,
+                    90.0f,
+                    "%.3f"
+                );
+
+                ImGui::SliderFloat(
+                    "Plane Width",
+                    &m_planeWidth,
+                    0.1f,
+                    2.0f,
+                    "%.3f"
+                );
+
+                ImGui::SliderFloat(
+                    "Plane Depth",
+                    &m_planeDepth,
+                    0.1f,
+                    5.0f,
+                    "%.3f"
+                );
+
+                ImGui::SliderFloat(
+                    "Plane Pivot",
+                    &m_planePivot,
+                    0.0f,
+                    180.0f,
+                    "%.1f°"
+                );
+
+                ImGui::Spacing();
+
+                ImGui::TextDisabled(
+                    "Surface Offset"
+                );
+
+                ImGui::SliderFloat(
+                    "X##SurfaceOffset",
+                    &m_surfaceXOffset,
+                    -1.0f,
+                    1.0f,
+                    "%.3f"
+                );
+
+                ImGui::SliderFloat(
+                    "Y##SurfaceOffset",
+                    &m_surfaceYOffset,
+                    -1.0f,
+                    1.0f,
+                    "%.3f"
+                );
+
+                ImGui::SliderFloat(
+                    "Z##SurfaceOffset",
+                    &m_surfaceZOffset,
+                    -1.0f,
+                    1.0f,
+                    "%.3f"
+                );
             }
-            else
+
+            // =================================================
+            // Piano Roll
+            // =================================================
+
+            if (m_pianoScene == PianoScene::PianoRoll)
             {
-                ImGui::PushStyleColor(
-                    ImGuiCol_Button,
-                    ImVec4(0.20f, 0.45f, 0.75f, 1.0f)
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                ImGui::Text(
+                    "PIANO ROLL"
                 );
 
-                ImGui::Button(
-                    "Click 4 piano corners...",
-                    ImVec2(-1.0f, 36.0f)
+                ImGui::Spacing();
+
+                ImGui::SliderFloat(
+                    "Visualizer Height",
+                    &m_pianoRollVisualizerHeight,
+                    0.0f,
+                    1.0f,
+                    "%.2f"
                 );
 
-                ImGui::PopStyleColor();
+                ImGui::helpTooltip("How much of the camera region the visualizer should occupy\n0.0 means only piano roll, camera stops updating");
+
+                ImGui::Spacing();
+
+                ImGui::SliderFloat(
+                    "Camera Scale",
+                    &m_pianoRollCameraSourceScale,
+                    1.0f,
+                    5.0f,
+                    "%.2f"
+                );
+
+                ImGui::helpTooltip("Use to also capture what is infront of the piano");
+
+                ImGui::Spacing();
+
+                ImGui::Checkbox(
+                    "Transparent Visualizer",
+                    &m_pianoRollTransparent
+                );
             }
-
-
-            // =================================================
-            // Projection & Transform
-            // =================================================
-
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            ImGui::TextDisabled(
-                "PROJECTION & TRANSFORM"
-            );
-
-            ImGui::Spacing();
-
-            ImGui::SliderFloat(
-                "FOV",
-                &m_horizontalFovDegrees,
-                0.1f,
-                90.0f,
-                "%.3f"
-            );
-
-            ImGui::SliderFloat(
-                "Plane Width",
-                &m_planeWidth,
-                0.1f,
-                2.0f,
-                "%.3f"
-            );
-
-            ImGui::SliderFloat(
-                "Plane Depth",
-                &m_planeDepth,
-                0.1f,
-                5.0f,
-                "%.3f"
-            );
-
-            ImGui::SliderFloat(
-                "Plane Pivot",
-                &m_planePivot,
-                0.0f,
-                180.0f,
-                "%.1f°"
-            );
-
-            ImGui::Spacing();
-
-            ImGui::TextDisabled(
-                "Surface Offset"
-            );
-
-            ImGui::SliderFloat(
-                "X##SurfaceOffset",
-                &m_surfaceXOffset,
-                -1.0f,
-                1.0f,
-                "%.3f"
-            );
-
-            ImGui::SliderFloat(
-                "Y##SurfaceOffset",
-                &m_surfaceYOffset,
-                -1.0f,
-                1.0f,
-                "%.3f"
-            );
-
-            ImGui::SliderFloat(
-                "Z##SurfaceOffset",
-                &m_surfaceZOffset,
-                -1.0f,
-                1.0f,
-                "%.3f"
-            );
         }
 
 
@@ -3828,19 +4445,27 @@ void PianoVisualizer::RenderSettings()
             ImVec2(buttonWidth, 36.0f)
         ))
         {
+            int _scene;
+
             if (
                 Config::LoadPianoConfig(
                     m_polygonPoints,
+                    _scene,
                     m_horizontalFovDegrees,
                     m_planeWidth,
                     m_planeDepth,
                     m_planePivot,
                     m_surfaceXOffset,
                     m_surfaceYOffset,
-                    m_surfaceZOffset
+                    m_surfaceZOffset,
+                    m_pianoRollTransparent,
+                    m_pianoRollVisualizerHeight,
+                    m_pianoRollCameraSourceScale
                 )
                 )
             {
+                m_pianoScene = static_cast<PianoScene>(_scene);
+
                 m_polygonClickCount = 4;
 
                 m_configSaveMessage =

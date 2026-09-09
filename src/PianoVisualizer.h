@@ -58,6 +58,12 @@ class PianoVisualizer
 {
 public:
 
+    enum class PianoScene
+    {
+        Perspective,
+        PianoRoll
+    };
+
     PianoVisualizer();
     ~PianoVisualizer();
 
@@ -193,6 +199,10 @@ private:
 
     void RenderVisualizer();
 
+    void RenderPianoRoll();
+
+    void RenderPianoRollVisualizer();
+
     void RenderSettings();
 
     void RenderVSTDropTarget();
@@ -210,6 +220,7 @@ private:
     void RenderCameraFeed();
 
     void RenderVirtualCameraVisualizer();
+
     void RenderVirtualCameraFrame();
 
     void RenderCameraErrorDialog();
@@ -217,6 +228,19 @@ private:
     void RenderPianoOverlay();
 
     void RenderPolygonSelectionTooltip();
+
+    bool CalculatePianoRollGeometry(
+        float outputWidth,
+        float outputHeight,
+        float cameraWidth,
+        float cameraHeight,
+        ImVec2& visualizerTopLeft,
+        ImVec2& visualizerTopRight,
+        ImVec2& boundaryLeft,
+        ImVec2& boundaryRight,
+        ImVec2& cameraBottomLeft,
+        ImVec2& cameraBottomRight
+    );
 
     void HandlePolygonPointSelection(
         const ImVec2& imagePos,
@@ -269,6 +293,7 @@ private:
     );
 
     void onStartRecording();
+
     void onStopRecording();
 
     // =========================================================
@@ -313,7 +338,9 @@ private:
     ID3D11RenderTargetView* m_renderTargetView = nullptr;
 
     ComPtr<ID3D11Texture2D> m_cameraOutputTexture;
+
     ComPtr<ID3D11RenderTargetView> m_cameraOutputRTV;
+
     ComPtr<ID3D11ShaderResourceView> m_cameraOutputSRV;
 
     // =========================================================
@@ -321,20 +348,25 @@ private:
     // =========================================================
 
     Camera m_camera;
+
     CameraVideoPlayer m_cameraVideoPlayer;
 
     bool m_showCameraError = false;
+
     std::string m_cameraErrorMessage;
 
     bool m_showCameraSettings = false;
+
     bool m_showAudioSettings = false;
 
     int m_cameraSelectedIndex = -1;
 
     int m_cameraSettingsWidth = 0;
+
     int m_cameraSettingsHeight = 0;
 
     UINT32 m_cameraSettingsFPSNumerator = 0;
+
     UINT32 m_cameraSettingsFPSDenominator = 1;
 
     WindowCapture m_windowCapture;
@@ -369,6 +401,7 @@ private:
     };
 
     std::filesystem::path m_currentPluginPath;
+
     std::vector<std::filesystem::path> m_recentVSTPlugins;
 
     static constexpr size_t MAX_RECENT_VST_PLUGINS = 8;
@@ -376,6 +409,14 @@ private:
     // =========================================================
     // Piano configuration
     // =========================================================
+
+    PianoScene m_pianoScene =
+        PianoScene::Perspective;
+
+    bool m_pianoRollTransparent = true;
+
+    float m_pianoRollVisualizerHeight = 0.5f;
+    float m_pianoRollCameraSourceScale = 1.0f;
 
     bool m_choosingPolygonPoints = false;
 
@@ -390,6 +431,10 @@ private:
     // 3 = Top-right
     std::vector<ImVec2> m_polygonPoints;
 
+    // =========================================================
+    // Perspective scene configuration
+    // =========================================================
+
     float m_heightScale = 1.0f;
 
     float m_virtualWidth = 1920.0f;
@@ -400,6 +445,8 @@ private:
 
     float m_planeDepth = 1.0f;
 
+    float m_planePivot = 90.0f;
+
     float m_horizontalFovDegrees = 90.0f;
 
     float m_surfaceXOffset = 0.0f;
@@ -407,8 +454,6 @@ private:
     float m_surfaceYOffset = 0.0f;
 
     float m_surfaceZOffset = 0.0f;
-
-    float m_planePivot = 90.0f;
 
     // =========================================================
     // State
@@ -437,30 +482,39 @@ private:
     struct Statistics
     {
         float fps = 0.0f;
+
         float frameTimeMs = 0.0f;
 
         float minFrameTimeMs = 0.0f;
+
         float maxFrameTimeMs = 0.0f;
 
         float cameraUpdateFps = 0.0f;
 
         uint64_t frameCount = 0;
+
         double uptimeSeconds = 0.0;
 
         UINT renderWidth = 0;
+
         UINT renderHeight = 0;
 
         UINT cameraWidth = 0;
+
         UINT cameraHeight = 0;
 
         uint64_t processMemoryMB = 0;
+
         double processCpuPercent = 0.0;
 
         double lastUpdateTime = 0.0;
+
         double fpsAccumulator = 0.0;
+
         uint32_t fpsFrameCount = 0;
 
         double cameraAccumulator = 0.0;
+
         uint32_t cameraUpdateCount = 0;
     };
 
