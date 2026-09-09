@@ -88,9 +88,16 @@ Open the solution in Visual Studio and build the project using the included conf
 
 Piano Visualizer is currently in **alpha**.
 
-The core systems are functional, including MIDI input, camera capture, AR projection, the built-in visualizer, external visualizer capture, VST3 hosting, and real-time audio.
+The core systems are functional, including MIDI input, camera capture, AR projection, the built-in visualizer, external visualizer capture, VST3 hosting, recording & playback, and real-time audio.
 
 The project is actively being developed toward **v1.0.0**.
+
+Future improvements include:
+- UI Overhaul
+- Performance Improvements
+- Possibly a Virtual Microphone Extension (Would however require drivers)
+- Enhanced Visualizer
+- Broader Support for different devices and formats
 
 ## Technologies
 
