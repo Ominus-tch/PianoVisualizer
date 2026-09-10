@@ -85,10 +85,10 @@ constexpr const char* s_show_wave_key 						= "show-wave";
 constexpr const char* s_show_wave_dsc 						= "Display the wave effect along the top of the keyboard";
 
 constexpr const char* s_notes_major_img_scroll_key 			= "notes-major-img-scroll";
-constexpr const char* s_notes_major_img_scroll_dsc 			= "Should the major notes texture scroll with the notes";
+constexpr const char* s_notes_major_img_scroll_dsc 			= "Should the major notes texture scroll";
 
 constexpr const char* s_notes_minor_img_scroll_key 			= "notes-minor-img-scroll";
-constexpr const char* s_notes_minor_img_scroll_dsc 			= "Should the minor notes texture scroll with the notes";
+constexpr const char* s_notes_minor_img_scroll_dsc 			= "Should the minor notes texture scroll";
 
 constexpr const char* s_minor_size_key 						= "minor-size";
 constexpr const char* s_minor_size_dsc 						= "Relative size of the minor keys and notes";

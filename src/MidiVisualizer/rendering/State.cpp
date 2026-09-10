@@ -199,8 +199,6 @@ void State::defineOptions(){
 	_sharedInfos[s_show_wave_key] 		= {Category::EFFECTS, s_show_wave_dsc, Type::BOOLEAN};
 
 	// Notes
-	_sharedInfos[s_notes_major_img_scroll_key] 		= {Category::NOTES, s_notes_major_img_scroll_dsc, Type::BOOLEAN};
-	_sharedInfos[s_notes_minor_img_scroll_key] 		= {Category::NOTES, s_notes_minor_img_scroll_dsc, Type::BOOLEAN};
 	_sharedInfos[s_minor_size_key] 					= {Category::NOTES, s_minor_size_dsc, Type::FLOAT, {0.1f, 1.0f}};
 	_sharedInfos[s_fadeout_notes_key] 				= {Category::NOTES, s_fadeout_notes_dsc, Type::FLOAT, {0.0f, 1.0f}};
 	_sharedInfos[s_notes_edge_width_key] 			= {Category::NOTES, s_notes_edge_width_dsc, Type::FLOAT, {0.0f, 1.0f}};
@@ -212,6 +210,8 @@ void State::defineOptions(){
 	_sharedInfos[s_notes_minor_img_intensity_key]	= {Category::NOTES, s_notes_minor_img_intensity_dsc, Type::FLOAT, {0.0, 1.0f}};
 	_sharedInfos[s_notes_major_img_path_key] 		= {Category::NOTES, s_notes_major_img_path_dsc, Type::PATH};
 	_sharedInfos[s_notes_minor_img_path_key] 		= {Category::NOTES, s_notes_minor_img_path_dsc, Type::PATH};
+	_sharedInfos[s_notes_major_img_scroll_key]		= {Category::NOTES, s_notes_major_img_scroll_dsc, Type::FLOAT, {-1.f, 1.f} };
+	_sharedInfos[s_notes_minor_img_scroll_key]		= {Category::NOTES, s_notes_minor_img_scroll_dsc, Type::FLOAT, {-1.f, 1.f} };
 
 	// Flashes
 	_sharedInfos[s_flashes_size_key] 			= {Category::FLASHES, s_flashes_size_dsc, Type::FLOAT, {0.1f, 3.0f}};
@@ -388,8 +388,6 @@ void State::updateOptions(){
 	_boolInfos[s_show_score_key] = &showScore;
 	_boolInfos[s_show_bg_img_key] = &background.image;
 	_boolInfos[s_show_notes_key] = &showNotes;
-	_boolInfos[s_notes_major_img_scroll_key] = &notes.majorTexScroll;
-	_boolInfos[s_notes_minor_img_scroll_key] = &notes.minorTexScroll;
 
 	_floatInfos[s_time_scale_key] = &scale;
 	_floatInfos[s_minor_size_key] = &background.minorsWidth;
@@ -416,6 +414,8 @@ void State::updateOptions(){
 	_floatInfos[s_notes_major_img_intensity_key] = &notes.majorTexAlpha;
 	_floatInfos[s_notes_minor_img_scale_key] = &notes.minorTexScale;
 	_floatInfos[s_notes_minor_img_intensity_key] = &notes.minorTexAlpha;
+	_floatInfos[s_notes_major_img_scroll_key] = &notes.majorTexScroll;
+	_floatInfos[s_notes_minor_img_scroll_key] = &notes.minorTexScroll;
 
 	_vecInfos[s_color_bg_key] = &background.color;
 	_vecInfos[s_color_keyboard_major_key] = &keyboard.majorColor[0];

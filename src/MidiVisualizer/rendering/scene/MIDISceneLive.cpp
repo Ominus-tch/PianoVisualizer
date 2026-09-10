@@ -743,9 +743,6 @@ void MIDISceneLive::updatesActiveNotes(
 					);
 
 
-			pedal = 0.0f;
-
-
 			const short val =
 				clamp<short>(
 					message[2],
@@ -754,12 +751,7 @@ void MIDISceneLive::updatesActiveNotes(
 				);
 
 
-			if (val > 0)
-			{
-				pedal =
-					float(val) / 127.0f;
-			}
-
+			pedal = float(val) / 127.0f;
 
 			_pedalInfos[float(time)] =
 				Pedals(_pedals);

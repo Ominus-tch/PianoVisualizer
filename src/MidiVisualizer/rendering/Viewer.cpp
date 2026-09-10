@@ -1380,7 +1380,7 @@ void Viewer::showNoteOptions() {
 			std::vector<std::string>& paths;
 			float& scale;
 			float& alpha;
-			bool& scroll;
+			float& scroll;
 			ComPtr<ID3D11ShaderResourceView>& tex;
 		};
 
@@ -1568,9 +1568,12 @@ void Viewer::showNoteOptions() {
 
 			ImGuiSameLine();
 
-			ImGui::Checkbox(
-				"Scroll",
-				&group.scroll
+			ImGui::SliderFloat(
+				"Scroll Speed",
+				&group.scroll,
+				-1.f,
+				 1.f,
+				"%.2f"
 			);
 
 			ImGui::helpTooltip(
@@ -3638,21 +3641,26 @@ void Viewer::keyPressed(int key, int action)
 
 	switch (key)
 	{
-	case 'P':
-		_shouldPlay = !_shouldPlay;
 
-		_timerStart =
-			DEBUG_SPEED * static_cast<float>(
-				std::chrono::duration<float>(
-					std::chrono::steady_clock::now().time_since_epoch()
-				).count()
-				) - _timer;
+	case ' ': {
+		const bool currentlyPlaying =
+			_playbackPlaying &&
+			!_playbackPaused;
+
+		if (currentlyPlaying)
+		{
+			pausePlayback();
+		}
+		else
+		{
+			if (!_playbackPlaying)
+				startPlayback();
+			else
+				pausePlayback();
+		}
 
 		break;
-
-	case 'R':
-		reset();
-		break;
+	}
 
 	case 'I':
 		_showGUI = !_showGUI;

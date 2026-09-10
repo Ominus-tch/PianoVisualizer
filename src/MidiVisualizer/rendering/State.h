@@ -164,8 +164,8 @@ public:
 		float minorTexScale; ///< Scale for the minor texture
 		float majorTexAlpha; ///< Intensity for the major texture
 		float minorTexAlpha; ///< Intensity for the minor texture
-		bool majorTexScroll; ///< Scrolling for the major texture
-		bool minorTexScroll; ///< Scrolling for the minor texture
+		float majorTexScroll; ///< Scrolling for the major texture
+		float minorTexScroll; ///< Scrolling for the minor texture
 
 		bool texturesConnected = false; ///< Use the same texture settings for major and minor notes.
 

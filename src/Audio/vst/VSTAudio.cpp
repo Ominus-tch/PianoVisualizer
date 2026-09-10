@@ -527,6 +527,9 @@ namespace vst
             return false;
         }
 
+        std::lock_guard<std::mutex> lock(
+            _processMutex);
+
         Steinberg::Vst::Event event{};
 
         event.type =
