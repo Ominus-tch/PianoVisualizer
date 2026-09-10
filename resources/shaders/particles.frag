@@ -1,4 +1,5 @@
 struct PSInput {
+    float4 position : SV_Position;
     float2 uv : TEXCOORD0;
     float id : TEXCOORD1;
 };

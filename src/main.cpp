@@ -338,11 +338,8 @@ INT APIENTRY WinMain(
     UINT deviceFlags =
         D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 
-#ifdef _DEBUG
     deviceFlags |=
         D3D11_CREATE_DEVICE_DEBUG;
-#endif
-
 
     HRESULT hr =
         D3D11CreateDeviceAndSwapChain(

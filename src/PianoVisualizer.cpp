@@ -1609,7 +1609,8 @@ void PianoVisualizer::RenderPianoRoll()
 
     m_viewer->draw(
         DEBUG_SPEED *
-        float(System::time())
+        float(System::time()),
+        m_pianoScene == PianoScene::Perspective
     );
 
     // ---------------------------------------------------------

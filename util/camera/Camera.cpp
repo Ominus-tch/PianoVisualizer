@@ -2295,6 +2295,11 @@ bool Camera::Update(double time)
     if (!m_open)
         return false;
 
+    m_recordingTime.store(
+        time,
+        std::memory_order_relaxed
+    );
+
     if (
         !m_newFrameAvailable.load(
             std::memory_order_acquire
@@ -2303,11 +2308,6 @@ bool Camera::Update(double time)
     {
         return false;
     }
-
-    m_recordingTime.store(
-        time,
-        std::memory_order_relaxed
-    );
 
     // -----------------------------------------------------
     // Get latest frame

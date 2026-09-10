@@ -74,7 +74,7 @@ public:
 		bool image; ///< Use background image.
 		bool imageBehindKeyboard; ///< Should image pass behind keyboard.
 		float imageAlpha; ///< Background alpha.
-		ID3D11ShaderResourceView* tex = nullptr;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> tex;
 	};
 
 	struct ScoreState {

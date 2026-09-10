@@ -155,6 +155,7 @@ Viewer::Viewer(
 	_renderFramebuffer = createFramebuffer();
 	_finalFramebuffer = createFramebuffer();
 
+	_background.init(_device, "background_vert", "background_frag");
 	_blurringScreen.init(_device, _particlesFramebuffer->textureId(), "particlesblur_frag");
 	_fxaa.init(_device, "fxaa_frag");
 	_passthrough.init(_device, "screenquad_frag");
@@ -163,6 +164,10 @@ Viewer::Viewer(
 	//_layers[Layer::BGCOLOR].type = Layer::BGCOLOR;
 	//_layers[Layer::BGCOLOR].name = "Background color";
 	//_layers[Layer::BGCOLOR].toggle = &_state.showBackground;
+
+	_layers[Layer::BGTEXTURE].type = Layer::BGTEXTURE;
+	_layers[Layer::BGTEXTURE].name = "Background image";
+	_layers[Layer::BGTEXTURE].draw = &Viewer::drawBackground;
 
 	_layers[Layer::BLUR].type = Layer::BLUR;
 	_layers[Layer::BLUR].name = "Blur effect";
@@ -197,7 +202,7 @@ Viewer::Viewer(
 	_layers[Layer::WAVE].draw = &Viewer::drawWaves;
 
 	// Register state.
-	//_layers[Layer::BGTEXTURE].toggle = &_state.background.image;
+	_layers[Layer::BGTEXTURE].toggle = &_state.background.image;
 	_layers[Layer::BLUR].toggle = &_state.showBlur;
 	//_layers[Layer::ANNOTATIONS].toggle = &_state.showScore;
 	_layers[Layer::KEYBOARD].toggle = &_state.showKeyboard;
@@ -542,13 +547,23 @@ void Viewer::drawScene(bool transparentBG)
 	// Background color.
 	const float clearColor[] =
 	{
-		0.0f,
-		0.0f,
-		0.0f,
-		transparentBG
+		_state.background.color[0],
+		_state.background.color[1],
+		_state.background.color[2],
+		(transparentBG
 			? 0.0f
-			: 1.0f
+			: 1.0f) * _state.background.imageAlpha
 	};
+
+	//const float clearColor[] =
+	//{
+	//	0.0f,
+	//	0.0f,
+	//	0.0f,
+	//	transparentBG
+	//		? 0.0f
+	//		: 1.0f
+	//};
 
 	_context->ClearRenderTargetView(
 		_renderFramebuffer->renderTarget(),
@@ -814,6 +829,129 @@ void Viewer::drawWaves(const glm::vec2 & invSize){
 	_renderer.drawWaves(_scene, _timer, invSize, _state.waves, _state.keyboard.size);
 }
 
+void Viewer::drawBackground(const glm::vec2& invSize)
+{
+	if (_state.background.tex == 0 ||
+		_state.background.imageAlpha < 1.0f / 255.0f)
+	{
+		return;
+	}
+
+	// --------------------------------------------------------
+	// Shader
+	// --------------------------------------------------------
+
+	_background.use(_context);
+
+	_background.uniform(
+		_context,
+		"textureAlpha",
+		_state.background.imageAlpha
+	);
+
+	_background.uniform(
+		_context,
+		"behindKeyboard",
+		_state.background.imageBehindKeyboard
+	);
+
+	_background.uniform(
+		_context,
+		"keyboardHeight",
+		_state.keyboard.size
+	);
+
+	_background.uniform(
+		_context,
+		"scroll",
+		_timer * _state.background.scrollSpeed
+	);
+
+	// --------------------------------------------------------
+	// Texture
+	// --------------------------------------------------------
+
+	_background.texture(
+		_context,
+		"screenTexture",
+		_state.background.tex.Get()
+	);
+
+	// --------------------------------------------------------
+	// Primitive topology
+	// --------------------------------------------------------
+
+	_context->IASetPrimitiveTopology(
+		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
+	);
+
+	// --------------------------------------------------------
+	// Rasterizer state
+	// --------------------------------------------------------
+
+	D3D11_RASTERIZER_DESC rasterDesc{};
+
+	rasterDesc.FillMode =
+		D3D11_FILL_SOLID;
+
+	rasterDesc.CullMode =
+		D3D11_CULL_NONE;
+
+	rasterDesc.FrontCounterClockwise =
+		FALSE;
+
+	rasterDesc.DepthClipEnable =
+		TRUE;
+
+	ComPtr<ID3D11RasterizerState> rasterState;
+
+	HRESULT hr =
+		_device->CreateRasterizerState(
+			&rasterDesc,
+			&rasterState
+		);
+
+	if (FAILED(hr))
+	{
+		Logger::Log(
+			"[D3D11] drawBackground: Failed to create rasterizer state\n"
+		);
+
+		checkD3DError(hr);
+		return;
+	}
+
+	_context->RSSetState(
+		rasterState.Get()
+	);
+
+	// --------------------------------------------------------
+	// Blend state
+	// --------------------------------------------------------
+
+	_context->OMSetBlendState(
+		nullptr,
+		nullptr,
+		0xFFFFFFFF
+	);
+
+	// --------------------------------------------------------
+	// Draw
+	// --------------------------------------------------------
+
+	_context->Draw(
+		6,
+		0
+	);
+
+	// --------------------------------------------------------
+	// Restore rasterizer state
+	// --------------------------------------------------------
+
+	_context->RSSetState(nullptr);
+}
+
+
 // Helper
 
 static std::string wideToUtf8(const std::wstring& wide)
@@ -894,7 +1032,7 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 					_onStartRecording();
 				}
 
-				_recordingStartTime = _timer * _state.scrollSpeed;
+				_recordingStartTime = _timer;
 				liveScene->startRecording(_recordingStartTime);
 			}
 
@@ -1229,9 +1367,9 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 			showBlurOptions();
 		}
 
-		//if (ImGui::CollapsingHeader("Background##HEADER")) {
-		//	showBackgroundOptions();
-		//}
+		if (ImGui::CollapsingHeader("Background##HEADER")) {
+			showBackgroundOptions();
+		}
 		ImGui::Separator();
 
 		showBottomButtons();
@@ -1572,7 +1710,7 @@ void Viewer::showNoteOptions() {
 				"Scroll Speed",
 				&group.scroll,
 				-1.f,
-				 1.f,
+				1.f,
 				"%.2f"
 			);
 
@@ -1995,6 +2133,57 @@ void Viewer::showBackgroundOptions(){
 		_state.background.imageAlpha = glm::clamp(_state.background.imageAlpha, 0.0f, 1.0f);
 	}
 	ImGui::helpTooltip(s_bg_img_opacity_dsc);
+
+	if (ImGui::Button("Load..."))
+	{
+		const std::filesystem::path path =
+			OpenImageFileDialog();
+
+		if (!path.empty())
+		{
+			const std::string imagePath =
+				path.string();
+
+			ComPtr<ID3D11ShaderResourceView> texture =
+				loadTexture(
+					_device,
+					imagePath,
+					4,
+					false
+				);
+
+			if (texture)
+			{
+				_state.background.image = true;
+				_state.background.imagePath =
+				{
+					imagePath
+				};
+
+				_state.background.tex = std::move(texture);
+
+				if (_state.background.imageAlpha < 0.1f) {
+					_state.background.imageAlpha = 0.1f;
+				}
+			}
+			else
+			{
+				Logger::Log(
+					"[Notes] Failed to load background texture: %s\n",
+					imagePath.c_str()
+				);
+			}
+		}
+	}
+	ImGui::helpTooltip("Define an image for the background");
+	ImGuiSameLine(COLUMN_SIZE);
+
+	if (ImGui::Button("Clear image##Background")) {
+		_state.background.image = false;
+		_state.background.imagePath.clear();
+		_state.background.tex.Reset();;
+	}
+	ImGui::helpTooltip("Remove the background image");
 
 	ImGuiPushItemWidth(100);
 	ImGui::SliderFloat("Scroll X##Background", &_state.background.scrollSpeed[0], -0.25f, 0.25f);

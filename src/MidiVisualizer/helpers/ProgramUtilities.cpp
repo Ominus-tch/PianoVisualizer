@@ -160,6 +160,24 @@ void ShaderProgram::use(ID3D11DeviceContext* context)
         0
     );
 
+    context->HSSetShader(
+        nullptr,
+        nullptr,
+        0
+    );
+
+    context->DSSetShader(
+        nullptr,
+        nullptr,
+        0
+    );
+
+    context->GSSetShader(
+        nullptr,
+        nullptr,
+        0
+    );
+
     context->PSSetShader(
         _pixelShader.Get(),
         nullptr,
@@ -243,6 +261,24 @@ void ShaderProgram::unuse()
         0
     );
 
+    _context->HSSetShader(
+        nullptr,
+        nullptr,
+        0
+    );
+
+    _context->DSSetShader(
+        nullptr,
+        nullptr,
+        0
+    );
+
+    _context->GSSetShader(
+        nullptr,
+        nullptr,
+        0
+    );
+
     for (const auto& cb : _constantBuffers)
     {
         ID3D11Buffer* nullBuffer = nullptr;
@@ -278,6 +314,8 @@ void ShaderProgram::unuse()
         nullSamplers
     );
 
+    _context->IASetInputLayout(nullptr);
+
     _context = nullptr;
 }
 
@@ -285,12 +323,6 @@ void ShaderProgram::bindInputLayout(ID3D11DeviceContext* context)
 {
     if (!_device || !context)
         return;
-
-    if (!_inputLayout)
-    {
-        //Logger::Log("[D3D11] Shader has no input layout!\n");
-        return;
-    }
 
     context->IASetInputLayout(_inputLayout.Get());
 }
@@ -308,10 +340,10 @@ void ShaderProgram::texture(
 
     if (it == _textures.end())
     {
-        Logger::Log(
+        /*Logger::Log(
             "[D3D11] Texture not found in shader: %s\n",
             name.c_str()
-        );
+        );*/
         return;
     }
 

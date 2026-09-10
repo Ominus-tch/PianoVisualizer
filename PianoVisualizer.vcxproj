@@ -63,6 +63,9 @@
       </EntryPointSymbol>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PreBuildEvent>
+      <Command>"$(SolutionDir)src\MidiVisualizer\resources\Packager\Packager.exe"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ProjectReference Include="VST3HostLib\VST3HostLib.vcxproj">

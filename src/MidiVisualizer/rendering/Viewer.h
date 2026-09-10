@@ -152,7 +152,10 @@ public:
 	}
 
 	double getElapsedRecordingTime() {
-		return (_timer * _state.scrollSpeed) - _recordingStartTime;
+		if (!_recording)
+			return 0.0;
+
+		return static_cast<double>(_timer) - _recordingStartTime;
 	}
 
 	double getCurrentTime() {
@@ -216,6 +219,8 @@ private:
 	void drawPedals(const glm::vec2 & invSize);
 	
 	void drawWaves(const glm::vec2 & invSize);
+
+	void drawBackground(const glm::vec2& invSize);
 
 	SystemAction drawGUI(const float currentTime);
 
@@ -325,6 +330,7 @@ private:
 
 	std::shared_ptr<MIDIScene> _scene;
 	ScreenQuad _blurringScreen;
+	ShaderProgram _background;
 	ScreenQuad _passthrough;
 	ScreenQuad _fxaa;
 

@@ -790,13 +790,13 @@ void Renderer::drawNotes(
 	_programNotes.uniform(
 		_context,
 		"scrollMajorTexture",
-		state.majorTexScroll
+		reverseScroll ? state.majorTexScroll : -state.majorTexScroll
 	);
 
 	_programNotes.uniform(
 		_context,
 		"scrollMinorTexture",
-		state.minorTexScroll
+		reverseScroll ? state.minorTexScroll : -state.minorTexScroll
 	);
 
 	_programNotes.uniform(
@@ -1778,6 +1778,114 @@ void Renderer::drawWaves(
 	float keyboardHeight)
 {
 	// --------------------------------------------------------
+	// Rasterizer state
+	// --------------------------------------------------------
+
+	D3D11_RASTERIZER_DESC rasterDesc{};
+	rasterDesc.FillMode = D3D11_FILL_SOLID;
+	rasterDesc.CullMode = D3D11_CULL_BACK;
+	rasterDesc.FrontCounterClockwise = TRUE;
+	rasterDesc.DepthClipEnable = TRUE;
+
+	ComPtr<ID3D11RasterizerState> rasterState;
+
+	HRESULT rasterHr =
+		_device->CreateRasterizerState(
+			&rasterDesc,
+			&rasterState
+		);
+
+	if (FAILED(rasterHr))
+	{
+		Logger::Log(
+			"[D3D11] drawNotes: Failed to create rasterizer state\n"
+		);
+
+		checkD3DError(rasterHr);
+		return;
+	}
+
+	_context->RSSetState(rasterState.Get());
+
+	// --------------------------------------------------------
+	// Noise layer
+	// --------------------------------------------------------
+
+	_programWaveNoise.use(_context);
+
+	_programWaveNoise.uniform(
+		"keyboardSize",
+		keyboardHeight
+	);
+
+	_programWaveNoise.uniform(
+		"scale",
+		state.noiseSize * 0.5f
+	);
+
+	_programWaveNoise.texture(
+		_context,
+		"textureNoise",
+		_texNoise.Get()
+	);
+
+	_programWaveNoise.uniform(
+		"offset",
+		time * state.speed * 0.05f
+	);
+
+	_programWaveNoise.uniform(
+		"waveColor",
+		state.color
+	);
+
+	_programWaveNoise.uniform(
+		"noiseScale",
+		state.frequency
+	);
+
+	_programWaveNoise.uniform(
+		"waveOpacity",
+		state.noiseIntensity
+	);
+
+	_programWaveNoise.uniform(
+		"inverseScreenSize",
+		invScreenSize
+	);
+
+	ID3D11Buffer* quadVertexBuffer = _quadVertices.Get();
+
+	const UINT quadStride = sizeof(float) * 2;
+	const UINT quadOffset = 0;
+
+	_context->IASetVertexBuffers(
+		0,
+		1,
+		&quadVertexBuffer,
+		&quadStride,
+		&quadOffset
+	);
+
+	_context->IASetIndexBuffer(
+		_quadIndices.Get(),
+		DXGI_FORMAT_R32_UINT,
+		0
+	);
+
+	_context->IASetPrimitiveTopology(
+		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
+	);
+
+	_context->DrawIndexed(
+		_quadIndexCount,
+		0,
+		0
+	);
+
+	_programWaveNoise.unuse();
+
+	// --------------------------------------------------------
 	// Wave geometry
 	// --------------------------------------------------------
 
@@ -1836,36 +1944,6 @@ void Renderer::drawWaves(
 		-7.1f
 	};
 
-	// --------------------------------------------------------
-	// Rasterizer state
-	// --------------------------------------------------------
-
-	D3D11_RASTERIZER_DESC rasterDesc{};
-	rasterDesc.FillMode = D3D11_FILL_SOLID;
-	rasterDesc.CullMode = D3D11_CULL_BACK;
-	rasterDesc.FrontCounterClockwise = TRUE;
-	rasterDesc.DepthClipEnable = TRUE;
-
-	ComPtr<ID3D11RasterizerState> rasterState;
-
-	HRESULT rasterHr =
-		_device->CreateRasterizerState(
-			&rasterDesc,
-			&rasterState
-		);
-
-	if (FAILED(rasterHr))
-	{
-		Logger::Log(
-			"[D3D11] drawNotes: Failed to create rasterizer state\n"
-		);
-
-		checkD3DError(rasterHr);
-		return;
-	}
-
-	_context->RSSetState(rasterState.Get());
-
 	// Render multiple waves with additive blending.
 	for (int i = 0; i < 4; ++i)
 	{
@@ -1893,85 +1971,6 @@ void Renderer::drawWaves(
 	_programWave.unuse();
 
 	// --------------------------------------------------------
-	// Noise layer
-	// --------------------------------------------------------
-
-	_programWaveNoise.use(_context);
-
-	_programWaveNoise.uniform(
-		"keyboardSize",
-		keyboardHeight
-	);
-
-	_programWaveNoise.uniform(
-		"scale",
-		state.noiseSize * 0.5f
-	);
-
-	_programWaveNoise.texture(
-		_context,
-		"textureNoise",
-		_texNoise.Get()
-	);
-
-	_programWaveNoise.uniform(
-		"offset",
-		time * state.speed * 0.05f
-	);
-
-	_programWaveNoise.uniform(
-		"waveColor",
-		state.color
-	);
-
-	_programWaveNoise.uniform(
-		"noiseScale",
-		state.frequency
-	);
-
-	_programWaveNoise.uniform(
-		"waveOpacity",
-		state.noiseIntensity
-	);
-
-	_programWaveNoise.uniform(
-		"inverseScreenSize",
-		invScreenSize
-	);
-
-
-	ID3D11Buffer* quadVertexBuffer = _quadVertices.Get();
-
-	const UINT quadStride = sizeof(float) * 2;
-	const UINT quadOffset = 0;
-
-	_context->IASetVertexBuffers(
-		0,
-		1,
-		&quadVertexBuffer,
-		&quadStride,
-		&quadOffset
-	);
-
-	_context->IASetIndexBuffer(
-		_quadIndices.Get(),
-		DXGI_FORMAT_R32_UINT,
-		0
-	);
-
-	_context->IASetPrimitiveTopology(
-		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
-	);
-
-	_context->DrawIndexed(
-		_quadIndexCount,
-		0,
-		0
-	);
-
-	_programWaveNoise.unuse();
-
-	// --------------------------------------------------------
 	// Cleanup
 	// --------------------------------------------------------
 
@@ -1983,8 +1982,8 @@ void Renderer::drawWaves(
 		0,
 		1,
 		&nullBuffer,
-		&quadStride,
-		&quadOffset
+		&waveStride,
+		&waveOffset
 	);
 
 	_context->IASetIndexBuffer(

@@ -968,7 +968,7 @@ void State::reset(){
 	background.minorsWidth = 0.8f;
 	background.image = false;
 	background.imageAlpha = 1.0f;
-	background.tex = 0;
+	background.tex.Reset();
 	background.imageBehindKeyboard = false;
 	background.scrollSpeed = glm::vec2(0.f);
 	background.imagePath.clear();
