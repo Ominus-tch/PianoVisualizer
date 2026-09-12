@@ -140,9 +140,6 @@ public:
 
 	void updateConfiguration(Configuration& config);
 
-	void setAlphaBlending(bool enabled);
-	void setAdditiveBlending(bool enabled);
-
 	glm::ivec2 getSize() {
 		return _backbufferSize;
 	}
@@ -314,9 +311,6 @@ private:
 
 	ID3D11Device* _device = nullptr;
 	ID3D11DeviceContext* _context = nullptr;
-
-	ComPtr<ID3D11BlendState> _alphaBlendState;
-	ComPtr<ID3D11BlendState> _additiveBlendState;
 
 	Renderer _renderer;
 	MidiCamera _camera;

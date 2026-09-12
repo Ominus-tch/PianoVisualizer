@@ -135,7 +135,12 @@ public:
 
     void clean();
 
+    void SetAlphaBlending();
+    void SetAdditiveBlending();
+    void SetDefaultBlending();
+
 private:
+
 
     ShaderProgram _programNotes;
     ShaderProgram _programFlashes;
@@ -151,6 +156,7 @@ private:
     ID3D11Device* _device = nullptr;
     ID3D11DeviceContext* _context = nullptr;
 
+    ComPtr<ID3D11BlendState> _alphaBlendState;
     ComPtr<ID3D11BlendState> _additiveBlendState;
 
     // --------------------------------------------------------

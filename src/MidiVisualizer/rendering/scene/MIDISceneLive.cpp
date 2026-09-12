@@ -25,39 +25,6 @@
 
 MIDISceneLive::~MIDISceneLive()
 {
-	Logger::Log(
-		"[MIDI] Destroying MIDI scene: %s\n",
-		_deviceName.c_str()
-	);
-
-	if (_midiInputInstance != _sharedMIDIIn)
-	{
-		Logger::Log(
-			"[MIDI] Scene no longer owns the current MIDI input; "
-			"skipping close.\n"
-		);
-
-		return;
-	}
-
-	if (_midiInputStale.load())
-	{
-		Logger::Log(
-			"[MIDI] MIDI input is stale; leaving it untouched.\n"
-		);
-
-		return;
-	}
-
-	if (_sharedMIDIIn != nullptr &&
-		_sharedMIDIIn->is_port_open())
-	{
-		Logger::Log(
-			"[MIDI] Closing MIDI input.\n"
-		);
-
-		_sharedMIDIIn->close_port();
-	}
 }
 
 

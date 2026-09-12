@@ -26,6 +26,36 @@
 #define MAX_NOTES_IN_FLIGHT 8192
 #endif
 
+void Renderer::SetAlphaBlending()
+{
+	const float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+	_context->OMSetBlendState(
+		_alphaBlendState.Get(),
+		blendFactor,
+		0xFFFFFFFF
+	);
+}
+
+void Renderer::SetAdditiveBlending()
+{
+	const float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+	_context->OMSetBlendState(
+		_additiveBlendState.Get(),
+		blendFactor,
+		0xFFFFFFFF
+	);
+}
+
+void Renderer::SetDefaultBlending()
+{
+	_context->OMSetBlendState(
+		nullptr,
+		nullptr,
+		0xFFFFFFFF
+	);
+}
 
 void Renderer::renderSetup(
 	ID3D11Device* device,
@@ -34,29 +64,6 @@ void Renderer::renderSetup(
 {
 	_device = device;
 	_context = context;
-
-	D3D11_BLEND_DESC blendDesc = {};
-	blendDesc.RenderTarget[0].BlendEnable = TRUE;
-
-	blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
-	blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
-	blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-
-	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-	blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
-	blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-
-	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-
-	HRESULT hr = _device->CreateBlendState(
-		&blendDesc,
-		&_additiveBlendState
-	);
-
-	if (FAILED(hr))
-	{
-		std::cerr << "Failed to create additive blend state\n";
-	}
 
 	// --------------------------------------------------------
 	// Basic quad
@@ -153,6 +160,67 @@ void Renderer::renderSetup(
 			throw std::runtime_error("Failed to create notes data buffer.");
 	}
 
+	// ------------------------------------------------------------
+	// Blend states
+	// ------------------------------------------------------------
+
+	// Standard alpha blending:
+	// src * alpha + dest * (1 - alpha)
+	{
+		D3D11_BLEND_DESC desc = {};
+
+		desc.RenderTarget[0].BlendEnable = TRUE;
+
+		desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+		desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+		desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+
+		desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+		desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+		desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+
+		desc.RenderTarget[0].RenderTargetWriteMask =
+			D3D11_COLOR_WRITE_ENABLE_ALL;
+
+		HRESULT hr = _device->CreateBlendState(
+			&desc,
+			&_alphaBlendState
+		);
+
+		if (FAILED(hr))
+		{
+			// Handle error if desired.
+		}
+	}
+
+	// Additive blending:
+	// src + dest
+	{
+		D3D11_BLEND_DESC desc = {};
+
+		desc.RenderTarget[0].BlendEnable = TRUE;
+
+		desc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+		desc.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
+		desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+
+		desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+		desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
+		desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+
+		desc.RenderTarget[0].RenderTargetWriteMask =
+			D3D11_COLOR_WRITE_ENABLE_ALL;
+
+		HRESULT hr = _device->CreateBlendState(
+			&desc,
+			&_additiveBlendState
+		);
+
+		if (FAILED(hr))
+		{
+			// Handle error if desired.
+		}
+	}
 
 	// --------------------------------------------------------
 	// Active keys
@@ -328,7 +396,7 @@ void Renderer::renderSetup(
 		_device,
 		"wave_noise_vert",
 		"wave_noise_frag",
-		ShaderProgram::InputLayoutType::QuadWithKeyData
+		ShaderProgram::InputLayoutType::Position2D
 	);
 
 
@@ -378,47 +446,62 @@ void Renderer::upload(const std::shared_ptr<MIDIScene>& scene)
 		{
 			D3D11_MAPPED_SUBRESOURCE mapped{};
 
+			const bool fullUpload =
+				uploadRange.y == 0;
+
 			const D3D11_MAP mapType =
-				(uploadRange.y == 0)
+				fullUpload
 				? D3D11_MAP_WRITE_DISCARD
 				: D3D11_MAP_WRITE_NO_OVERWRITE;
 
-			if (SUCCEEDED(_context->Map(
-				_notesDataBuffer.Get(),
-				0,
-				mapType,
-				0,
-				&mapped)))
+			const HRESULT hr =
+				_context->Map(
+					_notesDataBuffer.Get(),
+					0,
+					mapType,
+					0,
+					&mapped
+				);
+
+			if (SUCCEEDED(hr))
 			{
-				if (uploadRange.y == 0)
+				if (fullUpload)
 				{
 					memcpy(
 						mapped.pData,
 						notes.data(),
 						noteSize * notes.size()
 					);
-
-
 				}
 				else
 				{
 					const int first = uploadRange.x;
-					const int size = uploadRange.y - uploadRange.x + 1;
+					const int size =
+						uploadRange.y - uploadRange.x + 1;
 
 					memcpy(
-						static_cast<char*>(mapped.pData) + first * noteSize,
+						static_cast<char*>(mapped.pData)
+						+ first * noteSize,
 						notes.data() + first,
 						size * noteSize
 					);
-
-
 				}
 
-				_context->Unmap(_notesDataBuffer.Get(), 0);
+				_context->Unmap(
+					_notesDataBuffer.Get(),
+					0
+				);
+
+				scene->setUpToDate();
+			}
+			else
+			{
+				Logger::Log(
+					"[D3D11] upload: Failed to map notes buffer: 0x%08X\n",
+					static_cast<unsigned int>(hr)
+				);
 			}
 		}
-
-		scene->setUpToDate();
 	}
 
 	// --------------------------------------------------------
@@ -651,10 +734,6 @@ void Renderer::drawParticles(
 	);
 
 	// --------------------------------------------------------
-	// Blending
-	// --------------------------------------------------------
-
-	// --------------------------------------------------------
 	// Rasterizer state
 	// --------------------------------------------------------
 
@@ -684,13 +763,7 @@ void Renderer::drawParticles(
 
 	_context->RSSetState(rasterState.Get());
 
-	// TODO: If your renderer already has a particle blend state,
-	// bind it here. For now, use the default blend state.
-	_context->OMSetBlendState(
-		nullptr,
-		nullptr,
-		0xffffffff
-	);
+	SetDefaultBlending();
 
 	// --------------------------------------------------------
 	// Draw each active particle system
@@ -995,16 +1068,6 @@ void Renderer::drawNotes(
 	_context->RSSetState(rasterState.Get());
 
 	// --------------------------------------------------------
-	// Blend state
-	// --------------------------------------------------------
-
-	_context->OMSetBlendState(
-		nullptr,
-		nullptr,
-		0xFFFFFFFF
-	);
-
-	// --------------------------------------------------------
 	// Draw all notes
 	// --------------------------------------------------------
 
@@ -1067,13 +1130,7 @@ void Renderer::drawFlashes(
 		}
 	}
 
-	const FLOAT blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-
-	_context->OMSetBlendState(
-		_additiveBlendState.Get(),
-		blendFactor,
-		0xFFFFFFFF
-	);
+	SetAdditiveBlending();
 
 	_programFlashes.use(_context);
 
@@ -1247,12 +1304,7 @@ void Renderer::drawFlashes(
 		);
 	}
 
-	// Return to normal alpha blending.
-	_context->OMSetBlendState(
-		nullptr,
-		nullptr,
-		0xFFFFFFFF
-	);
+	SetDefaultBlending();
 
 	// Prevent the render state from leaking into subsequent draws.
 	ID3D11ShaderResourceView* nullSRV = nullptr;
@@ -1877,6 +1929,8 @@ void Renderer::drawWaves(
 		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
 	);
 
+	SetAlphaBlending();
+
 	_context->DrawIndexed(
 		_quadIndexCount,
 		0,
@@ -1944,6 +1998,8 @@ void Renderer::drawWaves(
 		-7.1f
 	};
 
+	SetAdditiveBlending();
+
 	// Render multiple waves with additive blending.
 	for (int i = 0; i < 4; ++i)
 	{
@@ -1999,6 +2055,8 @@ void Renderer::drawWaves(
 		1,
 		&nullSRV
 	);
+
+	SetDefaultBlending();
 
 	_context->RSSetState(nullptr);
 }

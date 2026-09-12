@@ -156,6 +156,7 @@ Viewer::Viewer(
 	_finalFramebuffer = createFramebuffer();
 
 	_background.init(_device, "background_vert", "background_frag");
+
 	_blurringScreen.init(_device, _particlesFramebuffer->textureId(), "particlesblur_frag");
 	_fxaa.init(_device, "fxaa_frag");
 	_passthrough.init(_device, "screenquad_frag");
@@ -230,73 +231,7 @@ Viewer::Viewer(
 
 	_scene.reset(new MIDIScene());
 
-	if (MIDISceneLive::availablePortsCount() > 0)
-	{
-		_selectedPort = 0;
-		connectDevice(_selectedPort);
-	}
-
-	// ------------------------------------------------------------
-	// Blend states
-	// ------------------------------------------------------------
-
-	// Standard alpha blending:
-	// src * alpha + dest * (1 - alpha)
-	{
-		D3D11_BLEND_DESC desc = {};
-
-		desc.RenderTarget[0].BlendEnable = TRUE;
-
-		desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-		desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-		desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-
-		desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-		desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
-		desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-
-		desc.RenderTarget[0].RenderTargetWriteMask =
-			D3D11_COLOR_WRITE_ENABLE_ALL;
-
-		HRESULT hr = _device->CreateBlendState(
-			&desc,
-			&_alphaBlendState
-		);
-
-		if (FAILED(hr))
-		{
-			// Handle error if desired.
-		}
-	}
-
-	// Additive blending:
-	// src + dest
-	{
-		D3D11_BLEND_DESC desc = {};
-
-		desc.RenderTarget[0].BlendEnable = TRUE;
-
-		desc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
-		desc.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
-		desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-
-		desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-		desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
-		desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-
-		desc.RenderTarget[0].RenderTargetWriteMask =
-			D3D11_COLOR_WRITE_ENABLE_ALL;
-
-		HRESULT hr = _device->CreateBlendState(
-			&desc,
-			&_additiveBlendState
-		);
-
-		if (FAILED(hr))
-		{
-			// Handle error if desired.
-		}
-	}
+	// I DID IT HERE BEFORE
 
 	// Ensure we are using the C locale.
 	System::forceLocale();
@@ -355,12 +290,11 @@ Viewer::Viewer(
 	// ---------------------------------------------------------
 	// Connect to MIDI device
 	// ---------------------------------------------------------
-
-	if (!_config->lastMidiDevice.empty())
+	// NOW HERE
+	if (MIDISceneLive::availablePortsCount() == 1)
 	{
-		connectDevice(
-			_config->lastMidiDevice
-		);
+		_selectedPort = 0;
+		connectDevice(_selectedPort);
 	}
 }
 
@@ -401,16 +335,17 @@ bool Viewer::connectDevice(const std::string& deviceName) {
 
 	if(_selectedPort == -1){
 		if(deviceName != VIRTUAL_DEVICE_NAME){
-			std::cerr << "[MIDI] Unable to connect to device named " << deviceName << "." << std::endl;
+			std::cout << "[MIDI] Unable to connect to device named " << deviceName << "." << std::endl;
 			return false;
 		}
 	}
 
+	_scene.reset();
+
 	_scene = std::make_shared<MIDISceneLive>(_selectedPort, _verbose);
 	_renderer.clearFlashes();
 	_timer = 0.0f;
-	// Don't start immediately
-	// _shouldPlay = true;
+
 	_state.reverseScroll = true;
 	_state.scrollSpeed = 1.0f;
 	_liveplay = true;
@@ -430,12 +365,14 @@ bool Viewer::connectDevice(const int port) {
 		return false;
 	}
 
+	_scene.reset();
+
 	_selectedPort = port;
 
 	_scene = std::make_shared<MIDISceneLive>(_selectedPort, _verbose);
 	_renderer.clearFlashes();
 	_timer = 0.0f;
-	// Don't start immediately
+
 	_shouldPlay = true;
 	_state.reverseScroll = true;
 	_state.scrollSpeed = 1.0f;
@@ -757,7 +694,7 @@ void Viewer::blurPrepass()
 
 void Viewer::drawBlur(const glm::vec2&)
 {
-	setAlphaBlending(true);
+	_renderer.SetAlphaBlending();
 
 	_passthrough.draw(
 		_context,
@@ -765,7 +702,7 @@ void Viewer::drawBlur(const glm::vec2&)
 		_timer
 	);
 
-	setAlphaBlending(false);
+	_renderer.SetDefaultBlending();
 }
 
 void Viewer::drawParticles(const glm::vec2 & invSize) {
@@ -774,7 +711,7 @@ void Viewer::drawParticles(const glm::vec2 & invSize) {
 
 void Viewer::drawScore(const glm::vec2& invSize)
 {
-	setAlphaBlending(true);
+	_renderer.SetAlphaBlending();
 
 	const auto& currentQuality =
 		VisualizerQuality::availables.at(_state.quality);
@@ -791,7 +728,7 @@ void Viewer::drawScore(const glm::vec2& invSize)
 		_state.reverseScroll
 	);
 
-	setAlphaBlending(false);
+	_renderer.SetDefaultBlending();
 }
 
 void Viewer::drawKeyboard(const glm::vec2 & invSize) {
@@ -802,7 +739,7 @@ void Viewer::drawKeyboard(const glm::vec2 & invSize) {
 
 void Viewer::drawNotes(const glm::vec2& invSize)
 {
-	setAlphaBlending(true);
+	_renderer.SetAlphaBlending();
 
 	_renderer.drawNotes(
 		_scene,
@@ -813,7 +750,7 @@ void Viewer::drawNotes(const glm::vec2& invSize)
 		false
 	);
 
-	setAlphaBlending(false);
+	_renderer.SetDefaultBlending();
 }
 
 void Viewer::drawFlashes(const glm::vec2 & invSize) {
@@ -923,16 +860,6 @@ void Viewer::drawBackground(const glm::vec2& invSize)
 
 	_context->RSSetState(
 		rasterState.Get()
-	);
-
-	// --------------------------------------------------------
-	// Blend state
-	// --------------------------------------------------------
-
-	_context->OMSetBlendState(
-		nullptr,
-		nullptr,
-		0xFFFFFFFF
 	);
 
 	// --------------------------------------------------------
@@ -2567,13 +2494,19 @@ void Viewer::showDevices(){
 		if(!devices.empty()){
 			ImGuiSameLine(EXPORT_COLUMN_SIZE);
 			if(ImGui::Button("Start", buttonSize)){
-				_scene = std::make_shared<MIDISceneLive>(_selectedPort, _verbose);
-				_renderer.clearFlashes();
-				starting = true;
+				//_scene.reset();
+
+				//_scene = std::make_shared<MIDISceneLive>(_selectedPort, _verbose);
+				//_renderer.clearFlashes();
+				//starting = true;
+
+				connectDevice(_selectedPort);
+
+				ImGui::CloseCurrentPopup();
 			}
 		}
 
-		if(starting){
+		/*if(starting){
 			_timer = 0.0f;
 			_shouldPlay = true;
 			_state.reverseScroll = true;
@@ -2582,7 +2515,7 @@ void Viewer::showDevices(){
 			applyAllSettings();
 
 			ImGui::CloseCurrentPopup();
-		}
+		}*/
 		ImGui::EndPopup();
 	}
 }
@@ -4093,50 +4026,6 @@ void Viewer::updateConfiguration(Configuration& config){
 	std::shared_ptr<MIDISceneLive> liveScene = std::dynamic_pointer_cast<MIDISceneLive>(_scene);
 	if(liveScene){
 		config.lastMidiDevice = liveScene->deviceName();
-	}
-}
-
-void Viewer::setAlphaBlending(bool enabled)
-{
-	if (enabled)
-	{
-		const float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-
-		_context->OMSetBlendState(
-			_alphaBlendState.Get(),
-			blendFactor,
-			0xFFFFFFFF
-		);
-	}
-	else
-	{
-		_context->OMSetBlendState(
-			nullptr,
-			nullptr,
-			0xFFFFFFFF
-		);
-	}
-}
-
-void Viewer::setAdditiveBlending(bool enabled)
-{
-	if (enabled)
-	{
-		const float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-
-		_context->OMSetBlendState(
-			_additiveBlendState.Get(),
-			blendFactor,
-			0xFFFFFFFF
-		);
-	}
-	else
-	{
-		_context->OMSetBlendState(
-			nullptr,
-			nullptr,
-			0xFFFFFFFF
-		);
 	}
 }
 

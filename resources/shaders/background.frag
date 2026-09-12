@@ -11,7 +11,6 @@ cbuffer BackgroundTexturePSConstants : register(b0)
 {
     float textureAlpha;
     float2 scroll;
-    int behindKeyboard;
 };
 
 float4 main(PSInput In) : SV_Target

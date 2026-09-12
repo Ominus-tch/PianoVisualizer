@@ -4,6 +4,12 @@ struct VSOutput
     float2 uv : TEXCOORD0;
 };
 
+cbuffer BackgroundTextureVSConstants : register(b0)
+{
+    int behindKeyboard;
+    float keyboardHeight;
+};
+
 VSOutput main(uint vertexID : SV_VertexID)
 {
     VSOutput output;
@@ -33,6 +39,11 @@ VSOutput main(uint vertexID : SV_VertexID)
         float2(0.0f, 0.0f),
         float2(1.0f, 0.0f)
     };
+
+    float2 pos = positions[vertexID];
+    if (behindKeyboard != 0) {
+        pos.y = (1.0 - keyboardHeight) * pos.y + keyboardHeight;
+    }
 
     output.position = float4(
         positions[vertexID],
