@@ -651,7 +651,7 @@ bool PianoVisualizer::InitializeMidiVisualizer()
 
             bool success = m_cameraVideoPlayer.Open(path);
 
-            int scene;
+            int scene = (int)m_pianoScene;
 
             Config::LoadPianoConfigFromPath(
                 m_viewer->selectedRecordingDirectory() / "recordingPreset.json",
@@ -846,34 +846,26 @@ void PianoVisualizer::Update()
         }
     }
 
-    // ---------------------------------------------------------
-    // Camera
-    // ---------------------------------------------------------
-
-
     if (m_viewer) 
     {
         if (m_viewer->isPlaybackLoaded())
         {
             double time = m_viewer->getTime();
+            float bufferAhead = m_viewer->getBufferAhead();
+
             m_cameraVideoPlayer.Update(time);
+            m_cameraVideoPlayer.SetBufferAhead(bufferAhead);
         }
         else
         {
             double time = m_viewer->getElapsedRecordingTime();
             m_camera.Update(time);
         }
-    }
 
-    // ---------------------------------------------------------
-    // MIDI Visualizer
-    // ---------------------------------------------------------
-
-    if (m_viewer)
-    {
         m_viewer->setShowGUI(
             gui::showSettings
         );
+
 
         auto scene = m_viewer->scene();
 
@@ -5047,7 +5039,7 @@ void PianoVisualizer::RenderStatistics()
                     "%zu",
                     videoStats.queuedFrames
                 );
-
+                
                 ImGui::TableNextRow();
 
                 Stat(
@@ -5470,6 +5462,20 @@ void PianoVisualizer::RenderStatistics()
                     )
             );
 
+            if (m_viewer) 
+            {
+                Stat(
+                    "Viewer Timer",
+                    "%.2fs",
+                    m_viewer->getTime()
+                );
+
+                Stat(
+                    "Elapsed Recording Time",
+                    "%.2fs",
+                    m_viewer->getElapsedRecordingTime()
+                );
+            }
         
 
             EndStatsTable();

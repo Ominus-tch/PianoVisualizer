@@ -390,7 +390,7 @@ SystemAction Viewer::draw(
 	handleMIDIDeviceEvent();
 
 	_timer =
-		_shouldPlay
+		_shouldPlay// && !_pauseTimer
 		? (currentTime - _timerStart)
 		: _timer;
 
@@ -1332,6 +1332,9 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 				};
 				synchronizeColors(debugColors);
 			}
+
+			ImGui::Text("Start Time: %.2f", _timerStart);
+			ImGui::Text("Current Time: %.2f", System::time());
 		}
 	}
 	ImGui::End();
@@ -3765,21 +3768,8 @@ void Viewer::keyPressed(int key, int action)
 	{
 
 	case ' ': {
-		const bool currentlyPlaying =
-			_playbackPlaying &&
-			!_playbackPaused;
-
-		if (currentlyPlaying)
-		{
+		if (_playbackPlaying)
 			pausePlayback();
-		}
-		else
-		{
-			if (!_playbackPlaying)
-				startPlayback();
-			else
-				pausePlayback();
-		}
 
 		break;
 	}
@@ -4239,79 +4229,6 @@ bool Viewer::hasRecordings() const
 	return !_availableRecordings.empty();
 }
 
-void Viewer::startPlayback()
-{
-	if (!_playbackLoaded)
-	{
-		return;
-	}
-
-	
-	std::shared_ptr<MIDIScene> scene(nullptr);
-
-	try {
-		scene = std::make_shared<MIDISceneFile>(_playbackMidiPath, _state.setOptions, _state.filter);
-		_renderer.clearFlashes();
-	}
-	catch (...) {
-		Logger::Log("[Error] Failed to create recording scene!\n");
-		return;
-	}
-
-	// Player.
-
-
-	const double currentTime =
-		getCurrentTime();
-
-	if (_playbackSeekTime > 0.0f)
-	{
-		_timerStart =
-			currentTime -
-			static_cast<double>(
-				_playbackSeekTime
-				);
-	}
-	else
-	{
-		_timerStart =
-			currentTime;
-
-		if (!_state.reverseScroll)
-		{
-			_timerStart +=
-				_state.prerollTime;
-		}
-	}
-
-	_timer =
-		static_cast<double>(
-			_playbackSeekTime
-			);
-
-	_shouldPlay = true;
-	_liveplay = false;
-
-
-	// Init objects.
-	_scene = scene;
-	applyAllSettings();
-
-	_playbackPlaying = true;
-	_playbackPaused = false;
-
-	auto* midiScene = dynamic_cast<MIDISceneFile*>(_scene.get());
-	midiScene->resetPlaybackState(
-		_playbackSeekTime
-	);
-
-	Logger::Log(
-		"[Playback] Started.\n"
-	);
-
-	return;
-}
-
 void Viewer::pausePlayback()
 {
 	if (!_playbackLoaded)
@@ -4380,7 +4297,8 @@ void Viewer::drawPlaybackSettings()
 {
 	if (!ImGui::Begin(
 		"Playback Settings",
-		&_playbackWindowOpen
+		&_playbackWindowOpen,
+		ImGuiWindowFlags_AlwaysAutoResize
 	))
 	{
 		ImGui::End();
@@ -4543,16 +4461,18 @@ void Viewer::drawPlaybackSettings()
 							true;
 
 						_playbackPlaying =
-							false;
+							true;
 
 						_playbackPaused =
-							false;
+							true;
 
 						_shouldPlay =
 							false;
 
 						_timerStart =
 							getCurrentTime();
+
+						_playbackPauseStart = _timerStart;
 
 						_timer =
 							0.0f;
@@ -4561,6 +4481,30 @@ void Viewer::drawPlaybackSettings()
 							0.0f;
 
 						_playbackDuration = GetVideoDuration(videoPath);
+
+						std::shared_ptr<MIDIScene> scene(nullptr);
+
+						try {
+							scene = std::make_shared<MIDISceneFile>(_playbackMidiPath, _state.setOptions, _state.filter);
+						}
+						catch (...) {
+							Logger::Log("[Error] Failed to create recording scene!\n");
+							return;
+						}
+
+						_scene = scene;
+
+						_playbackPlaying = true;
+						_playbackPaused = true;
+
+						auto* midiScene = dynamic_cast<MIDISceneFile*>(_scene.get());
+						midiScene->resetPlaybackState(
+							_playbackSeekTime
+						);
+
+						_renderer.clearFlashes();
+
+						applyAllSettings();
 
 						Logger::Log(
 							"[Playback] Selected recording: %s\n",
@@ -4744,8 +4688,13 @@ void Viewer::drawPlaybackSettings()
 	// Playback timeline
 	// =========================================================
 
+	if (!_playbackLoaded) 
+	{
+		ImGui::End();
+		return;
+	}
+
 	if (
-		_playbackLoaded &&
 		_scene
 		)
 	{
@@ -4916,17 +4865,7 @@ void Viewer::drawPlaybackSettings()
 		buttonSize
 	))
 	{
-		if (currentlyPlaying)
-		{
-			pausePlayback();
-		}
-		else
-		{
-			if (!_playbackPlaying)
-				startPlayback();
-			else
-				pausePlayback();
-		}
+		pausePlayback();
 	}
 
 	if (ImGui::IsItemHovered())
@@ -4980,14 +4919,25 @@ void Viewer::drawPlaybackSettings()
 		ImVec2(1.0f, 0.0f)
 	))
 	{
-		_timer =
-			0.0f;
 
 		_timerStart =
 			getCurrentTime();
 
+		_timer =
+			0.0f;
+
 		_playbackSeekTime =
 			0.0f;
+
+		if (_scene)
+		{
+			if (auto* midiScene =
+				dynamic_cast<MIDISceneFile*>(_scene.get()))
+			{
+				midiScene->resetPlaybackState();
+				_renderer.clearFlashes();
+			}
+		}
 
 		if (_playbackPlaying)
 		{
@@ -4997,8 +4947,6 @@ void Viewer::drawPlaybackSettings()
 			_shouldPlay =
 				true;
 		}
-
-		_renderer.clearFlashes();
 	}
 
 	if (ImGui::IsItemHovered())
@@ -5044,6 +4992,17 @@ void Viewer::drawPlaybackSettings()
 			"%.1f s"
 		);
 	}
+
+	ImGui::Spacing();
+
+	ImGui::SliderFloat(
+		"Buffer Ahead",
+		&_bufferAhead,
+		0.0f, 5.f,
+		"%.2fs"
+	);
+
+	ImGui::helpTooltip("Amount of video the decoder keeps decoded ahead of the current playback position.\n(Recommended 0.5s)");
 
 	// =========================================================
 	// Status

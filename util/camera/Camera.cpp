@@ -2456,12 +2456,12 @@ bool Camera::StartRecording(
     const int fps =
         30;
 
-    CameraVideoEncoder::PixelFormat pixelFormat;
+    PixelFormat pixelFormat;
 
     if (m_format == CameraFormat::NV12)
     {
         pixelFormat =
-            CameraVideoEncoder::PixelFormat::NV12;
+            PixelFormat::NV12;
     }
     else if (m_format == CameraFormat::MJPG)
     {
@@ -2469,7 +2469,7 @@ bool Camera::StartRecording(
         // the capture code before being passed
         // to the encoder.
         pixelFormat =
-            CameraVideoEncoder::PixelFormat::RGB32;
+            PixelFormat::RGB32;
     }
     else
     {

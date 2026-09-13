@@ -10,13 +10,445 @@
 
 namespace
 {
+    inline uint8_t ClampByte(
+        int value
+    )
+    {
+        if (value < 0)
+            return 0;
 
-    constexpr LONGLONG
-        HNS_PER_SECOND = 10'000'000LL;
+        if (value > 255)
+            return 255;
 
-    constexpr double
-        STAT_INTERVAL_SECONDS = 0.5;
+        return static_cast<uint8_t>(value);
+    }
 
+
+    bool DecodeNV12Sample(
+        IMFSample* sample,
+        LONG sourceStride,
+        int width,
+        int height,
+        std::vector<uint8_t>& output
+    )
+    {
+        if (
+            !sample ||
+            width <= 0 ||
+            height <= 0 ||
+            (width & 1) != 0 ||
+            (height & 1) != 0
+            )
+        {
+            return false;
+        }
+
+
+        const size_t rowBytes =
+            static_cast<size_t>(width) *
+            4;
+
+        const size_t outputSize =
+            rowBytes *
+            static_cast<size_t>(height);
+
+
+        if (output.size() < outputSize)
+        {
+            return false;
+        }
+
+
+        ComPtr<IMFMediaBuffer>
+            buffer;
+
+
+        HRESULT hr =
+            sample->GetBufferByIndex(
+                0,
+                &buffer
+            );
+
+
+        if (FAILED(hr))
+        {
+            return false;
+        }
+
+
+        BYTE* scanline0 = nullptr;
+        BYTE* bufferStart = nullptr;
+        LONG pitch = 0;
+        DWORD bufferLength = 0;
+
+
+        bool use2DBuffer = false;
+
+
+        ComPtr<IMF2DBuffer2>
+            buffer2D;
+
+
+        if (
+            SUCCEEDED(
+                buffer.As(
+                    &buffer2D
+                )
+            )
+            )
+        {
+            hr =
+                buffer2D->Lock2DSize(
+                    MF2DBuffer_LockFlags_Read,
+                    &scanline0,
+                    &pitch,
+                    &bufferStart,
+                    &bufferLength
+                );
+
+            if (SUCCEEDED(hr))
+            {
+                use2DBuffer = true;
+            }
+        }
+
+
+        if (use2DBuffer)
+        {
+            const size_t absPitch =
+                static_cast<size_t>(
+                    std::abs(pitch)
+                    );
+
+
+            if (
+                absPitch <
+                static_cast<size_t>(width)
+                )
+            {
+                buffer2D->Unlock2D();
+                return false;
+            }
+
+
+            /*
+             * NV12 is laid out as:
+             *
+             *   Y plane:  surfaceHeight rows
+             *   UV plane: surfaceHeight / 2 rows
+             *
+             * A decoded video surface can have a height aligned above
+             * the visible media height (for example 1088 storage rows
+             * for a 1080 video). The UV plane therefore must not
+             * necessarily begin at `pitch * height`.
+             *
+             * Infer the actual surface height from the 2-D buffer size
+             * and pitch. This fixes the case where the first aligned
+             * rows of the surface were being interpreted as UV data,
+             * which produces the green strip at the top of the image.
+             */
+            size_t surfaceHeight =
+                static_cast<size_t>(height);
+
+
+            if (
+                bufferStart &&
+                bufferLength > 0
+                )
+            {
+                const size_t totalRows =
+                    static_cast<size_t>(bufferLength) /
+                    absPitch;
+
+                if (
+                    totalRows >=
+                    static_cast<size_t>(height) +
+                    static_cast<size_t>(height / 2)
+                    &&
+                    (totalRows * 2) % 3 == 0
+                    )
+                {
+                    const size_t inferredHeight =
+                        (totalRows * 2) / 3;
+
+                    if (
+                        inferredHeight >=
+                        static_cast<size_t>(height) &&
+                        (inferredHeight & 1) == 0
+                        )
+                    {
+                        surfaceHeight =
+                            inferredHeight;
+                    }
+                }
+            }
+
+
+            const size_t requiredBytes =
+                absPitch *
+                (
+                    surfaceHeight +
+                    surfaceHeight / 2
+                    );
+
+
+            if (
+                !bufferStart ||
+                static_cast<size_t>(bufferLength) <
+                requiredBytes
+                )
+            {
+                buffer2D->Unlock2D();
+                return false;
+            }
+
+
+            /*
+             * NV12 camera surfaces used by this player are expected to
+             * be top-down. For a negative pitch, the UV plane placement
+             * relative to scanline0 is ambiguous for a generic 2-D
+             * surface, so fall back to the contiguous path below.
+             */
+            if (pitch > 0)
+            {
+                const uint8_t* yPlane =
+                    scanline0;
+
+                const uint8_t* uvPlane =
+                    bufferStart +
+                    absPitch * surfaceHeight;
+
+
+                for (int y = 0; y < height; ++y)
+                {
+                    const uint8_t* yRow =
+                        yPlane +
+                        static_cast<size_t>(y) *
+                        absPitch;
+
+                    const uint8_t* uvRow =
+                        uvPlane +
+                        static_cast<size_t>(y / 2) *
+                        absPitch;
+
+                    uint8_t* destination =
+                        output.data() +
+                        static_cast<size_t>(y) *
+                        rowBytes;
+
+
+                    for (int x = 0; x < width; x += 2)
+                    {
+                        const int u =
+                            static_cast<int>(uvRow[x]) -
+                            128;
+
+                        const int v =
+                            static_cast<int>(uvRow[x + 1]) -
+                            128;
+
+
+                        for (int dx = 0; dx < 2; ++dx)
+                        {
+                            const int pixelX =
+                                x + dx;
+
+                            const int yValue =
+                                static_cast<int>(
+                                    yRow[pixelX]
+                                    );
+
+                            const int c =
+                                yValue -
+                                16;
+
+                            const int r =
+                                (298 * c + 409 * v + 128) >>
+                                8;
+
+                            const int g =
+                                (298 * c - 100 * u - 208 * v + 128) >>
+                                8;
+
+                            const int b =
+                                (298 * c + 516 * u + 128) >>
+                                8;
+
+                            uint8_t* pixel =
+                                destination +
+                                static_cast<size_t>(pixelX) *
+                                4;
+
+                            pixel[0] = ClampByte(b);
+                            pixel[1] = ClampByte(g);
+                            pixel[2] = ClampByte(r);
+                            pixel[3] = 255;
+                        }
+                    }
+                }
+
+
+                buffer2D->Unlock2D();
+                return true;
+            }
+
+
+            buffer2D->Unlock2D();
+        }
+
+
+        /*
+         * Fallback for buffers that do not expose IMF2DBuffer2, or
+         * for a negative-pitch surface. A contiguous NV12 buffer uses
+         * the packed layout with the Y plane followed by the UV plane.
+         */
+        ComPtr<IMFMediaBuffer>
+            contiguousBuffer;
+
+
+        hr =
+            sample->ConvertToContiguousBuffer(
+                &contiguousBuffer
+            );
+
+
+        if (FAILED(hr))
+        {
+            return false;
+        }
+
+
+        BYTE* data = nullptr;
+        DWORD maxLength = 0;
+        DWORD currentLength = 0;
+
+
+        hr =
+            contiguousBuffer->Lock(
+                &data,
+                &maxLength,
+                &currentLength
+            );
+
+
+        if (FAILED(hr))
+        {
+            return false;
+        }
+
+
+        const size_t stride =
+            sourceStride > 0
+            ? static_cast<size_t>(sourceStride)
+            : static_cast<size_t>(width);
+
+
+        const size_t requiredSize =
+            stride *
+            (
+                static_cast<size_t>(height) +
+                static_cast<size_t>(height / 2)
+                );
+
+
+        if (
+            static_cast<size_t>(currentLength) <
+            requiredSize
+            )
+        {
+            contiguousBuffer->Unlock();
+
+            Logger::Log(
+                "[CameraVideoPlayer] NV12 contiguous sample is too small: %u < %zu.\n",
+                currentLength,
+                requiredSize
+            );
+
+            return false;
+        }
+
+
+        const uint8_t* yPlane =
+            data;
+
+        const uint8_t* uvPlane =
+            data +
+            stride *
+            static_cast<size_t>(height);
+
+
+        for (int y = 0; y < height; ++y)
+        {
+            const uint8_t* yRow =
+                yPlane +
+                static_cast<size_t>(y) *
+                stride;
+
+            const uint8_t* uvRow =
+                uvPlane +
+                static_cast<size_t>(y / 2) *
+                stride;
+
+            uint8_t* destination =
+                output.data() +
+                static_cast<size_t>(y) *
+                rowBytes;
+
+
+            for (int x = 0; x < width; x += 2)
+            {
+                const int u =
+                    static_cast<int>(uvRow[x]) -
+                    128;
+
+                const int v =
+                    static_cast<int>(uvRow[x + 1]) -
+                    128;
+
+
+                for (int dx = 0; dx < 2; ++dx)
+                {
+                    const int pixelX =
+                        x + dx;
+
+                    const int yValue =
+                        static_cast<int>(
+                            yRow[pixelX]
+                            );
+
+                    const int c =
+                        yValue -
+                        16;
+
+                    const int r =
+                        (298 * c + 409 * v + 128) >>
+                        8;
+
+                    const int g =
+                        (298 * c - 100 * u - 208 * v + 128) >>
+                        8;
+
+                    const int b =
+                        (298 * c + 516 * u + 128) >>
+                        8;
+
+                    uint8_t* pixel =
+                        destination +
+                        static_cast<size_t>(pixelX) *
+                        4;
+
+                    pixel[0] = ClampByte(b);
+                    pixel[1] = ClampByte(g);
+                    pixel[2] = ClampByte(r);
+                    pixel[3] = 255;
+                }
+            }
+        }
+
+
+        contiguousBuffer->Unlock();
+        return true;
+    }
 }
 
 
@@ -44,6 +476,7 @@ bool CameraVideoPlayer::Initialize(
 
         return false;
     }
+
 
     m_device =
         device;
@@ -240,16 +673,22 @@ bool CameraVideoPlayer::Open(
     }
 
 
+    m_seekInProgress.store(
+        false,
+        std::memory_order_release
+    );
+
+
     m_uploadBuffer.clear();
 
 
     /*
-     * Open is intentionally asynchronous.
-     *
-     * Media Foundation setup and decoding happen entirely on
-     * the decoder thread so selecting a recording does not
-     * block the render thread.
-     */
+        * Open is intentionally asynchronous.
+        *
+        * Media Foundation setup and decoding happen entirely on
+        * the decoder thread so selecting a recording does not
+        * block the render thread.
+        */
     m_open.store(
         true,
         std::memory_order_release
@@ -281,6 +720,7 @@ void CameraVideoPlayer::Close()
         std::memory_order_release
     );
 
+
     m_stopRequested.store(
         true,
         std::memory_order_release
@@ -311,6 +751,12 @@ void CameraVideoPlayer::Close()
         m_endOfStream =
             false;
     }
+
+
+    m_seekInProgress.store(
+        false,
+        std::memory_order_release
+    );
 
 
     m_uploadBuffer.clear();
@@ -404,7 +850,6 @@ void CameraVideoPlayer::DecodeThread(
         std::memory_order_release
     );
 
-    bool catchingUpAfterSeek = false;
 
     HRESULT comResult =
         CoInitializeEx(
@@ -450,10 +895,10 @@ void CameraVideoPlayer::DecodeThread(
 
 
     /*
-     * ---------------------------------------------------------
-     * Source reader attributes
-     * ---------------------------------------------------------
-     */
+        * ---------------------------------------------------------
+        * Source reader attributes
+        * ---------------------------------------------------------
+        */
 
     ComPtr<IMFAttributes>
         attributes;
@@ -491,24 +936,20 @@ void CameraVideoPlayer::DecodeThread(
 
 
     /*
-     * RGB32 is explicitly requested below. We leave Media
-     * Foundation video processing enabled because disabling it
-     * caused MF_E_INVALIDMEDIATYPE with this recording.
-     *
-     * The important part is that this work now happens on the
-     * decoder thread.
-     */
+        * Prefer the native decoded NV12 format. This avoids asking
+        * Media Foundation to convert every frame to RGB32.
+        */
     hr =
         attributes->SetUINT32(
             MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING,
-            TRUE
+            FALSE
         );
 
 
     if (FAILED(hr))
     {
         Logger::Log(
-            "[CameraVideoPlayer] Failed to enable video processing: 0x%08X\n",
+            "[CameraVideoPlayer] Failed to disable video processing: 0x%08X\n",
             static_cast<unsigned>(hr)
         );
 
@@ -530,10 +971,10 @@ void CameraVideoPlayer::DecodeThread(
 
 
     /*
-     * ---------------------------------------------------------
-     * Open MP4
-     * ---------------------------------------------------------
-     */
+        * ---------------------------------------------------------
+        * Open MP4
+        * ---------------------------------------------------------
+        */
 
     ComPtr<IMFSourceReader>
         reader;
@@ -572,10 +1013,15 @@ void CameraVideoPlayer::DecodeThread(
 
 
     /*
-     * ---------------------------------------------------------
-     * Request RGB32 output
-     * ---------------------------------------------------------
-     */
+        * ---------------------------------------------------------
+        * Prefer NV12 output
+        * ---------------------------------------------------------
+        */
+
+    PixelFormat
+        pixelFormat =
+        PixelFormat::NV12;
+
 
     ComPtr<IMFMediaType>
         outputType;
@@ -640,71 +1086,173 @@ void CameraVideoPlayer::DecodeThread(
     hr =
         outputType->SetGUID(
             MF_MT_SUBTYPE,
-            MFVideoFormat_RGB32
+            MFVideoFormat_NV12
         );
 
 
-    if (FAILED(hr))
+    if (SUCCEEDED(hr))
     {
-        Logger::Log(
-            "[CameraVideoPlayer] Failed to set RGB32 subtype: 0x%08X\n",
-            static_cast<unsigned>(hr)
-        );
-
-        m_decoderFailed.store(
-            true,
-            std::memory_order_release
-        );
-
-        if (comInitialized)
-            CoUninitialize();
-
-        m_threadRunning.store(
-            false,
-            std::memory_order_release
-        );
-
-        return;
-    }
-
-
-    hr =
-        reader->SetCurrentMediaType(
-            MF_SOURCE_READER_FIRST_VIDEO_STREAM,
-            nullptr,
-            outputType.Get()
-        );
-
-
-    if (FAILED(hr))
-    {
-        Logger::Log(
-            "[CameraVideoPlayer] Failed to set RGB32 output format: 0x%08X\n",
-            static_cast<unsigned>(hr)
-        );
-
-        m_decoderFailed.store(
-            true,
-            std::memory_order_release
-        );
-
-        if (comInitialized)
-            CoUninitialize();
-
-        m_threadRunning.store(
-            false,
-            std::memory_order_release
-        );
-
-        return;
+        hr =
+            reader->SetCurrentMediaType(
+                MF_SOURCE_READER_FIRST_VIDEO_STREAM,
+                nullptr,
+                outputType.Get()
+            );
     }
 
 
     /*
-     * ---------------------------------------------------------
-     * Read actual output media type
-     * ---------------------------------------------------------
-     */
+        * Some sources may not expose NV12 through the decoder.
+        * Fall back to RGB32 with Media Foundation video processing.
+        */
+    if (FAILED(hr))
+    {
+        Logger::Log(
+            "[CameraVideoPlayer] NV12 output unavailable: 0x%08X, falling back to RGB32.\n",
+            static_cast<unsigned>(hr)
+        );
+
+
+        ComPtr<IMFAttributes>
+            fallbackAttributes;
+
+
+        hr =
+            MFCreateAttributes(
+                &fallbackAttributes,
+                2
+            );
+
+
+        if (SUCCEEDED(hr))
+        {
+            hr =
+                fallbackAttributes->SetUINT32(
+                    MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING,
+                    TRUE
+                );
+        }
+
+
+        ComPtr<IMFSourceReader>
+            fallbackReader;
+
+
+        if (SUCCEEDED(hr))
+        {
+            hr =
+                MFCreateSourceReaderFromURL(
+                    widePath.c_str(),
+                    fallbackAttributes.Get(),
+                    &fallbackReader
+                );
+        }
+
+
+        if (FAILED(hr))
+        {
+            Logger::Log(
+                "[CameraVideoPlayer] Failed to create RGB32 fallback reader: 0x%08X\n",
+                static_cast<unsigned>(hr)
+            );
+
+            m_decoderFailed.store(
+                true,
+                std::memory_order_release
+            );
+
+            if (comInitialized)
+                CoUninitialize();
+
+            m_threadRunning.store(
+                false,
+                std::memory_order_release
+            );
+
+            return;
+        }
+
+
+        ComPtr<IMFMediaType>
+            fallbackType;
+
+
+        hr =
+            MFCreateMediaType(
+                &fallbackType
+            );
+
+
+        if (SUCCEEDED(hr))
+        {
+            hr =
+                fallbackType->SetGUID(
+                    MF_MT_MAJOR_TYPE,
+                    MFMediaType_Video
+                );
+        }
+
+
+        if (SUCCEEDED(hr))
+        {
+            hr =
+                fallbackType->SetGUID(
+                    MF_MT_SUBTYPE,
+                    MFVideoFormat_RGB32
+                );
+        }
+
+
+        if (SUCCEEDED(hr))
+        {
+            hr =
+                fallbackReader->SetCurrentMediaType(
+                    MF_SOURCE_READER_FIRST_VIDEO_STREAM,
+                    nullptr,
+                    fallbackType.Get()
+                );
+        }
+
+
+        if (FAILED(hr))
+        {
+            Logger::Log(
+                "[CameraVideoPlayer] Failed to set RGB32 fallback output format: 0x%08X\n",
+                static_cast<unsigned>(hr)
+            );
+
+            m_decoderFailed.store(
+                true,
+                std::memory_order_release
+            );
+
+            if (comInitialized)
+                CoUninitialize();
+
+            m_threadRunning.store(
+                false,
+                std::memory_order_release
+            );
+
+            return;
+        }
+
+
+        reader =
+            std::move(
+                fallbackReader
+            );
+
+        pixelFormat =
+            PixelFormat::RGB32;
+    }
+
+
+    /*
+        * ---------------------------------------------------------
+        * Read actual output media type
+        * ---------------------------------------------------------
+        */
 
     ComPtr<IMFMediaType>
         currentType;
@@ -738,6 +1286,62 @@ void CameraVideoPlayer::DecodeThread(
         );
 
         return;
+    }
+
+
+    GUID currentSubtype{};
+
+
+    hr =
+        currentType->GetGUID(
+            MF_MT_SUBTYPE,
+            &currentSubtype
+        );
+
+
+    if (SUCCEEDED(hr))
+    {
+        if (
+            IsEqualGUID(
+                currentSubtype,
+                MFVideoFormat_NV12
+            )
+            )
+        {
+            pixelFormat =
+                PixelFormat::NV12;
+        }
+        else if (
+            IsEqualGUID(
+                currentSubtype,
+                MFVideoFormat_RGB32
+            )
+            )
+        {
+            pixelFormat =
+                PixelFormat::RGB32;
+        }
+        else
+        {
+            Logger::Log(
+                "[CameraVideoPlayer] Unsupported output subtype.\n"
+            );
+
+            m_decoderFailed.store(
+                true,
+                std::memory_order_release
+            );
+
+            if (comInitialized)
+                CoUninitialize();
+
+            m_threadRunning.store(
+                false,
+                std::memory_order_release
+            );
+
+            return;
+        }
     }
 
 
@@ -782,9 +1386,9 @@ void CameraVideoPlayer::DecodeThread(
 
 
     LONG sourceStride =
-        static_cast<LONG>(
-            width * 4
-            );
+        pixelFormat == PixelFormat::NV12
+        ? static_cast<LONG>(width)
+        : static_cast<LONG>(width * 4);
 
 
     UINT32 strideUnsigned = 0;
@@ -862,12 +1466,20 @@ void CameraVideoPlayer::DecodeThread(
         : 0.0;
 
 
+    const char*
+        pixelFormatName =
+        pixelFormat == PixelFormat::NV12
+        ? "NV12"
+        : "RGB32";
+
+
     Logger::Log(
-        "[CameraVideoPlayer] Decoder ready: %ux%u, stride=%ld, FPS=%.3f\n",
+        "[CameraVideoPlayer] Decoder ready: %ux%u, stride=%ld, FPS=%.3f, format=%s\n",
         width,
         height,
         sourceStride,
-        videoFps
+        videoFps,
+        pixelFormatName
     );
 
 
@@ -878,10 +1490,10 @@ void CameraVideoPlayer::DecodeThread(
 
 
     /*
-     * ---------------------------------------------------------
-     * Decode loop
-     * ---------------------------------------------------------
-     */
+        * ---------------------------------------------------------
+        * Decode loop
+        * ---------------------------------------------------------
+        */
 
     while (
         !m_stopRequested.load(
@@ -890,8 +1502,8 @@ void CameraVideoPlayer::DecodeThread(
         )
     {
         /*
-         * Handle seek requests from the main thread.
-         */
+            * Handle seek requests from the main thread.
+            */
         double seekTime = 0.0;
         bool performSeek = false;
 
@@ -975,50 +1587,76 @@ void CameraVideoPlayer::DecodeThread(
                 break;
             }
 
-            catchingUpAfterSeek = true;
 
-            m_lastDecodedFrameTime.store(
-                seekTime,
+            /*
+                * Do not modify m_currentFrameTime here.
+                *
+                * The GPU is still displaying the previous frame until
+                * Update() uploads a newly decoded frame.
+                */
+
+            m_seekInProgress.store(
+                true,
                 std::memory_order_release
             );
-
-
-            //Logger::Log(
-            //    "[CameraVideoPlayer] Decoder seek: %.6f\n",
-            //    seekTime
-            //);
         }
 
 
         /*
-         * If the queue is full, wait until the main thread
-         * consumes a frame or requests a seek.
-         */
-        if (!catchingUpAfterSeek)
+            * ---------------------------------------------------------
+            * Decoder pacing
+            * ---------------------------------------------------------
+            *
+            * The decoder is intentionally allowed to run ahead of the
+            * playback clock. Update() decides when a decoded frame
+            * should actually be presented.
+            *
+            * Keep a small amount of decoded video ahead of the current
+            * playback position. This gives the decoder headroom instead
+            * of forcing it to chase a moving playback target.
+            *
+            * After a seek, bypass this wait once. The decoded timestamp
+            * from before the seek is no longer relevant and must not
+            * prevent the first post-seek frame from being decoded.
+            */
+        if (!performSeek)
         {
             std::unique_lock<std::mutex>
                 lock(m_queueMutex);
 
-
-            if (
-                m_frameQueue.size() >=
-                MAX_BUFFERED_FRAMES
-                )
-            {
-                m_queueCondition.wait(
-                    lock,
-                    [&]
+            m_queueCondition.wait(
+                lock,
+                [&]
+                {
+                    if (
+                        m_stopRequested.load(
+                            std::memory_order_acquire
+                        ) ||
+                        m_seekRequested
+                        )
                     {
-                        return
-                            m_stopRequested.load(
-                                std::memory_order_acquire
-                            ) ||
-                            m_seekRequested ||
-                            m_frameQueue.size() <
-                            MAX_BUFFERED_FRAMES;
+                        return true;
                     }
-                );
-            }
+
+
+                    const double currentTarget =
+                        m_targetTime.load(
+                            std::memory_order_acquire
+                        );
+
+
+                    const double currentDecoded =
+                        m_lastDecodedFrameTime.load(
+                            std::memory_order_acquire
+                        );
+
+
+                    return
+                        currentDecoded <
+                        currentTarget +
+                        m_maxDecoderBuffer;
+                }
+            );
         }
 
 
@@ -1033,10 +1671,10 @@ void CameraVideoPlayer::DecodeThread(
 
 
         /*
-         * -----------------------------------------------------
-         * Read one sample
-         * -----------------------------------------------------
-         */
+            * -----------------------------------------------------
+            * Read one sample
+            * -----------------------------------------------------
+            */
 
         DWORD streamIndex = 0;
         DWORD flags = 0;
@@ -1073,20 +1711,11 @@ void CameraVideoPlayer::DecodeThread(
             break;
         }
 
+
         const double decodedFrameTime =
             static_cast<double>(timestamp) /
             static_cast<double>(HNS_PER_SECOND);
 
-
-        if (catchingUpAfterSeek)
-        {
-            if (decodedFrameTime < seekTime)
-            {
-                continue;
-            }
-
-            catchingUpAfterSeek = false;
-        }
 
         if (
             flags &
@@ -1139,10 +1768,10 @@ void CameraVideoPlayer::DecodeThread(
 
 
         /*
-         * -----------------------------------------------------
-         * Decode to CPU BGRA
-         * -----------------------------------------------------
-         */
+            * -----------------------------------------------------
+            * Decode to CPU BGRA
+            * -----------------------------------------------------
+            */
 
         std::vector<uint8_t>
             frameBuffer;
@@ -1157,13 +1786,38 @@ void CameraVideoPlayer::DecodeThread(
             std::chrono::steady_clock::now();
 
 
-        if (!DecodeSample(
-            sample.Get(),
-            sourceStride,
-            static_cast<int>(width),
-            static_cast<int>(height),
-            frameBuffer
-        ))
+        bool decodeSucceeded =
+            false;
+
+
+        if (
+            pixelFormat ==
+            PixelFormat::NV12
+            )
+        {
+            decodeSucceeded =
+                DecodeNV12Sample(
+                    sample.Get(),
+                    sourceStride,
+                    static_cast<int>(width),
+                    static_cast<int>(height),
+                    frameBuffer
+                );
+        }
+        else
+        {
+            decodeSucceeded =
+                DecodeSample(
+                    sample.Get(),
+                    sourceStride,
+                    static_cast<int>(width),
+                    static_cast<int>(height),
+                    frameBuffer
+                );
+        }
+
+
+        if (!decodeSucceeded)
         {
             Logger::Log(
                 "[CameraVideoPlayer] Failed to decode sample.\n"
@@ -1193,6 +1847,7 @@ void CameraVideoPlayer::DecodeThread(
             std::memory_order_relaxed
         );
 
+
         const uint64_t decodeFrameCount =
             m_decodeStatFrameCount.fetch_add(
                 1,
@@ -1205,12 +1860,11 @@ void CameraVideoPlayer::DecodeThread(
             std::memory_order_relaxed
         );
 
+
         m_lastDecodedFrameTime.store(
             decodedFrameTime,
             std::memory_order_release
         );
-
-
 
 
         const double decodeStatElapsed =
@@ -1249,6 +1903,7 @@ void CameraVideoPlayer::DecodeThread(
                     std::memory_order_release
                 );
 
+
                 m_decodeFrameTimeMs.store(
                     accumulatedMs /
                     static_cast<double>(
@@ -1265,10 +1920,10 @@ void CameraVideoPlayer::DecodeThread(
 
 
         /*
-         * -----------------------------------------------------
-         * Put decoded frame into the queue
-         * -----------------------------------------------------
-         */
+            * -----------------------------------------------------
+            * Put decoded frame into the queue
+            * -----------------------------------------------------
+            */
 
         DecodedFrame frame;
 
@@ -1285,21 +1940,6 @@ void CameraVideoPlayer::DecodeThread(
         {
             std::lock_guard<std::mutex>
                 lock(m_queueMutex);
-
-
-            if (
-                m_frameQueue.size() >=
-                MAX_BUFFERED_FRAMES
-                )
-            {
-                m_frameQueue.pop_front();
-
-                m_framesDropped.fetch_add(
-                    1,
-                    std::memory_order_relaxed
-                );
-            }
-
 
             m_frameQueue.emplace_back(
                 std::move(frame)
@@ -1421,7 +2061,7 @@ bool CameraVideoPlayer::DecodeSample(
         buffer->Unlock();
 
         Logger::Log(
-            "[CameraVideoPlayer] Decoded sample is too small.\n"
+            "[CameraVideoPlayer] Decoded RGB32 sample is too small.\n"
         );
 
         return false;
@@ -1429,11 +2069,11 @@ bool CameraVideoPlayer::DecodeSample(
 
 
     /*
-     * Normalize RGB32 to tightly packed BGRA.
-     *
-     * The decoded alpha channel is forced to 255 because the
-     * samples from this recording have zero alpha.
-     */
+        * Normalize RGB32 to tightly packed BGRA.
+        *
+        * The decoded alpha channel is forced to 255 because the
+        * samples from this recording have zero alpha.
+        */
     for (int y = 0; y < height; ++y)
     {
         const int sourceY =
@@ -1591,13 +2231,23 @@ bool CameraVideoPlayer::CreateTexture()
     return true;
 }
 
+
 bool CameraVideoPlayer::Seek(double time)
 {
     return RequestSeek(time);
 }
 
-bool CameraVideoPlayer::RequestSeek(double time)
+
+bool CameraVideoPlayer::RequestSeek(
+    double time
+)
 {
+    Logger::Log(
+        "Seek Requested: %.2f\n",
+        time
+    );
+
+
     time =
         (std::max)(
             0.0,
@@ -1605,29 +2255,70 @@ bool CameraVideoPlayer::RequestSeek(double time)
             );
 
 
+    bool canUseQueuedFrame =
+        false;
+
+
     {
         std::lock_guard<std::mutex>
             lock(m_queueMutex);
 
+
+        /*
+            * If the requested time is already covered by the decoded
+            * queue, there is no reason to clear it or ask Media
+            * Foundation to seek.
+            *
+            * Update() will select the appropriate frame from the queue
+            * on its next call.
+            */
+        if (
+            !m_frameQueue.empty() &&
+            time >= m_frameQueue.front().time &&
+            time <= m_frameQueue.back().time
+            )
+        {
+            canUseQueuedFrame =
+                true;
+        }
+
+
         m_seekTime =
             time;
 
-        m_seekRequested =
-            true;
-
-        m_frameQueue.clear();
 
         m_endOfStream =
             false;
+
+
+        if (canUseQueuedFrame)
+        {
+            m_seekRequested =
+                false;
+        }
+        else
+        {
+            m_seekRequested =
+                true;
+
+            m_frameQueue.clear();
+        }
     }
-
-
-    m_currentFrameTime =
-        time;
 
 
     m_targetTime.store(
         time,
+        std::memory_order_release
+    );
+
+
+    /*
+        * A queued-frame seek is already satisfied. The requested
+        * timestamp is inside our decoded range, so Update() can simply
+        * present the appropriate frame from the queue.
+        */
+    m_seekInProgress.store(
+        !canUseQueuedFrame,
         std::memory_order_release
     );
 
@@ -1677,14 +2368,27 @@ bool CameraVideoPlayer::Update(
 
 
     /*
-     * ---------------------------------------------------------
-     * Detect backwards movement of the Viewer clock.
-     * ---------------------------------------------------------
-     */
+        * ---------------------------------------------------------
+        * Detect a discontinuous movement of the playback clock.
+        * ---------------------------------------------------------
+        *
+        * Normal playback differences are small. A larger jump means
+        * the decoder should be repositioned instead of decoding all
+        * intermediate frames.
+        * ---------------------------------------------------------
+        */
+
+    const double frameDelta =
+        targetTime -
+        m_currentFrameTime;
+
 
     if (
-        targetTime + 0.000001 <
-        m_currentFrameTime
+        !m_seekInProgress.load(
+            std::memory_order_acquire
+        ) &&
+        std::abs(frameDelta) >
+        SEEK_THRESHOLD_SECONDS
         )
     {
         RequestSeek(
@@ -1696,17 +2400,19 @@ bool CameraVideoPlayer::Update(
 
 
     /*
-     * Wake the decoder if it is currently waiting because its
-     * queue is full.
-     */
+        * ---------------------------------------------------------
+        * Wake the decoder.
+        * ---------------------------------------------------------
+        */
+
     m_queueCondition.notify_one();
 
 
     /*
-     * ---------------------------------------------------------
-     * Create D3D texture after the decoder discovers dimensions.
-     * ---------------------------------------------------------
-     */
+        * ---------------------------------------------------------
+        * Create D3D texture after the decoder discovers dimensions.
+        * ---------------------------------------------------------
+        */
 
     if (
         !m_texture &&
@@ -1728,17 +2434,17 @@ bool CameraVideoPlayer::Update(
     if (!m_texture)
     {
         /*
-         * Media Foundation is still starting up.
-         */
+            * Media Foundation is still starting up.
+            */
         return true;
     }
 
 
     /*
-     * ---------------------------------------------------------
-     * Select the newest decoded frame <= targetTime.
-     * ---------------------------------------------------------
-     */
+        * ---------------------------------------------------------
+        * Select the newest decoded frame <= targetTime.
+        * ---------------------------------------------------------
+        */
 
     bool haveFrame =
         false;
@@ -1754,9 +2460,9 @@ bool CameraVideoPlayer::Update(
 
 
         /*
-         * Remove frames which are definitely older than the
-         * newest usable frame.
-         */
+            * Remove frames for which a newer frame is already
+            * available without passing the target time.
+            */
         while (
             m_frameQueue.size() >= 2 &&
             m_frameQueue[1].time <= targetTime
@@ -1766,15 +2472,29 @@ bool CameraVideoPlayer::Update(
         }
 
 
+        /*
+            * Use the newest frame we currently have that does not
+            * exceed the playback position.
+            */
+        const bool seekInProgress =
+            m_seekInProgress.load(
+                std::memory_order_acquire
+            );
+
+
         if (
             !m_frameQueue.empty() &&
-            m_frameQueue.front().time <= targetTime
+            (
+                m_frameQueue.front().time <= targetTime ||
+                seekInProgress
+                )
             )
         {
             DecodedFrame frame =
                 std::move(
                     m_frameQueue.front()
                 );
+
 
             m_frameQueue.pop_front();
 
@@ -1784,8 +2504,10 @@ bool CameraVideoPlayer::Update(
                     frame.pixels
                 );
 
+
             selectedTime =
                 frame.time;
+
 
             haveFrame =
                 true;
@@ -1800,10 +2522,10 @@ bool CameraVideoPlayer::Update(
 
 
     /*
-     * ---------------------------------------------------------
-     * GPU upload.
-     * ---------------------------------------------------------
-     */
+        * ---------------------------------------------------------
+        * GPU upload.
+        * ---------------------------------------------------------
+        */
 
     const auto uploadStart =
         std::chrono::steady_clock::now();
@@ -1890,6 +2612,7 @@ bool CameraVideoPlayer::Update(
                 std::memory_order_release
             );
 
+
             m_uploadFrameTimeMs.store(
                 accumulatedMs /
                 static_cast<double>(
@@ -1905,13 +2628,49 @@ bool CameraVideoPlayer::Update(
     }
 
 
+    /*
+        * This is now the actual frame on the GPU.
+        */
     m_currentFrameTime =
         selectedTime;
 
 
     /*
-     * The decoder may now have room for another frame.
-     */
+        * A seek is considered recovered once the decoder has reached
+        * the current target and that data has been presented.
+        *
+        * The decoder may have reached the target before this frame
+        * was uploaded, so keep the state active until this point.
+        */
+    const double decodedTime =
+        m_lastDecodedFrameTime.load(
+            std::memory_order_acquire
+        );
+
+
+    const double currentTarget =
+        m_targetTime.load(
+            std::memory_order_acquire
+        );
+
+
+    if (
+        m_seekInProgress.load(
+            std::memory_order_acquire
+        ) &&
+        decodedTime >= currentTarget
+        )
+    {
+        m_seekInProgress.store(
+            false,
+            std::memory_order_release
+        );
+    }
+
+
+    /*
+        * The decoder may now have room for another frame.
+        */
     m_queueCondition.notify_one();
 
 
@@ -1920,7 +2679,7 @@ bool CameraVideoPlayer::Update(
 
 
 CameraVideoPlayerStatistics
-CameraVideoPlayer::GetStatistics() const
+    CameraVideoPlayer::GetStatistics() const
 {
     CameraVideoPlayerStatistics statistics{};
 
@@ -1929,6 +2688,7 @@ CameraVideoPlayer::GetStatistics() const
         m_width.load(
             std::memory_order_acquire
         );
+
 
     statistics.height =
         m_height.load(
@@ -1940,6 +2700,7 @@ CameraVideoPlayer::GetStatistics() const
         m_fpsNumerator.load(
             std::memory_order_acquire
         );
+
 
     statistics.fpsDenominator =
         m_fpsDenominator.load(
@@ -1966,6 +2727,7 @@ CameraVideoPlayer::GetStatistics() const
             std::memory_order_acquire
         );
 
+
     statistics.decodeFrameTimeMs =
         m_decodeFrameTimeMs.load(
             std::memory_order_acquire
@@ -1976,6 +2738,7 @@ CameraVideoPlayer::GetStatistics() const
         m_uploadFps.load(
             std::memory_order_acquire
         );
+
 
     statistics.uploadFrameTimeMs =
         m_uploadFrameTimeMs.load(
@@ -1988,10 +2751,12 @@ CameraVideoPlayer::GetStatistics() const
             std::memory_order_acquire
         );
 
+
     statistics.framesUploaded =
         m_framesUploaded.load(
             std::memory_order_acquire
         );
+
 
     statistics.framesDropped =
         m_framesDropped.load(
@@ -2024,6 +2789,7 @@ CameraVideoPlayer::GetStatistics() const
         {
             const double firstTime =
                 m_frameQueue.front().time;
+
 
             const double lastTime =
                 m_frameQueue.back().time;
@@ -2065,6 +2831,7 @@ CameraVideoPlayer::GetStatistics() const
             std::memory_order_acquire
         );
 
+
     statistics.threadRunning =
         m_threadRunning.load(
             std::memory_order_acquire
@@ -2074,6 +2841,7 @@ CameraVideoPlayer::GetStatistics() const
     {
         std::lock_guard<std::mutex>
             lock(m_queueMutex);
+
 
         statistics.endOfStream =
             m_endOfStream;

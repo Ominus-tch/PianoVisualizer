@@ -17,8 +17,21 @@
 #include <thread>
 #include <vector>
 
+#include "CameraUtils.h"
+
 using Microsoft::WRL::ComPtr;
 
+namespace
+{
+    constexpr LONGLONG
+        HNS_PER_SECOND = 10'000'000LL;
+
+    constexpr double
+        STAT_INTERVAL_SECONDS = 0.5;
+
+    constexpr double
+        SEEK_THRESHOLD_SECONDS = 0.5;
+}
 
 struct CameraVideoPlayerStatistics
 {
@@ -118,6 +131,10 @@ public:
         );
     }
 
+    void SetBufferAhead(float bufAhead)
+    {
+        m_maxDecoderBuffer = bufAhead;
+    }
 
     const std::string& GetFilePath() const
     {
@@ -162,12 +179,6 @@ private:
     bool RequestSeek(
         double time
     );
-
-
-private:
-
-    static constexpr size_t
-        MAX_BUFFERED_FRAMES = 6;
 
 
 private:
@@ -284,15 +295,21 @@ private:
     std::thread
         m_decodeThread;
 
-
     bool
         m_seekRequested = false;
+
+    std::atomic<bool> 
+        m_seekInProgress = false;
 
     double
         m_seekTime = 0.0;
 
     bool
         m_endOfStream = false;
+
+
+
+    float m_maxDecoderBuffer = 0.5;
 
 
     std::string

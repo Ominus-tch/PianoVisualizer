@@ -2303,6 +2303,9 @@
     <ClInclude Include="util\camera\CameraVideoPlayer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="util\camera\CameraUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="ext\glm\gtc\bitfield.inl">

@@ -184,6 +184,11 @@ public:
 		return std::max(0.0f, _timer);
 	}
 
+	float getBufferAhead() const
+	{
+		return _bufferAhead;
+	}
+
 private:
 
 	struct Layer {
@@ -289,8 +294,6 @@ private:
 
 	void drawPlaybackSettings();
 
-	void startPlayback();
-
 	void pausePlayback();
 
 	void stopPlayback();
@@ -372,6 +375,8 @@ private:
 	bool _playbackPaused = false;
 
 	double _playbackPauseStart = 0.0;
+
+	float _bufferAhead = 0.5f;
 
 	std::filesystem::path _playbackRecordingDirectory;
 	std::string _playbackVideoPath;

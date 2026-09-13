@@ -13,16 +13,11 @@
 #include <cstddef>
 #include <string>
 
+#include "CameraUtils.h"
 
 class CameraVideoEncoder
 {
 public:
-
-    enum class PixelFormat
-    {
-        NV12,
-        RGB32
-    };
 
 
     CameraVideoEncoder();
