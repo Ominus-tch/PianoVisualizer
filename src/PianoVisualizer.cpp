@@ -659,7 +659,7 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 scene,
                 m_horizontalFovDegrees,
                 m_planeWidth,
-                m_planeDepth,
+                m_planeHeight,
                 m_planePivot,
                 m_surfaceXOffset,
                 m_surfaceYOffset,
@@ -669,6 +669,8 @@ bool PianoVisualizer::InitializeMidiVisualizer()
             );
 
             m_pianoScene = static_cast<PianoScene>(scene);
+
+            m_savedConfiguration = GetCurrentConfiguration();
 
             return success;
         }
@@ -692,7 +694,7 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 scene,
                 m_horizontalFovDegrees,
                 m_planeWidth,
-                m_planeDepth,
+                m_planeHeight,
                 m_planePivot,
                 m_surfaceXOffset,
                 m_surfaceYOffset,
@@ -702,6 +704,8 @@ bool PianoVisualizer::InitializeMidiVisualizer()
             );
 
             m_pianoScene = static_cast<PianoScene>(scene);
+
+            m_savedConfiguration = GetCurrentConfiguration();
         }
     );
 
@@ -736,7 +740,7 @@ void PianoVisualizer::LoadPianoConfiguration()
                 scene,
                 m_horizontalFovDegrees,
                 m_planeWidth,
-                m_planeDepth,
+                m_planeHeight,
                 m_planePivot,
                 m_surfaceXOffset,
                 m_surfaceYOffset,
@@ -751,10 +755,11 @@ void PianoVisualizer::LoadPianoConfiguration()
             }
 
             m_pianoScene = static_cast<PianoScene>(scene);
+
+            m_savedConfiguration = GetCurrentConfiguration();
         }
     );
 }
-
 
 void PianoVisualizer::SavePianoConfiguration()
 {
@@ -763,7 +768,7 @@ void PianoVisualizer::SavePianoConfiguration()
         static_cast<int>(m_pianoScene),
         m_horizontalFovDegrees,
         m_planeWidth,
-        m_planeDepth,
+        m_planeHeight,
         m_planePivot,
         m_surfaceXOffset,
         m_surfaceYOffset,
@@ -774,6 +779,8 @@ void PianoVisualizer::SavePianoConfiguration()
     {
         m_configSaveMessage =
             "Configuration saved!";
+
+        m_savedConfiguration = GetCurrentConfiguration();
     }
     else
     {
@@ -861,11 +868,6 @@ void PianoVisualizer::Update()
             double time = m_viewer->getElapsedRecordingTime();
             m_camera.Update(time);
         }
-
-        m_viewer->setShowGUI(
-            gui::showSettings
-        );
-
 
         auto scene = m_viewer->scene();
 
@@ -1002,7 +1004,7 @@ void PianoVisualizer::onStopRecording()
         static_cast<int>(m_pianoScene),
         m_horizontalFovDegrees,
         m_planeWidth,
-        m_planeDepth,
+        m_planeHeight,
         m_planePivot,
         m_surfaceXOffset,
         m_surfaceYOffset,
@@ -1010,6 +1012,8 @@ void PianoVisualizer::onStopRecording()
         m_pianoRollVisualizerHeight,
         m_pianoRollCameraSourceScale
     );
+
+    m_savedConfiguration = GetCurrentConfiguration();
 }
 
 // =========================================================
@@ -1065,6 +1069,48 @@ void PianoVisualizer::RenderVSTDropTarget()
             20
         )
     );
+}
+
+void PianoVisualizer::RenderVisualizer()
+{
+    if (!m_viewer)
+        return;
+
+    m_viewer->draw(
+        DEBUG_SPEED *
+        float(System::time())
+    );
+
+    m_context->OMSetRenderTargets(
+        1,
+        &m_renderTargetView,
+        nullptr
+    );
+
+    D3D11_VIEWPORT viewport{};
+
+    viewport.TopLeftX = 0.0f;
+    viewport.TopLeftY = 0.0f;
+
+    viewport.Width =
+        static_cast<float>(
+            m_statistics.renderWidth
+            );
+
+    viewport.Height =
+        static_cast<float>(
+            m_statistics.renderHeight
+            );
+
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
+
+    m_context->RSSetViewports(
+        1,
+        &viewport
+    );
+
+    m_drawVisualizer = false;
 }
 
 
@@ -1338,20 +1384,64 @@ void PianoVisualizer::Render()
         m_camera.ClearLastError();
     }
 
-    RenderCameraSettingsPanel();
     RenderCameraErrorDialog();
 
-    // ---------------------------------------------------------
-    // Audio
-    // ---------------------------------------------------------
+    ImGui::SetNextWindowSize(
+        ImVec2(520.0f, 0.0f),
+        ImGuiCond_FirstUseEver
+    );
 
-    RenderAudioPanel();
+    if (gui::showSettings) {
+        if (ImGui::Begin(
+            "Piano Visualizer  •  Press I to hide",
+            &gui::showSettings,
+            ImGuiWindowFlags_NoCollapse
+        ))
+        {
+            if (ImGui::BeginTabBar("SettingsTabs"))
+            {
+                if (ImGui::BeginTabItem("Display"))
+                {
+                    RenderDisplayTab();
+                    ImGui::EndTabItem();
+                }
 
-    // ---------------------------------------------------------
-    // Settings
-    // ---------------------------------------------------------
+                if (ImGui::BeginTabItem("Visualizer"))
+                {
+                    RenderVisualizerTab();
+                    ImGui::EndTabItem();
+                }
 
-    RenderSettings();
+                if (ImGui::BeginTabItem("Camera"))
+                {
+                    RenderCameraTab();
+                    ImGui::EndTabItem();
+                }
+
+                if (ImGui::BeginTabItem("Audio"))
+                {
+                    RenderAudioTab();
+                    ImGui::EndTabItem();
+                }
+
+                if (ImGui::BeginTabItem("Plugins"))
+                {
+                    RenderPluginsTab();
+                    ImGui::EndTabItem();
+                }
+
+                if (ImGui::BeginTabItem("Configuration"))
+                {
+                    RenderConfigurationTab();
+                    ImGui::EndTabItem();
+                }
+
+                ImGui::EndTabBar();
+            }
+
+        }
+        ImGui::End();
+    }
 
     // ---------------------------------------------------------
     // Statistics
@@ -1534,58 +1624,6 @@ void PianoVisualizer::RenderCameraOutput()
     );
 }
 
-
-// =========================================================
-// Render Visualizer
-// =========================================================
-
-void PianoVisualizer::RenderVisualizer()
-{
-    if (!m_drawVisualizer)
-        return;
-
-    if (!m_viewer)
-        return;
-
-    SystemAction action =
-        m_viewer->draw(
-            DEBUG_SPEED *
-            float(System::time())
-        );
-
-    m_context->OMSetRenderTargets(
-        1,
-        &m_renderTargetView,
-        nullptr
-    );
-
-    D3D11_VIEWPORT viewport{};
-
-    viewport.TopLeftX = 0.0f;
-    viewport.TopLeftY = 0.0f;
-
-    viewport.Width =
-        static_cast<float>(
-            m_statistics.renderWidth
-            );
-
-    viewport.Height =
-        static_cast<float>(
-            m_statistics.renderHeight
-            );
-
-    viewport.MinDepth = 0.0f;
-    viewport.MaxDepth = 1.0f;
-
-    m_context->RSSetViewports(
-        1,
-        &viewport
-    );
-
-    m_drawVisualizer = false;
-}
-
-
 // =========================================================
 // Piano Roll
 // =========================================================
@@ -1602,7 +1640,7 @@ void PianoVisualizer::RenderPianoRoll()
     m_viewer->draw(
         DEBUG_SPEED *
         float(System::time()),
-        m_pianoScene == PianoScene::Perspective
+        false
     );
 
     // ---------------------------------------------------------
@@ -2481,7 +2519,7 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
     }
 
     float surfaceHeight =
-        m_planeDepth *
+        m_planeHeight *
         m_heightScale;
 
     float angleRadians =
@@ -2955,7 +2993,7 @@ void PianoVisualizer::RenderPianoOverlay()
         return;
 
     float surfaceHeight =
-        m_planeDepth *
+        m_planeHeight *
         m_heightScale;
 
     float angleRadians =
@@ -3617,461 +3655,193 @@ void PianoVisualizer::HandlePolygonPointSelection(
 // Settings
 // =========================================================
 
-void PianoVisualizer::RenderSettings()
+void PianoVisualizer::RenderDisplayTab()
 {
-    if (!gui::showSettings)
-        return;
-
-    // =========================================================
-    // Window
-    // =========================================================
-
-    ImGui::SetNextWindowSize(
-        ImVec2(520.0f, 0.0f),
-        ImGuiCond_FirstUseEver
+    ImGui::Checkbox(
+        "Fullscreen (F)",
+        &gui::fullscreen
     );
 
-    if (
-        ImGui::Begin(
-            "Settings",
-            &gui::showSettings,
-            ImGuiWindowFlags_NoCollapse
-        )
-        )
+    if (ImGui::IsItemDeactivatedAfterEdit())
     {
-        // =====================================================
-        // Header
-        // =====================================================
-
-        ImGui::Text(
-            "Piano Visualizer"
+        SetFullscreen(
+            m_window,
+            gui::fullscreen
         );
+    }
 
-        ImGui::SameLine();
+    ImGui::Spacing();
 
-        ImGui::TextDisabled(
-            "  •  Press I to hide"
-        );
+    ImGui::Checkbox(
+        "Show Selection",
+        &gui::showDebugLines
+    );
 
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-
-        // =====================================================
-        // Display
-        // =====================================================
-
-        ImGui::Text(
-            "DISPLAY"
-        );
-
-        ImGui::Spacing();
-
-        ImGui::Checkbox(
-            "Fullscreen (F)",
-            &gui::fullscreen
-        );
-
-        if (ImGui::IsItemDeactivatedAfterEdit())
-        {
-            SetFullscreen(
-                m_window,
-                gui::fullscreen
-            );
-        }
-
-        ImGui::Spacing();
-
-        ImGui::Checkbox(
-            "Show Selection",
-            &gui::showDebugLines
-        );
-
-        ImGui::Spacing();
+    ImGui::Spacing();
 
 
-        // =====================================================
-        // Setup
-        // =====================================================
+    // =====================================================
+    // Setup
+    // =====================================================
 
-        if (ImGui::CollapsingHeader(
-            "SETUP"
+    ImGui::SeparatorText(
+        "Scene"
+    );
+
+    ImGui::Spacing();
+
+    const char* sceneName =
+        nullptr;
+
+    switch (m_pianoScene)
+    {
+    case PianoScene::Perspective:
+        sceneName =
+            "Perspective";
+        break;
+
+    case PianoScene::PianoRoll:
+        sceneName =
+            "Piano Roll";
+        break;
+
+    default:
+        sceneName =
+            "Unknown";
+        break;
+    }
+
+    if (ImGui::BeginCombo(
+        "Scene",
+        sceneName
+    ))
+    {
+        if (ImGui::Selectable(
+            "Perspective",
+            m_pianoScene ==
+            PianoScene::Perspective
         ))
         {
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            // =================================================
-            // Scene
-            // =================================================
-
-            ImGui::Text(
-                "SCENE"
-            );
-
-            ImGui::Spacing();
-
-            const char* sceneName =
-                nullptr;
-
-            switch (m_pianoScene)
-            {
-            case PianoScene::Perspective:
-                sceneName =
-                    "Perspective";
-                break;
-
-            case PianoScene::PianoRoll:
-                sceneName =
-                    "Piano Roll";
-                break;
-
-            default:
-                sceneName =
-                    "Unknown";
-                break;
-            }
-
-            if (ImGui::BeginCombo(
-                "Scene",
-                sceneName
-            ))
-            {
-                if (ImGui::Selectable(
-                    "Perspective",
-                    m_pianoScene ==
-                    PianoScene::Perspective
-                ))
-                {
-                    m_pianoScene =
-                        PianoScene::Perspective;
-                }
-
-                if (ImGui::Selectable(
-                    "Piano Roll",
-                    m_pianoScene ==
-                    PianoScene::PianoRoll
-                ))
-                {
-                    m_pianoScene =
-                        PianoScene::PianoRoll;
-                }
-
-                ImGui::EndCombo();
-            }
-
-            // =================================================
-            // Piano Surface
-            // =================================================
-
-            if (m_pianoScene == PianoScene::Perspective)
-            {
-                ImGui::Spacing();
-                ImGui::Separator();
-                ImGui::Spacing();
-
-                ImGui::Text(
-                    "PIANO SURFACE"
-                );
-
-                ImGui::Spacing();
-
-                if (!m_choosingPolygonPoints)
-                {
-                    if (ImGui::Button(
-                        "Choose Piano Corners",
-                        ImVec2(-1.0f, 36.0f)
-                    ))
-                    {
-                        m_savedPolygonPoints =
-                            m_polygonPoints;
-
-                        m_polygonPoints.clear();
-
-                        m_polygonClickCount = 0;
-
-                        m_choosingPolygonPoints =
-                            true;
-
-                        Logger::Log(
-                            "[Piano Visualizer] Waiting for 4 piano corner points...\n"
-                        );
-                    }
-                }
-                else
-                {
-                    ImGui::PushStyleColor(
-                        ImGuiCol_Button,
-                        ImVec4(
-                            0.20f,
-                            0.45f,
-                            0.75f,
-                            1.0f
-                        )
-                    );
-
-                    ImGui::Button(
-                        "Click 4 piano corners...",
-                        ImVec2(-1.0f, 36.0f)
-                    );
-
-                    ImGui::PopStyleColor();
-                }
-
-
-                // =================================================
-                // Projection & Transform
-                // =================================================
-
-                ImGui::Spacing();
-                ImGui::Separator();
-                ImGui::Spacing();
-
-                ImGui::TextDisabled(
-                    "PROJECTION & TRANSFORM"
-                );
-
-                ImGui::Spacing();
-
-                ImGui::SliderFloat(
-                    "FOV",
-                    &m_horizontalFovDegrees,
-                    0.1f,
-                    90.0f,
-                    "%.3f"
-                );
-
-                ImGui::SliderFloat(
-                    "Plane Width",
-                    &m_planeWidth,
-                    0.1f,
-                    2.0f,
-                    "%.3f"
-                );
-
-                ImGui::SliderFloat(
-                    "Plane Depth",
-                    &m_planeDepth,
-                    0.1f,
-                    5.0f,
-                    "%.3f"
-                );
-
-                ImGui::SliderFloat(
-                    "Plane Pivot",
-                    &m_planePivot,
-                    0.0f,
-                    180.0f,
-                    "%.1f°"
-                );
-
-                ImGui::Spacing();
-
-                ImGui::TextDisabled(
-                    "Surface Offset"
-                );
-
-                ImGui::SliderFloat(
-                    "X##SurfaceOffset",
-                    &m_surfaceXOffset,
-                    -1.0f,
-                    1.0f,
-                    "%.3f"
-                );
-
-                ImGui::SliderFloat(
-                    "Y##SurfaceOffset",
-                    &m_surfaceYOffset,
-                    -1.0f,
-                    1.0f,
-                    "%.3f"
-                );
-
-                ImGui::SliderFloat(
-                    "Z##SurfaceOffset",
-                    &m_surfaceZOffset,
-                    -1.0f,
-                    1.0f,
-                    "%.3f"
-                );
-            }
-
-            // =================================================
-            // Piano Roll
-            // =================================================
-
-            if (m_pianoScene == PianoScene::PianoRoll)
-            {
-                ImGui::Spacing();
-                ImGui::Separator();
-                ImGui::Spacing();
-
-                ImGui::Text(
-                    "PIANO ROLL"
-                );
-
-                ImGui::Spacing();
-
-                ImGui::SliderFloat(
-                    "Visualizer Height",
-                    &m_pianoRollVisualizerHeight,
-                    0.0f,
-                    1.0f,
-                    "%.2f"
-                );
-
-                ImGui::helpTooltip("How much of the camera region the visualizer should occupy\n0.0 means only piano roll, camera stops updating");
-
-                ImGui::Spacing();
-
-                ImGui::SliderFloat(
-                    "Camera Scale",
-                    &m_pianoRollCameraSourceScale,
-                    1.0f,
-                    5.0f,
-                    "%.2f"
-                );
-
-                ImGui::helpTooltip("Use to also capture what is infront of the piano");
-            }
+            m_pianoScene =
+                PianoScene::Perspective;
         }
 
-
-        // =====================================================
-        // Renderer
-        // =====================================================
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        ImGui::Text(
-            "VISUALIZER"
-        );
-
-        ImGui::Spacing();
-
-        const char* rendererName =
-            nullptr;
-
-        switch (gui::renderer)
-        {
-        case gui::VisualizerRenderer::BuiltInVisualizer:
-            rendererName =
-                "Built-in visualizer";
-            break;
-
-        case gui::VisualizerRenderer::OtherVisualizer:
-            rendererName =
-                "Capture other visualizer";
-            break;
-
-        default:
-            rendererName =
-                "Unknown";
-            break;
-        }
-
-        if (ImGui::BeginCombo(
-            "Renderer",
-            rendererName
+        if (ImGui::Selectable(
+            "Piano Roll",
+            m_pianoScene ==
+            PianoScene::PianoRoll
         ))
         {
-            if (ImGui::Selectable(
-                "Built-in visualizer",
-                gui::renderer ==
-                gui::VisualizerRenderer::BuiltInVisualizer
-            ))
-            {
-                gui::renderer =
-                    gui::VisualizerRenderer::BuiltInVisualizer;
-            }
-
-            if (ImGui::Selectable(
-                "Capture other visualizer",
-                gui::renderer ==
-                gui::VisualizerRenderer::OtherVisualizer
-            ))
-            {
-                gui::renderer =
-                    gui::VisualizerRenderer::OtherVisualizer;
-            }
-
-            ImGui::EndCombo();
+            m_pianoScene =
+                PianoScene::PianoRoll;
         }
 
+        ImGui::EndCombo();
+    }
 
-        // =====================================================
-        // Window Capture
-        // =====================================================
+    const char* rendererName =
+        nullptr;
 
-        if (
+    switch (gui::renderer)
+    {
+    case gui::VisualizerRenderer::BuiltInVisualizer:
+        rendererName =
+            "Built-in visualizer";
+        break;
+
+    case gui::VisualizerRenderer::OtherVisualizer:
+        rendererName =
+            "Capture other visualizer";
+        break;
+
+    default:
+        rendererName =
+            "Unknown";
+        break;
+    }
+
+    if (ImGui::BeginCombo(
+        "Renderer",
+        rendererName
+    ))
+    {
+        if (ImGui::Selectable(
+            "Built-in visualizer",
+            gui::renderer ==
+            gui::VisualizerRenderer::BuiltInVisualizer
+        ))
+        {
+            gui::renderer =
+                gui::VisualizerRenderer::BuiltInVisualizer;
+        }
+
+        if (ImGui::Selectable(
+            "Capture other visualizer",
             gui::renderer ==
             gui::VisualizerRenderer::OtherVisualizer
+        ))
+        {
+            gui::renderer =
+                gui::VisualizerRenderer::OtherVisualizer;
+        }
+
+        ImGui::EndCombo();
+    }
+
+
+    // =====================================================
+    // Window Capture
+    // =====================================================
+
+    if (
+        gui::renderer ==
+        gui::VisualizerRenderer::OtherVisualizer
+        )
+    {
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::SeparatorText(
+            "Capture Window"
+        );
+
+        ImGui::Spacing();
+
+        if (ImGui::Button(
+            "Refresh Windows",
+            ImVec2(-1.0f, 32.0f)
+        ))
+        {
+            RefreshCaptureWindows();
+        }
+
+        ImGui::Spacing();
+
+        const char* selectedName =
+            "Select a window";
+
+        int selectedWindowIndex =
+            gui::selectedCaptureWindowIndex;
+
+        std::string selectedTitle;
+
+        if (
+            selectedWindowIndex >= 0 &&
+            selectedWindowIndex <
+            static_cast<int>(
+                gui::captureWindows.size()
+                )
             )
         {
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
+            const std::wstring& ws =
+                gui::captureWindows[
+                    selectedWindowIndex
+                ].title;
 
-            ImGui::Text(
-                "CAPTURE WINDOW"
-            );
-
-            ImGui::Spacing();
-
-            if (ImGui::Button(
-                "Refresh Windows",
-                ImVec2(-1.0f, 32.0f)
-            ))
+            if (!ws.empty())
             {
-                RefreshCaptureWindows();
-            }
-
-            ImGui::Spacing();
-
-            const char* selectedName =
-                "Select a window";
-
-            int selectedWindowIndex =
-                gui::selectedCaptureWindowIndex;
-
-            std::string selectedTitle;
-
-            if (
-                selectedWindowIndex >= 0 &&
-                selectedWindowIndex <
-                static_cast<int>(
-                    gui::captureWindows.size()
-                    )
-                )
-            {
-                const std::wstring& ws =
-                    gui::captureWindows[
-                        selectedWindowIndex
-                    ].title;
-
-                if (!ws.empty())
-                {
-                    int size =
-                        WideCharToMultiByte(
-                            CP_UTF8,
-                            0,
-                            ws.data(),
-                            static_cast<int>(
-                                ws.size()
-                                ),
-                            nullptr,
-                            0,
-                            nullptr,
-                            nullptr
-                        );
-
-                    selectedTitle.resize(
-                        size
-                    );
-
+                int size =
                     WideCharToMultiByte(
                         CP_UTF8,
                         0,
@@ -4079,400 +3849,1992 @@ void PianoVisualizer::RenderSettings()
                         static_cast<int>(
                             ws.size()
                             ),
-                        selectedTitle.data(),
-                        size,
+                        nullptr,
+                        0,
                         nullptr,
                         nullptr
                     );
-                }
 
-                selectedName =
-                    selectedTitle.c_str();
+                selectedTitle.resize(
+                    size
+                );
+
+                WideCharToMultiByte(
+                    CP_UTF8,
+                    0,
+                    ws.data(),
+                    static_cast<int>(
+                        ws.size()
+                        ),
+                    selectedTitle.data(),
+                    size,
+                    nullptr,
+                    nullptr
+                );
             }
 
-            if (ImGui::BeginCombo(
-                "Window",
-                selectedName
+            selectedName =
+                selectedTitle.c_str();
+        }
+
+        if (ImGui::BeginCombo(
+            "Window",
+            selectedName
+        ))
+        {
+            for (
+                int i = 0;
+                i <
+                static_cast<int>(
+                    gui::captureWindows.size()
+                    );
+                    ++i
+                )
+            {
+                std::string title(
+                    gui::captureWindows[i]
+                    .title
+                    .begin(),
+                    gui::captureWindows[i]
+                    .title
+                    .end()
+                );
+
+                bool selected =
+                    selectedWindowIndex == i;
+
+                if (ImGui::Selectable(
+                    title.c_str(),
+                    selected
+                ))
+                {
+                    gui::selectedCaptureWindowIndex =
+                        i;
+
+                    gui::selectedCaptureWindow =
+                        gui::captureWindows[i]
+                        .hwnd;
+                }
+
+                if (selected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+    }
+
+    // =================================================
+    // Piano Surface
+    // =================================================
+
+    if (m_pianoScene == PianoScene::Perspective)
+    {
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::SeparatorText(
+            "Piano Surface"
+        );
+
+        ImGui::Spacing();
+
+        if (!m_choosingPolygonPoints)
+        {
+            if (ImGui::Button(
+                "Choose Piano Corners",
+                ImVec2(-1.0f, 36.0f)
             ))
             {
-                for (
-                    int i = 0;
-                    i <
-                    static_cast<int>(
-                        gui::captureWindows.size()
-                        );
-                        ++i
-                    )
-                {
-                    std::string title(
-                        gui::captureWindows[i]
-                        .title
-                        .begin(),
-                        gui::captureWindows[i]
-                        .title
-                        .end()
-                    );
+                m_savedPolygonPoints =
+                    m_polygonPoints;
 
-                    bool selected =
-                        selectedWindowIndex == i;
+                m_polygonPoints.clear();
 
-                    if (ImGui::Selectable(
-                        title.c_str(),
-                        selected
-                    ))
-                    {
-                        gui::selectedCaptureWindowIndex =
-                            i;
+                m_polygonClickCount = 0;
 
-                        gui::selectedCaptureWindow =
-                            gui::captureWindows[i]
-                            .hwnd;
-                    }
+                m_choosingPolygonPoints =
+                    true;
 
-                    if (selected)
-                    {
-                        ImGui::SetItemDefaultFocus();
-                    }
-                }
-
-                ImGui::EndCombo();
-            }
-        }
-
-
-        // =====================================================
-        // Camera / Audio Settings
-        // =====================================================
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        if (ImGui::Button(
-            "Camera Settings",
-            ImVec2(-1.0f, 32.0f)
-        ))
-        {
-            m_showCameraSettings = true;
-        }
-
-        ImGui::Spacing();
-
-        if (ImGui::Button(
-            "Audio Settings",
-            ImVec2(-1.0f, 32.0f)
-        ))
-        {
-            m_showAudioSettings = true;
-        }
-
-
-        // =====================================================
-        // Plugin Settings
-        // =====================================================
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        ImGui::Text(
-            "PLUGINS"
-        );
-
-        ImGui::Spacing();
-
-
-        // -----------------------------------------------------
-        // Plugin status card
-        // -----------------------------------------------------
-
-        ImGui::BeginChild(
-            "PluginStatus",
-            ImVec2(
-                0.0f,
-                72.0f
-            ),
-            true
-        );
-
-        if (m_audioEngine)
-        {
-            const std::string& pluginName =
-                m_audioEngine->pluginName();
-
-            if (!pluginName.empty())
-            {
-                ImGui::Text(
-                    "Plugin loaded"
-                );
-
-                ImGui::TextDisabled(
-                    "%s",
-                    pluginName.c_str()
-                );
-            }
-            else
-            {
-                ImGui::Text(
-                    "No plugin loaded"
-                );
-
-                ImGui::TextDisabled(
-                    "Drop a .vst3 plugin into the window"
+                Logger::Log(
+                    "[Piano Visualizer] Waiting for 4 piano corner points...\n"
                 );
             }
         }
         else
         {
-            ImGui::Text(
-                "Audio engine unavailable"
+            ImGui::PushStyleColor(
+                ImGuiCol_Button,
+                ImVec4(
+                    0.20f,
+                    0.45f,
+                    0.75f,
+                    1.0f
+                )
             );
+
+            ImGui::Button(
+                "Click 4 piano corners...",
+                ImVec2(-1.0f, 36.0f)
+            );
+
+            ImGui::PopStyleColor();
         }
 
-        ImGui::EndChild();
+
+        // =================================================
+        // Projection & Transform
+        // =================================================
 
         ImGui::Spacing();
 
+        ImGui::TextDisabled(
+            "Projection & Transform"
+        );
 
-        // -----------------------------------------------------
-        // Recent plugins
-        // -----------------------------------------------------
+        ImGui::Spacing();
 
-        if (!m_recentVSTPlugins.empty())
-        {
-            ImGui::Text(
-                "Recent Plugins"
-            );
+        ImGui::SliderFloat(
+            "FOV",
+            &m_horizontalFovDegrees,
+            0.1f,
+            90.0f,
+            "%.3f"
+        );
 
-            ImGui::Spacing();
+        ImGui::SliderFloat(
+            "Plane Width",
+            &m_planeWidth,
+            0.1f,
+            2.0f,
+            "%.3f"
+        );
 
-            for (const auto& path : m_recentVSTPlugins)
-            {
-                if (!std::filesystem::exists(path))
-                    continue;
+        ImGui::SliderFloat(
+            "Plane Height",
+            &m_planeHeight,
+            0.1f,
+            5.0f,
+            "%.3f"
+        );
 
-                std::string filename =
-                    path.filename().string();
+        ImGui::SliderFloat(
+            "Plane Pivot",
+            &m_planePivot,
+            0.0f,
+            180.0f,
+            "%.1f°"
+        );
 
-                // Remove .vst3 from display name.
-                if (
-                    filename.size() > 5 &&
-                    filename.ends_with(".vst3")
-                    )
-                {
-                    filename.erase(
-                        filename.size() - 5
-                    );
-                }
+        ImGui::Spacing();
 
-                if (
-                    m_audioEngine &&
-                    m_audioEngine->pluginName() != filename
-                    )
-                {
-                    std::string strPath =
-                        path.string();
+        ImGui::TextDisabled(
+            "Surface Offset"
+        );
 
-                    if (ImGui::Button(
-                        filename.c_str(),
-                        ImVec2(-1.0f, 32.0f)
-                    ))
-                    {
-                        LoadRecentVST(path);
-                    }
+        ImGui::SliderFloat(
+            "X##SurfaceOffset",
+            &m_surfaceXOffset,
+            -1.0f,
+            1.0f,
+            "%.3f"
+        );
 
-                    if (ImGui::IsItemHovered())
-                    {
-                        ImGui::SetTooltip(
-                            "%s",
-                            strPath.c_str()
-                        );
-                    }
+        ImGui::SliderFloat(
+            "Y##SurfaceOffset",
+            &m_surfaceYOffset,
+            -1.0f,
+            1.0f,
+            "%.3f"
+        );
 
-                    ImGui::Spacing();
-                }
-            }
-        }
+        ImGui::SliderFloat(
+            "Z##SurfaceOffset",
+            &m_surfaceZOffset,
+            -1.0f,
+            1.0f,
+            "%.3f"
+        );
+    }
 
+    // =================================================
+    // Piano Roll
+    // =================================================
+
+    else if (m_pianoScene == PianoScene::PianoRoll)
+    {
+        ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
 
+        ImGui::Text(
+            "PIANO ROLL"
+        );
 
-        // -----------------------------------------------------
-        // Plugin editor
-        // -----------------------------------------------------
+        ImGui::Spacing();
+
+        ImGui::SliderFloat(
+            "Visualizer Height",
+            &m_pianoRollVisualizerHeight,
+            0.0f,
+            1.0f,
+            "%.2f"
+        );
+
+        ImGui::helpTooltip("How much of the camera region the visualizer should occupy\n0.0 means only piano roll, camera stops updating");
+
+        ImGui::Spacing();
+
+        ImGui::SliderFloat(
+            "Camera Scale",
+            &m_pianoRollCameraSourceScale,
+            1.0f,
+            5.0f,
+            "%.2f"
+        );
+
+        ImGui::helpTooltip("Use to also capture what is infront of the piano");
+    }
+}
+
+// =========================================================
+// Visualizer Tab
+// =========================================================
+
+void PianoVisualizer::RenderVisualizerTab()
+{
+    if (!m_viewer)
+        return;
+
+    m_viewer->drawGUI(System::time());
+}
+
+// =====================================================
+// Camera Tab
+// =====================================================
+
+void PianoVisualizer::RenderCameraTab()
+{
+    const std::vector<Camera::CameraDevice>& cameras =
+        m_camera.GetAvailableCameras();
+
+    if (!cameras.empty())
+    {
+        int selectedCamera =
+            m_camera.GetCameraIndex();
+
+        const char* preview =
+            selectedCamera >= 0 &&
+            selectedCamera <
+            static_cast<int>(cameras.size())
+            ? cameras[selectedCamera].name.c_str()
+            : "Select camera";
+
+        ImGui::SeparatorText(
+            "Selected Camera"
+        );
+
+        if (ImGui::BeginCombo(
+            "##CameraDevice",
+            preview
+        ))
+        {
+            m_camera.EnumerateCameras();
+
+            // Re-read the camera list after refreshing.
+            const std::vector<Camera::CameraDevice>& refreshedCameras =
+                m_camera.GetAvailableCameras();
+
+            selectedCamera =
+                m_camera.GetCameraIndex();
+
+            for (
+                int i = 0;
+                i < static_cast<int>(refreshedCameras.size());
+                ++i
+                )
+            {
+                const bool selected =
+                    i == selectedCamera;
+
+                if (ImGui::Selectable(
+                    refreshedCameras[i].name.c_str(),
+                    selected
+                ))
+                {
+                    if (i != selectedCamera)
+                    {
+                        if (m_camera.OpenCamera(i))
+                        {
+                            m_cameraSettingsWidth = 0;
+                            m_cameraSettingsHeight = 0;
+                            m_cameraSettingsFPSNumerator = 0;
+                            m_cameraSettingsFPSDenominator = 1;
+                        }
+                        else
+                        {
+                            const std::string cameraError =
+                                m_camera.GetLastError();
+
+                            if (!cameraError.empty())
+                            {
+                                const std::string message =
+                                    "Error: Failed to initialize camera \"" +
+                                    cameraError +
+                                    "\"";
+
+                                MessageBoxA(
+                                    nullptr,
+                                    message.c_str(),
+                                    "Piano Visualizer",
+                                    MB_OK | MB_ICONWARNING
+                                );
+
+                                m_camera.ClearLastError();
+                            }
+                        }
+                    }
+                }
+
+                if (selected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+    }
+
+    // =====================================================
+    // Camera not currently open
+    // =====================================================
+
+    if (!m_camera.IsOpen())
+    {
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::TextDisabled(
+            cameras.empty()
+            ? "No camera available."
+            : "Select a camera to continue."
+        );
+
+        return;
+    }
+
+    ImGui::SeparatorText("Format");
+
+    // =====================================================
+    // Resolution / FPS
+    // =====================================================
+
+    const std::vector<Camera::CameraMode>& modes =
+        m_camera.GetAvailableModes();
+
+    if (!modes.empty())
+    {
+        const int currentWidth =
+            m_camera.GetWidth();
+
+        const int currentHeight =
+            m_camera.GetHeight();
+
+        const Camera::CameraStatistics statistics =
+            m_camera.GetStatistics();
+
+        const UINT32 currentFPSNumerator =
+            statistics.fpsNumerator;
+
+        const UINT32 currentFPSDenominator =
+            statistics.fpsDenominator;
+
+        // -------------------------------------------------
+        // Synchronize UI state with actual camera state
+        // -------------------------------------------------
 
         if (
-            m_audioEngine &&
-            m_audioEngine->plugin()
+            m_cameraSettingsWidth != currentWidth ||
+            m_cameraSettingsHeight != currentHeight
+            )
+        {
+            m_cameraSettingsWidth =
+                currentWidth;
+
+            m_cameraSettingsHeight =
+                currentHeight;
+        }
+
+        if (
+            m_cameraSettingsFPSNumerator !=
+            currentFPSNumerator ||
+            m_cameraSettingsFPSDenominator !=
+            currentFPSDenominator
+            )
+        {
+            m_cameraSettingsFPSNumerator =
+                currentFPSNumerator;
+
+            m_cameraSettingsFPSDenominator =
+                currentFPSDenominator;
+        }
+
+        // -------------------------------------------------
+        // Build unique resolutions
+        // -------------------------------------------------
+
+        std::vector<std::pair<int, int>> resolutions;
+
+        for (const Camera::CameraMode& mode : modes)
+        {
+            bool alreadyExists = false;
+
+            for (
+                const auto& resolution :
+                resolutions
+                )
+            {
+                if (
+                    resolution.first ==
+                    mode.width &&
+                    resolution.second ==
+                    mode.height
+                    )
+                {
+                    alreadyExists = true;
+                    break;
+                }
+            }
+
+            if (!alreadyExists)
+            {
+                resolutions.emplace_back(
+                    mode.width,
+                    mode.height
+                );
+            }
+        }
+
+        // -------------------------------------------------
+        // Build unique FPS values
+        // -------------------------------------------------
+
+        std::vector<Camera::CameraMode> uniqueFPSModes;
+
+        for (const Camera::CameraMode& mode : modes)
+        {
+            bool alreadyExists = false;
+
+            for (
+                const Camera::CameraMode& existing :
+                uniqueFPSModes
+                )
+            {
+                if (
+                    static_cast<UINT64>(
+                        mode.fpsNumerator
+                        ) *
+                    static_cast<UINT64>(
+                        existing.fpsDenominator
+                        ) ==
+                    static_cast<UINT64>(
+                        existing.fpsNumerator
+                        ) *
+                    static_cast<UINT64>(
+                        mode.fpsDenominator
+                        )
+                    )
+                {
+                    alreadyExists = true;
+                    break;
+                }
+            }
+
+            if (!alreadyExists)
+            {
+                uniqueFPSModes.push_back(
+                    mode
+                );
+            }
+        }
+
+        // -------------------------------------------------
+        // Two-column layout
+        // -------------------------------------------------
+
+        ImGui::Columns(
+            3,
+            "##CameraFormatResolutionFPS",
+            false
+        );
+
+        // -------------------------------------------------
+        // Format
+        // -------------------------------------------------
+
+        ImGui::Text(
+            "Camera Format"
+        );
+
+        Camera::CameraFormat currentFormat =
+            m_camera.GetFormat();
+
+        const char* formatName =
+            currentFormat == Camera::CameraFormat::NV12
+            ? "NV12"
+            : currentFormat == Camera::CameraFormat::MJPG
+            ? "MJPG"
+            : "None";
+
+        if (ImGui::BeginCombo(
+            "##CameraFormat",
+            formatName
+        ))
+        {
+            bool isNV12 =
+                currentFormat ==
+                Camera::CameraFormat::NV12;
+
+            if (ImGui::Selectable(
+                "NV12",
+                isNV12
+            ))
+            {
+                if (!isNV12)
+                {
+                    m_camera.SetFormat(
+                        Camera::CameraFormat::NV12
+                    );
+
+                    m_cameraSettingsWidth = 0;
+                    m_cameraSettingsHeight = 0;
+                    m_cameraSettingsFPSNumerator = 0;
+                    m_cameraSettingsFPSDenominator = 1;
+                }
+            }
+
+            if (isNV12)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+
+            bool isMJPG =
+                currentFormat ==
+                Camera::CameraFormat::MJPG;
+
+            if (ImGui::Selectable(
+                "MJPG",
+                isMJPG
+            ))
+            {
+                if (!isMJPG)
+                {
+                    m_camera.SetFormat(
+                        Camera::CameraFormat::MJPG
+                    );
+
+                    m_cameraSettingsWidth = 0;
+                    m_cameraSettingsHeight = 0;
+                    m_cameraSettingsFPSNumerator = 0;
+                    m_cameraSettingsFPSDenominator = 1;
+                }
+            }
+
+            if (isMJPG)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+
+            ImGui::EndCombo();
+        }
+
+        ImGui::NextColumn();
+
+        // =================================================
+        // Resolution
+        // =================================================
+
+        ImGui::Text(
+            "Resolution"
+        );
+
+        int selectedResolutionIndex = -1;
+
+        for (
+            int i = 0;
+            i < static_cast<int>(resolutions.size());
+            ++i
             )
         {
             if (
-                !m_audioEngine->plugin()
-                ->hasEditor()
+                resolutions[i].first ==
+                m_cameraSettingsWidth &&
+                resolutions[i].second ==
+                m_cameraSettingsHeight
                 )
             {
-                if (ImGui::Button(
-                    "Open Plugin Editor",
-                    ImVec2(-1.0f, 32.0f)
+                selectedResolutionIndex = i;
+                break;
+            }
+        }
+
+        char resolutionPreview[64];
+
+        if (selectedResolutionIndex >= 0)
+        {
+            std::snprintf(
+                resolutionPreview,
+                sizeof(resolutionPreview),
+                "%d x %d",
+                resolutions[
+                    selectedResolutionIndex
+                ].first,
+                resolutions[
+                    selectedResolutionIndex
+                ].second
+                        );
+        }
+        else
+        {
+            std::snprintf(
+                resolutionPreview,
+                sizeof(resolutionPreview),
+                "%d x %d",
+                currentWidth,
+                currentHeight
+            );
+        }
+
+        if (ImGui::BeginCombo(
+            "##CameraResolution",
+            resolutionPreview
+        ))
+        {
+            for (
+                int i = 0;
+                i < static_cast<int>(resolutions.size());
+                ++i
+                )
+            {
+                bool selected =
+                    i == selectedResolutionIndex;
+
+                char label[64];
+
+                std::snprintf(
+                    label,
+                    sizeof(label),
+                    "%d x %d",
+                    resolutions[i].first,
+                    resolutions[i].second
+                );
+
+                if (ImGui::Selectable(
+                    label,
+                    selected
+                ))
+                {
+                    const int newWidth =
+                        resolutions[i].first;
+
+                    const int newHeight =
+                        resolutions[i].second;
+
+                    // -------------------------------------
+                    // Keep current FPS if possible.
+                    // -------------------------------------
+
+                    bool currentFPSAvailable = false;
+
+                    for (
+                        const Camera::CameraMode& mode :
+                        modes
+                        )
+                    {
+                        if (
+                            mode.width ==
+                            newWidth &&
+                            mode.height ==
+                            newHeight &&
+                            mode.fpsNumerator ==
+                            m_cameraSettingsFPSNumerator &&
+                            mode.fpsDenominator ==
+                            m_cameraSettingsFPSDenominator
+                            )
+                        {
+                            currentFPSAvailable = true;
+                            break;
+                        }
+                    }
+
+                    UINT32 newFPSNumerator =
+                        m_cameraSettingsFPSNumerator;
+
+                    UINT32 newFPSDenominator =
+                        m_cameraSettingsFPSDenominator;
+
+                    // -------------------------------------
+                    // If unavailable, use highest FPS.
+                    // -------------------------------------
+
+                    if (!currentFPSAvailable)
+                    {
+                        bool foundMode = false;
+
+                        Camera::CameraMode bestMode;
+
+                        for (
+                            const Camera::CameraMode& mode :
+                            modes
+                            )
+                        {
+                            if (
+                                mode.width != newWidth ||
+                                mode.height != newHeight
+                                )
+                            {
+                                continue;
+                            }
+
+                            if (!foundMode)
+                            {
+                                bestMode = mode;
+                                foundMode = true;
+                                continue;
+                            }
+
+                            if (
+                                static_cast<UINT64>(
+                                    mode.fpsNumerator
+                                    ) *
+                                static_cast<UINT64>(
+                                    bestMode.fpsDenominator
+                                    ) >
+                                static_cast<UINT64>(
+                                    bestMode.fpsNumerator
+                                    ) *
+                                static_cast<UINT64>(
+                                    mode.fpsDenominator
+                                    )
+                                )
+                            {
+                                bestMode = mode;
+                            }
+                        }
+
+                        if (foundMode)
+                        {
+                            newFPSNumerator =
+                                bestMode.fpsNumerator;
+
+                            newFPSDenominator =
+                                bestMode.fpsDenominator;
+                        }
+                    }
+
+                    if (
+                        m_camera.SetMode(
+                            newWidth,
+                            newHeight,
+                            newFPSNumerator,
+                            newFPSDenominator
+                        )
+                        )
+                    {
+                        m_cameraSettingsWidth =
+                            newWidth;
+
+                        m_cameraSettingsHeight =
+                            newHeight;
+
+                        m_cameraSettingsFPSNumerator =
+                            newFPSNumerator;
+
+                        m_cameraSettingsFPSDenominator =
+                            newFPSDenominator;
+                    }
+                }
+
+                if (selected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+
+        // =================================================
+        // FPS
+        // =================================================
+
+        ImGui::NextColumn();
+
+        ImGui::Text(
+            "Frame Rate"
+        );
+
+        const Camera::CameraMode* currentMode =
+            nullptr;
+
+        for (
+            const Camera::CameraMode& mode :
+            modes
+            )
+        {
+            if (
+                mode.width ==
+                m_cameraSettingsWidth &&
+                mode.height ==
+                m_cameraSettingsHeight &&
+                mode.fpsNumerator ==
+                m_cameraSettingsFPSNumerator &&
+                mode.fpsDenominator ==
+                m_cameraSettingsFPSDenominator
+                )
+            {
+                currentMode = &mode;
+                break;
+            }
+        }
+
+        char fpsPreview[64];
+
+        if (currentMode != nullptr)
+        {
+            std::snprintf(
+                fpsPreview,
+                sizeof(fpsPreview),
+                "%.3g FPS",
+                currentMode->GetFPS()
+            );
+        }
+        else
+        {
+            std::snprintf(
+                fpsPreview,
+                sizeof(fpsPreview),
+                "Unknown"
+            );
+        }
+
+        if (ImGui::BeginCombo(
+            "##CameraFPS",
+            fpsPreview
+        ))
+        {
+            for (
+                const Camera::CameraMode& fpsMode :
+                uniqueFPSModes
+                )
+            {
+                bool available = false;
+
+                Camera::CameraMode availableMode;
+
+                for (
+                    const Camera::CameraMode& mode :
+                    modes
+                    )
+                {
+                    if (
+                        mode.width !=
+                        m_cameraSettingsWidth ||
+                        mode.height !=
+                        m_cameraSettingsHeight
+                        )
+                    {
+                        continue;
+                    }
+
+                    if (
+                        static_cast<UINT64>(
+                            mode.fpsNumerator
+                            ) *
+                        static_cast<UINT64>(
+                            fpsMode.fpsDenominator
+                            ) ==
+                        static_cast<UINT64>(
+                            fpsMode.fpsNumerator
+                            ) *
+                        static_cast<UINT64>(
+                            mode.fpsDenominator
+                            )
+                        )
+                    {
+                        available = true;
+                        availableMode = mode;
+                        break;
+                    }
+                }
+
+                bool selected =
+                    fpsMode.fpsNumerator ==
+                    m_cameraSettingsFPSNumerator &&
+                    fpsMode.fpsDenominator ==
+                    m_cameraSettingsFPSDenominator;
+
+                char label[64];
+
+                std::snprintf(
+                    label,
+                    sizeof(label),
+                    "%.3g FPS",
+                    fpsMode.GetFPS()
+                );
+
+                if (!available)
+                {
+                    ImGui::BeginDisabled();
+                }
+
+                if (ImGui::Selectable(
+                    label,
+                    selected
                 ))
                 {
                     if (
-                        !m_audioEngine->plugin()
-                        ->createEditor(m_instance)
+                        m_camera.SetMode(
+                            availableMode.width,
+                            availableMode.height,
+                            availableMode.fpsNumerator,
+                            availableMode.fpsDenominator
+                        )
                         )
                     {
-                        Logger::Log(
-                            "Failed to create plugin editor!\n"
-                        );
+                        m_cameraSettingsFPSNumerator =
+                            availableMode.fpsNumerator;
+
+                        m_cameraSettingsFPSDenominator =
+                            availableMode.fpsDenominator;
+                    }
+                }
+
+                if (!available)
+                {
+                    ImGui::EndDisabled();
+                }
+
+                if (selected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+
+        ImGui::Columns(
+            1
+        );
+    }
+
+    ImGui::SeparatorText("Image");
+
+    auto DrawAutoControl =
+        [&](const char* autoLabel,
+            const char* valueLabel,
+            auto getAuto,
+            auto setAuto,
+            auto getRange,
+            auto getValue,
+            auto setValue)
+        {
+            bool autoEnabled = false;
+
+            if (!getAuto(autoEnabled))
+                return;
+
+            if (ImGui::Checkbox(autoLabel, &autoEnabled))
+                setAuto(autoEnabled);
+
+            if (!autoEnabled)
+            {
+                int valueMin = 0;
+                int valueMax = 0;
+                int valueStep = 1;
+
+                if (!getRange(valueMin, valueMax, valueStep))
+                    return;
+
+                int value = 0;
+
+                if (!getValue(value))
+                    return;
+
+                if (ImGui::SliderInt(valueLabel, &value, valueMin, valueMax))
+                {
+                    if (valueStep > 1)
+                    {
+                        value =
+                            valueMin +
+                            ((value - valueMin + valueStep / 2) / valueStep) *
+                            valueStep;
+
+                        value = std::clamp(value, valueMin, valueMax);
+                    }
+
+                    setValue(value);
+                }
+            }
+        };
+
+    // =====================================================
+    // Exposure
+    // =====================================================
+
+    DrawAutoControl(
+        "Auto Exposure",
+        "Exposure",
+        [&](bool& value) {
+            return m_camera.Controls().GetAutoExposure(value);
+        },
+        [&](bool value) {
+            m_camera.Controls().SetAutoExposure(value);
+        },
+        [&](int& min, int& max, int& step) {
+            return m_camera.Controls().GetExposureRange(min, max, step);
+        },
+        [&](int& value) {
+            return m_camera.Controls().GetExposure(value);
+        },
+        [&](int value) {
+            m_camera.Controls().SetExposure(value);
+        }
+    );
+
+    // =====================================================
+    // Low Light Compensation
+    // =====================================================
+
+    bool lowLightCompensation = false;
+
+    if (m_camera.Controls().GetLowLightCompensation(lowLightCompensation))
+    {
+        if (ImGui::Checkbox("Low Light Compensation", &lowLightCompensation))
+            m_camera.Controls().SetLowLightCompensation(lowLightCompensation);
+    }
+
+    // =====================================================
+    // Focus
+    // =====================================================
+
+    DrawAutoControl(
+        "Auto Focus",
+        "Focus",
+        [&](bool& value) {
+            return m_camera.Controls().GetAutoFocus(value);
+        },
+        [&](bool value) {
+            m_camera.Controls().SetAutoFocus(value);
+        },
+        [&](int& min, int& max, int& step) {
+            return m_camera.Controls().GetFocusRange(min, max, step);
+        },
+        [&](int& value) {
+            return m_camera.Controls().GetFocus(value);
+        },
+        [&](int value) {
+            m_camera.Controls().SetFocus(value);
+        }
+    );
+
+    // ---------------------------------------------------------
+    // Brightness
+    // ---------------------------------------------------------
+
+    ImGui::TextDisabled("Adjustments");
+
+    auto DrawAdjustment =
+        [&](const char* label,
+            auto getRange,
+            auto getValue,
+            auto setValue)
+        {
+            int minimum = 0;
+            int maximum = 0;
+            int step = 1;
+
+            if (!getRange(minimum, maximum, step))
+                return;
+
+            int value = 0;
+
+            if (!getValue(value))
+                return;
+
+            if (ImGui::SliderInt(
+                label,
+                &value,
+                minimum,
+                maximum
+            ))
+            {
+                if (step > 1)
+                {
+                    value =
+                        minimum +
+                        ((value - minimum + step / 2) / step) * step;
+
+                    value = std::clamp(value, minimum, maximum);
+                }
+
+                setValue(value);
+            }
+        };
+
+
+    DrawAdjustment(
+        "Brightness",
+        [&](int& min, int& max, int& step) {
+            return m_camera.Controls().GetBrightnessRange(min, max, step);
+        },
+        [&](int& value) {
+            return m_camera.Controls().GetBrightness(value);
+        },
+        [&](int value) {
+            m_camera.Controls().SetBrightness(value);
+        }
+    );
+
+    DrawAdjustment(
+        "Contrast",
+        [&](int& min, int& max, int& step) {
+            return m_camera.Controls().GetContrastRange(min, max, step);
+        },
+        [&](int& value) {
+            return m_camera.Controls().GetContrast(value);
+        },
+        [&](int value) {
+            m_camera.Controls().SetContrast(value);
+        }
+    );
+
+    DrawAdjustment(
+        "Saturation",
+        [&](int& min, int& max, int& step) {
+            return m_camera.Controls().GetSaturationRange(min, max, step);
+        },
+        [&](int& value) {
+            return m_camera.Controls().GetSaturation(value);
+        },
+        [&](int value) {
+            m_camera.Controls().SetSaturation(value);
+        }
+    );
+
+    DrawAdjustment(
+        "Sharpness",
+        [&](int& min, int& max, int& step) {
+            return m_camera.Controls().GetSharpnessRange(min, max, step);
+        },
+        [&](int& value) {
+            return m_camera.Controls().GetSharpness(value);
+        },
+        [&](int value) {
+            m_camera.Controls().SetSharpness(value);
+        }
+    );
+
+    // =====================================================
+    // Virtual Camera
+    // =====================================================
+
+    ImGui::SeparatorText(
+        "Virtual Camera"
+    );
+
+    const bool virtualCameraAvailable =
+        m_virtualCamera.IsAvailable();
+
+    const bool virtualCameraActive =
+        m_virtualCamera.IsActive();
+
+    if (!virtualCameraAvailable)
+    {
+        ImGui::PushStyleVar(
+            ImGuiStyleVar_Alpha,
+            ImGui::GetStyle().Alpha * 0.5f
+        );
+    }
+
+    bool clicked =
+        ImGui::Button(
+            virtualCameraAvailable
+            ? (virtualCameraActive
+                ? "Stop Virtual Camera"
+                : "Start Virtual Camera")
+            : "Start Virtual Camera (Extension Required)"
+        );
+
+    if (!virtualCameraAvailable)
+    {
+        ImGui::PopStyleVar();
+    }
+
+    // ---------------------------------------------------------
+    // Button action
+    // ---------------------------------------------------------
+
+    if (clicked)
+    {
+        if (virtualCameraAvailable)
+        {
+            if (!virtualCameraActive)
+            {
+                if (m_virtualCamera.RegisterExtension())
+                {
+                    if (!m_virtualCamera.StartVirtualCamera())
+                    {
+                        m_virtualCamera.UnregisterExtension();
                     }
                 }
             }
             else
             {
-                if (ImGui::Button(
-                    "Close Plugin Editor",
-                    ImVec2(-1.0f, 32.0f)
-                ))
+                if (m_virtualCamera.StopVirtualCamera())
                 {
-                    m_audioEngine->plugin()
-                        ->destroyEditor();
+                    m_virtualCamera.UnregisterExtension();
                 }
-            }
-
-            ImGui::Spacing();
-
-            if (ImGui::Button(
-                "Remove Plugin",
-                ImVec2(-1.0f, 32.0f)
-            ))
-            {
-                UnloadVST();
-            }
-        }
-
-        ImGui::Spacing();
-
-        if (
-            std::filesystem::is_directory(
-                m_vst3FolderPath
-            )
-            )
-        {
-            if (ImGui::Button(
-                "Open VST3 Folder",
-                ImVec2(-1.0f, 32.0f)
-            ))
-            {
-                ShellExecuteW(
-                    nullptr,
-                    L"open",
-                    m_vst3FolderPath.c_str(),
-                    nullptr,
-                    nullptr,
-                    SW_SHOWNORMAL
-                );
             }
         }
         else
         {
-            if (ImGui::Button(
-                "Select VST3 Folder",
-                ImVec2(-1.0f, 32.0f)
-            ))
-            {
-                auto fldr =
-                    gui::OpenFileDialog();
-
-                if (!fldr.empty())
-                {
-                    m_vst3FolderPath =
-                        fldr;
-                }
-            }
-        }
-
-
-        // =====================================================
-        // Configuration
-        // =====================================================
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        ImGui::Text(
-            "CONFIGURATION"
-        );
-
-        ImGui::Spacing();
-
-        const float buttonWidth =
-            (ImGui::GetContentRegionAvail().x - 8.0f) *
-            0.5f;
-
-        if (ImGui::Button(
-            "Save Configuration",
-            ImVec2(buttonWidth, 36.0f)
-        ))
-        {
-            SavePianoConfiguration();
-        }
-
-        ImGui::SameLine();
-
-        if (ImGui::Button(
-            "Load Configuration",
-            ImVec2(buttonWidth, 36.0f)
-        ))
-        {
-            int _scene;
-
-            if (
-                Config::LoadPianoConfig(
-                    m_polygonPoints,
-                    _scene,
-                    m_horizontalFovDegrees,
-                    m_planeWidth,
-                    m_planeDepth,
-                    m_planePivot,
-                    m_surfaceXOffset,
-                    m_surfaceYOffset,
-                    m_surfaceZOffset,
-                    m_pianoRollVisualizerHeight,
-                    m_pianoRollCameraSourceScale
-                )
-                )
-            {
-                m_pianoScene = static_cast<PianoScene>(_scene);
-
-                m_polygonClickCount = 4;
-
-                m_configSaveMessage =
-                    "Configuration loaded!";
-            }
-            else
-            {
-                m_configSaveMessage =
-                    "No valid configuration found!";
-            }
-        }
-
-        if (!m_configSaveMessage.empty())
-        {
-            ImGui::Spacing();
-
-            ImGui::TextDisabled(
-                "%s",
-                m_configSaveMessage.c_str()
+            ShellExecuteA(
+                nullptr,
+                "open",
+                "https://github.com/Ominus-tch/Piano-Visualizer",
+                nullptr,
+                nullptr,
+                SW_SHOWNORMAL
             );
         }
     }
 
-    ImGui::End();
+    // ---------------------------------------------------------
+    // Tooltip
+    // ---------------------------------------------------------
+
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip(virtualCameraAvailable ?
+            "The virtual camera outputs the visualizer to other applications.\n"
+            "Click to start or stop the virtual camera."
+            :
+            "Virtual Camera extension not found.\n"
+            "Download the extension to enable this feature.\n"
+            "Click to visit the download page."
+        );
+    }
 }
 
+void PianoVisualizer::RenderAudioTab()
+{
+    if (!m_audioEngine)
+    {
+        ImGui::TextDisabled(
+            "Audio engine is not available."
+        );
 
+        return;
+    }
+
+    audio::AudioOutput* output =
+        m_audioEngine->output();
+
+    if (!output)
+    {
+        ImGui::TextDisabled(
+            "Audio output is not initialized."
+        );
+
+        return;
+    }
+
+    // =========================================================
+    // OUTPUT DEVICE
+    // =========================================================
+
+    ImGui::SeparatorText("Output");
+
+    const auto devices =
+        m_audioEngine->enumerateOutputDevices();
+
+    const auto configuration =
+        m_audioEngine->outputConfiguration();
+
+    int selectedDevice = -1;
+
+    for (int i = 0;
+        i < static_cast<int>(devices.size());
+        ++i)
+    {
+        if (devices[i].id == configuration.deviceId)
+        {
+            selectedDevice = i;
+            break;
+        }
+    }
+
+    // Empty device ID means Windows default device.
+    if (configuration.deviceId.empty())
+    {
+        for (int i = 0;
+            i < static_cast<int>(devices.size());
+            ++i)
+        {
+            if (devices[i].isDefault)
+            {
+                selectedDevice = i;
+                break;
+            }
+        }
+    }
+
+    std::string selectedDeviceName =
+        "Default";
+
+    if (selectedDevice >= 0 &&
+        selectedDevice < static_cast<int>(devices.size()))
+    {
+        selectedDeviceName =
+            std::string(
+                devices[selectedDevice].name.begin(),
+                devices[selectedDevice].name.end()
+            );
+    }
+
+    if (ImGui::BeginCombo(
+        "Device",
+        selectedDeviceName.c_str()))
+    {
+        // -----------------------------------------------------
+        // Default device
+        // -----------------------------------------------------
+
+        const bool isDefaultSelected =
+            configuration.deviceId.empty();
+
+        if (ImGui::Selectable(
+            "Default",
+            isDefaultSelected))
+        {
+            if (!isDefaultSelected)
+            {
+                m_audioEngine->setOutputDevice(
+                    L""
+                );
+            }
+        }
+
+        if (isDefaultSelected)
+            ImGui::SetItemDefaultFocus();
+
+        // -----------------------------------------------------
+        // Enumerated devices
+        // -----------------------------------------------------
+
+        for (int i = 0;
+            i < static_cast<int>(devices.size());
+            ++i)
+        {
+            const std::string deviceName(
+                devices[i].name.begin(),
+                devices[i].name.end()
+            );
+
+            const bool selected =
+                selectedDevice == i;
+
+            if (ImGui::Selectable(
+                deviceName.c_str(),
+                selected))
+            {
+                m_audioEngine->setOutputDevice(
+                    devices[i].id
+                );
+            }
+
+            if (selected)
+                ImGui::SetItemDefaultFocus();
+        }
+
+        ImGui::EndCombo();
+    }
+
+    // ---------------------------------------------------------
+    // Current device information
+    // ---------------------------------------------------------
+
+    ImGui::Text(
+        "Active device: %ls",
+        output->deviceName().c_str()
+    );
+
+    ImGui::Text(
+        "Channels: %d",
+        output->channels()
+    );
+
+    ImGui::Text(
+        "Sample rate: %.0f Hz",
+        output->sampleRate()
+    );
+
+
+    // =========================================================
+    // MODE
+    // =========================================================
+
+    ImGui::SeparatorText("Mode");
+
+    const char* modeNames[] =
+    {
+        "Shared",
+        "Exclusive"
+    };
+
+    int mode =
+        configuration.mode ==
+        audio::AudioOutput::Mode::Exclusive
+        ? 1
+        : 0;
+
+    if (ImGui::Combo(
+        "Mode",
+        &mode,
+        modeNames,
+        IM_ARRAYSIZE(modeNames)))
+    {
+        const auto newMode =
+            mode == 0
+            ? audio::AudioOutput::Mode::Shared
+            : audio::AudioOutput::Mode::Exclusive;
+
+        if (newMode != configuration.mode)
+        {
+            m_audioEngine->setOutputMode(
+                newMode
+            );
+        }
+    }
+
+
+    // =========================================================
+    // SAMPLE RATE
+    // =========================================================
+
+    ImGui::SeparatorText("Format");
+
+    const double currentSampleRate =
+        configuration.sampleRate;
+
+    int sampleRateIndex = 0;
+
+    if (currentSampleRate == 0.0)
+        sampleRateIndex = 0;
+    else if (currentSampleRate == 44100.0)
+        sampleRateIndex = 1;
+    else if (currentSampleRate == 48000.0)
+        sampleRateIndex = 2;
+    else if (currentSampleRate == 88200.0)
+        sampleRateIndex = 3;
+    else if (currentSampleRate == 96000.0)
+        sampleRateIndex = 4;
+    else
+        sampleRateIndex = 5;
+
+    const char* sampleRateNames[] =
+    {
+        "Device default",
+        "44.1 kHz",
+        "48 kHz",
+        "88.2 kHz",
+        "96 kHz",
+        "Custom"
+    };
+
+    if (ImGui::Combo(
+        "Sample rate",
+        &sampleRateIndex,
+        sampleRateNames,
+        IM_ARRAYSIZE(sampleRateNames)))
+    {
+        double newSampleRate = 0.0;
+
+        switch (sampleRateIndex)
+        {
+        case 0:
+            newSampleRate = 0.0;
+            break;
+
+        case 1:
+            newSampleRate = 44100.0;
+            break;
+
+        case 2:
+            newSampleRate = 48000.0;
+            break;
+
+        case 3:
+            newSampleRate = 88200.0;
+            break;
+
+        case 4:
+            newSampleRate = 96000.0;
+            break;
+
+        default:
+            newSampleRate = currentSampleRate;
+            break;
+        }
+
+        if (sampleRateIndex != 5 &&
+            newSampleRate != currentSampleRate)
+        {
+            m_audioEngine->setOutputSampleRate(
+                newSampleRate
+            );
+        }
+    }
+
+    // Custom sample rate
+    if (sampleRateIndex == 5)
+    {
+        double customSampleRate =
+            currentSampleRate > 0.0
+            ? currentSampleRate
+            : 48000.0;
+
+        if (ImGui::InputDouble(
+            "Custom sample rate",
+            &customSampleRate,
+            100.0,
+            1000.0,
+            "%.0f"))
+        {
+            if (customSampleRate >= 8000.0)
+            {
+                m_audioEngine->setOutputSampleRate(
+                    customSampleRate
+                );
+            }
+        }
+    }
+
+
+    // =========================================================
+    // BUFFER
+    // =========================================================
+
+    double bufferDuration =
+        configuration.bufferDurationMs;
+
+    constexpr double minBufferDuration = 2.0;
+    constexpr double maxBufferDuration = 100.0;
+
+    if (ImGui::SliderScalar(
+        "Buffer duration",
+        ImGuiDataType_Double,
+        &bufferDuration,
+        &minBufferDuration,
+        &maxBufferDuration,
+        "%.1f ms"))
+    {
+        if (ImGui::IsItemDeactivatedAfterEdit())
+        {
+            m_audioEngine->setOutputBufferDuration(
+                bufferDuration
+            );
+        }
+    }
+
+    ImGui::TextDisabled(
+        "Lower values reduce latency but increase CPU usage."
+    );
+
+
+    // =========================================================
+    // VOLUME
+    // =========================================================
+
+    ImGui::SeparatorText("Volume");
+
+    float volume =
+        m_audioEngine->outputVolume();
+
+    float volumeNormalized = volume * 100.f;
+
+    if (ImGui::SliderFloat(
+        "Volume",
+        &volumeNormalized,
+        0.0f,
+        100.0f,
+        "%.0f%%",
+        ImGuiSliderFlags_AlwaysClamp))
+    {
+        m_audioEngine->setOutputVolume(
+            volumeNormalized / 100.f
+        );
+    }
+
+    bool muted =
+        m_audioEngine->outputMuted();
+
+    if (ImGui::Checkbox(
+        "Mute",
+        &muted))
+    {
+        m_audioEngine->setOutputMuted(
+            muted
+        );
+    }
+
+
+    // =========================================================
+    // DEVICE FALLBACK
+    // =========================================================
+
+    ImGui::SeparatorText("Behavior");
+
+    bool fallback =
+        configuration.fallbackToDefaultDevice;
+
+    if (ImGui::Checkbox(
+        "Fallback to default device",
+        &fallback))
+    {
+        // This currently requires updating the whole
+        // configuration because AudioOutput exposes the
+        // setting through Configuration.
+        //
+        // We don't currently have a dedicated setter for it.
+        auto newConfiguration =
+            m_audioEngine->outputConfiguration();
+
+        newConfiguration.fallbackToDefaultDevice =
+            fallback;
+
+        // The current AudioEngine API doesn't expose a generic
+        // configuration setter, so this cannot be applied yet.
+        //
+        // Keep the UI here disabled until that setter exists.
+    }
+
+    ImGui::TextDisabled(
+        "Used if the selected output device disappears."
+    );
+
+
+    // =========================================================
+    // STATUS
+    // =========================================================
+
+    ImGui::SeparatorText("Status");
+
+    ImGui::Text(
+        "Output: %s",
+        output->isRunning()
+        ? "Running"
+        : "Stopped"
+    );
+
+    ImGui::Text(
+        "Engine: %s",
+        m_audioEngine->isRunning()
+        ? "Running"
+        : "Stopped"
+    );
+}
+
+void PianoVisualizer::RenderPluginsTab()
+{
+    if (m_audioEngine)
+    {
+        const std::string& pluginName =
+            m_audioEngine->pluginName();
+
+        if (!pluginName.empty())
+        {
+            ImGui::Text(
+                "Loaded plugin:"
+            );
+
+            ImGui::SameLine();
+
+            ImGui::TextDisabled(
+                "%s",
+                pluginName.c_str()
+            );
+        }
+        else
+        {
+            ImGui::Text(
+                "No plugin loaded"
+            );
+
+            ImGui::TextDisabled(
+                "Drop a .vst3 plugin into the window"
+            );
+        }
+    }
+    else
+    {
+        ImGui::Text(
+            "Audio engine unavailable"
+        );
+    }
+
+    // -----------------------------------------------------
+    // Recent plugins
+    // -----------------------------------------------------
+
+    if (!m_recentVSTPlugins.empty())
+    {
+        ImGui::SeparatorText(
+            "Recent Plugins"
+        );
+
+        for (const auto& path : m_recentVSTPlugins)
+        {
+            if (!std::filesystem::exists(path))
+                continue;
+
+            std::string filename =
+                path.filename().string();
+
+            // Remove .vst3 from display name.
+            if (
+                filename.size() > 5 &&
+                filename.ends_with(".vst3")
+                )
+            {
+                filename.erase(
+                    filename.size() - 5
+                );
+            }
+
+            if (
+                m_audioEngine &&
+                m_audioEngine->pluginName() != filename
+                )
+            {
+                std::string strPath =
+                    path.string();
+
+                if (ImGui::Button(
+                    filename.c_str(),
+                    ImVec2(-1.0f, 32.0f)
+                ))
+                {
+                    LoadRecentVST(path);
+                }
+
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip(
+                        "%s",
+                        strPath.c_str()
+                    );
+                }
+
+                ImGui::Spacing();
+            }
+        }
+    }
+
+    ImGui::Separator();
+    ImGui::Spacing();
+
+
+    // -----------------------------------------------------
+    // Plugin editor
+    // -----------------------------------------------------
+
+    if (
+        m_audioEngine &&
+        m_audioEngine->plugin()
+        )
+    {
+        if (
+            !m_audioEngine->plugin()
+            ->hasEditor()
+            )
+        {
+            if (ImGui::Button(
+                "Open Plugin Editor",
+                ImVec2(-1.0f, 32.0f)
+            ))
+            {
+                if (
+                    !m_audioEngine->plugin()
+                    ->createEditor(m_instance)
+                    )
+                {
+                    Logger::Log(
+                        "Failed to create plugin editor!\n"
+                    );
+                }
+            }
+        }
+        else
+        {
+            if (ImGui::Button(
+                "Close Plugin Editor",
+                ImVec2(-1.0f, 32.0f)
+            ))
+            {
+                m_audioEngine->plugin()
+                    ->destroyEditor();
+            }
+        }
+
+        ImGui::Spacing();
+
+        if (ImGui::Button(
+            "Remove Plugin",
+            ImVec2(-1.0f, 32.0f)
+        ))
+        {
+            UnloadVST();
+        }
+    }
+
+    ImGui::Spacing();
+
+    if (
+        std::filesystem::is_directory(
+            m_vst3FolderPath
+        )
+        )
+    {
+        if (ImGui::Button(
+            "Open VST3 Folder",
+            ImVec2(-1.0f, 32.0f)
+        ))
+        {
+            ShellExecuteW(
+                nullptr,
+                L"open",
+                m_vst3FolderPath.c_str(),
+                nullptr,
+                nullptr,
+                SW_SHOWNORMAL
+            );
+        }
+    }
+    else
+    {
+        if (ImGui::Button(
+            "Select VST3 Folder",
+            ImVec2(-1.0f, 32.0f)
+        ))
+        {
+            auto fldr =
+                gui::OpenFileDialog();
+
+            if (!fldr.empty())
+            {
+                m_vst3FolderPath =
+                    fldr;
+            }
+        }
+    }
+}
+
+void PianoVisualizer::RenderConfigurationTab()
+{
+    const float buttonWidth =
+        (ImGui::GetContentRegionAvail().x - 8.0f) *
+        0.5f;
+
+    if (ImGui::Button(
+        "Save Configuration",
+        ImVec2(buttonWidth, 36.0f)
+    ))
+    {
+        SavePianoConfiguration();
+
+        m_savedConfiguration =
+            GetCurrentConfiguration();
+
+        m_configSaveMessage =
+            "Configuration saved!";
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button(
+        "Load Configuration",
+        ImVec2(buttonWidth, 36.0f)
+    ))
+    {
+        int _scene;
+
+        if (
+            Config::LoadPianoConfig(
+                m_polygonPoints,
+                _scene,
+                m_horizontalFovDegrees,
+                m_planeWidth,
+                m_planeHeight,
+                m_planePivot,
+                m_surfaceXOffset,
+                m_surfaceYOffset,
+                m_surfaceZOffset,
+                m_pianoRollVisualizerHeight,
+                m_pianoRollCameraSourceScale
+            )
+            )
+        {
+            m_pianoScene =
+                static_cast<PianoScene>(_scene);
+
+            m_polygonClickCount = 4;
+
+            m_savedConfiguration =
+                GetCurrentConfiguration();
+
+            m_configSaveMessage =
+                "Configuration loaded!";
+        }
+        else
+        {
+            m_configSaveMessage =
+                "No valid configuration found!";
+        }
+    }
+
+    ImGui::Spacing();
+
+    if (HasUnsavedChanges())
+    {
+        ImGui::TextDisabled(
+            "You have unsaved changes."
+        );
+    }
+    else
+    {
+        ImGui::TextDisabled(
+            "Configuration is up to date."
+        );
+    }
+
+    if (!m_configSaveMessage.empty())
+    {
+        ImGui::Spacing();
+
+        ImGui::TextDisabled(
+            "%s",
+            m_configSaveMessage.c_str()
+        );
+    }
+}
 
 // =========================================================
 // Resize
@@ -5484,1732 +6846,6 @@ void PianoVisualizer::RenderStatistics()
 
     ImGui::End();
 }
-
-
-void PianoVisualizer::RenderCameraSettingsPanel()
-{
-    if (!m_showCameraSettings)
-        return;
-
-    ImGui::Begin(
-        "Camera Settings",
-        &m_showCameraSettings,
-        ImGuiWindowFlags_AlwaysAutoResize
-    );
-
-    // =====================================================
-    // Camera
-    // =====================================================
-
-    const std::vector<Camera::CameraDevice>& cameras =
-        m_camera.GetAvailableCameras();
-
-    if (!cameras.empty())
-    {
-        int selectedCamera =
-            m_camera.GetCameraIndex();
-
-        const char* preview =
-            selectedCamera >= 0 &&
-            selectedCamera <
-            static_cast<int>(cameras.size())
-            ? cameras[selectedCamera].name.c_str()
-            : "Select camera";
-
-        ImGui::Text(
-            "Camera"
-        );
-
-        if (ImGui::BeginCombo(
-            "##CameraDevice",
-            preview
-        ))
-        {
-            for (
-                int i = 0;
-                i < static_cast<int>(cameras.size());
-                ++i
-                )
-            {
-                const bool selected =
-                    i == selectedCamera;
-
-                if (ImGui::Selectable(
-                    cameras[i].name.c_str(),
-                    selected
-                ))
-                {
-                    if (i != selectedCamera)
-                    {
-                        if (m_camera.OpenCamera(i))
-                        {
-                            m_cameraSettingsWidth = 0;
-                            m_cameraSettingsHeight = 0;
-                            m_cameraSettingsFPSNumerator = 0;
-                            m_cameraSettingsFPSDenominator = 1;
-                        }
-                        else
-                        {
-                            const std::string cameraError =
-                                m_camera.GetLastError();
-
-                            if (!cameraError.empty())
-                            {
-                                const std::string message =
-                                    "Error: Failed to initialize camera \"" +
-                                    cameraError +
-                                    "\"";
-
-                                MessageBoxA(
-                                    nullptr,
-                                    message.c_str(),
-                                    "Piano Visualizer",
-                                    MB_OK | MB_ICONWARNING
-                                );
-
-                                m_camera.ClearLastError();
-                            }
-                        }
-                    }
-                }
-
-                if (selected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-
-            ImGui::EndCombo();
-        }
-
-
-        ImGui::SameLine();
-    }
-
-    if (ImGui::Button(
-        "Refresh",
-        ImVec2(-1.0f, 32.0f)
-    ))
-    {
-        m_camera.EnumerateCameras();
-    }
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // =====================================================
-    // Camera not currently open
-    // =====================================================
-
-    if (!m_camera.IsOpen())
-    {
-        ImGui::TextDisabled(
-            cameras.empty()
-            ? "No camera available."
-            : "Select a camera to continue."
-        );
-
-
-        ImGui::End();
-
-        return;
-    }
-
-    // =====================================================
-    // Format
-    // =====================================================
-
-    ImGui::Text(
-        "Format"
-    );
-
-    Camera::CameraFormat currentFormat =
-        m_camera.GetFormat();
-
-    const char* formatName =
-        currentFormat == Camera::CameraFormat::NV12
-        ? "NV12"
-        : currentFormat == Camera::CameraFormat::MJPG
-        ? "MJPG"
-        : "None";
-
-    if (ImGui::BeginCombo(
-        "##CameraFormat",
-        formatName
-    ))
-    {
-        bool isNV12 =
-            currentFormat ==
-            Camera::CameraFormat::NV12;
-
-        if (ImGui::Selectable(
-            "NV12",
-            isNV12
-        ))
-        {
-            if (!isNV12)
-            {
-                m_camera.SetFormat(
-                    Camera::CameraFormat::NV12
-                );
-
-                m_cameraSettingsWidth = 0;
-                m_cameraSettingsHeight = 0;
-                m_cameraSettingsFPSNumerator = 0;
-                m_cameraSettingsFPSDenominator = 1;
-            }
-        }
-
-        if (isNV12)
-        {
-            ImGui::SetItemDefaultFocus();
-        }
-
-        bool isMJPG =
-            currentFormat ==
-            Camera::CameraFormat::MJPG;
-
-        if (ImGui::Selectable(
-            "MJPG",
-            isMJPG
-        ))
-        {
-            if (!isMJPG)
-            {
-                m_camera.SetFormat(
-                    Camera::CameraFormat::MJPG
-                );
-
-                m_cameraSettingsWidth = 0;
-                m_cameraSettingsHeight = 0;
-                m_cameraSettingsFPSNumerator = 0;
-                m_cameraSettingsFPSDenominator = 1;
-            }
-        }
-
-        if (isMJPG)
-        {
-            ImGui::SetItemDefaultFocus();
-        }
-
-        ImGui::EndCombo();
-    }
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // =====================================================
-    // Resolution / FPS
-    // =====================================================
-
-    const std::vector<Camera::CameraMode>& modes =
-        m_camera.GetAvailableModes();
-
-    if (!modes.empty())
-    {
-        const int currentWidth =
-            m_camera.GetWidth();
-
-        const int currentHeight =
-            m_camera.GetHeight();
-
-        const Camera::CameraStatistics statistics =
-            m_camera.GetStatistics();
-
-        const UINT32 currentFPSNumerator =
-            statistics.fpsNumerator;
-
-        const UINT32 currentFPSDenominator =
-            statistics.fpsDenominator;
-
-        // -------------------------------------------------
-        // Synchronize UI state with actual camera state
-        // -------------------------------------------------
-
-        if (
-            m_cameraSettingsWidth != currentWidth ||
-            m_cameraSettingsHeight != currentHeight
-            )
-        {
-            m_cameraSettingsWidth =
-                currentWidth;
-
-            m_cameraSettingsHeight =
-                currentHeight;
-        }
-
-        if (
-            m_cameraSettingsFPSNumerator !=
-            currentFPSNumerator ||
-            m_cameraSettingsFPSDenominator !=
-            currentFPSDenominator
-            )
-        {
-            m_cameraSettingsFPSNumerator =
-                currentFPSNumerator;
-
-            m_cameraSettingsFPSDenominator =
-                currentFPSDenominator;
-        }
-
-        const std::vector<Camera::CameraMode>& modes =
-            m_camera.GetAvailableModes();
-
-        if (!modes.empty())
-        {
-            const int currentWidth =
-                m_camera.GetWidth();
-
-            const int currentHeight =
-                m_camera.GetHeight();
-
-            const Camera::CameraStatistics statistics =
-                m_camera.GetStatistics();
-
-            const UINT32 currentFPSNumerator =
-                statistics.fpsNumerator;
-
-            const UINT32 currentFPSDenominator =
-                statistics.fpsDenominator;
-
-            // -------------------------------------------------
-            // Synchronize UI state with actual camera state
-            // -------------------------------------------------
-
-            if (
-                m_cameraSettingsWidth != currentWidth ||
-                m_cameraSettingsHeight != currentHeight
-                )
-            {
-                m_cameraSettingsWidth =
-                    currentWidth;
-
-                m_cameraSettingsHeight =
-                    currentHeight;
-            }
-
-            if (
-                m_cameraSettingsFPSNumerator !=
-                currentFPSNumerator ||
-                m_cameraSettingsFPSDenominator !=
-                currentFPSDenominator
-                )
-            {
-                m_cameraSettingsFPSNumerator =
-                    currentFPSNumerator;
-
-                m_cameraSettingsFPSDenominator =
-                    currentFPSDenominator;
-            }
-
-            // -------------------------------------------------
-            // Build unique resolutions
-            // -------------------------------------------------
-
-            std::vector<std::pair<int, int>> resolutions;
-
-            for (const Camera::CameraMode& mode : modes)
-            {
-                bool alreadyExists = false;
-
-                for (
-                    const auto& resolution :
-                    resolutions
-                    )
-                {
-                    if (
-                        resolution.first ==
-                        mode.width &&
-                        resolution.second ==
-                        mode.height
-                        )
-                    {
-                        alreadyExists = true;
-                        break;
-                    }
-                }
-
-                if (!alreadyExists)
-                {
-                    resolutions.emplace_back(
-                        mode.width,
-                        mode.height
-                    );
-                }
-            }
-
-            // -------------------------------------------------
-            // Build unique FPS values
-            // -------------------------------------------------
-
-            std::vector<Camera::CameraMode> uniqueFPSModes;
-
-            for (const Camera::CameraMode& mode : modes)
-            {
-                bool alreadyExists = false;
-
-                for (
-                    const Camera::CameraMode& existing :
-                    uniqueFPSModes
-                    )
-                {
-                    if (
-                        static_cast<UINT64>(
-                            mode.fpsNumerator
-                            ) *
-                        static_cast<UINT64>(
-                            existing.fpsDenominator
-                            ) ==
-                        static_cast<UINT64>(
-                            existing.fpsNumerator
-                            ) *
-                        static_cast<UINT64>(
-                            mode.fpsDenominator
-                            )
-                        )
-                    {
-                        alreadyExists = true;
-                        break;
-                    }
-                }
-
-                if (!alreadyExists)
-                {
-                    uniqueFPSModes.push_back(
-                        mode
-                    );
-                }
-            }
-
-            // -------------------------------------------------
-            // Two-column layout
-            // -------------------------------------------------
-
-            ImGui::Columns(
-                2,
-                "##CameraResolutionFPS",
-                false
-            );
-
-            // =================================================
-            // Resolution
-            // =================================================
-
-            ImGui::Text(
-                "Resolution"
-            );
-
-            int selectedResolutionIndex = -1;
-
-            for (
-                int i = 0;
-                i < static_cast<int>(resolutions.size());
-                ++i
-                )
-            {
-                if (
-                    resolutions[i].first ==
-                    m_cameraSettingsWidth &&
-                    resolutions[i].second ==
-                    m_cameraSettingsHeight
-                    )
-                {
-                    selectedResolutionIndex = i;
-                    break;
-                }
-            }
-
-            char resolutionPreview[64];
-
-            if (selectedResolutionIndex >= 0)
-            {
-                std::snprintf(
-                    resolutionPreview,
-                    sizeof(resolutionPreview),
-                    "%d x %d",
-                    resolutions[
-                        selectedResolutionIndex
-                    ].first,
-                    resolutions[
-                        selectedResolutionIndex
-                    ].second
-                            );
-            }
-            else
-            {
-                std::snprintf(
-                    resolutionPreview,
-                    sizeof(resolutionPreview),
-                    "%d x %d",
-                    currentWidth,
-                    currentHeight
-                );
-            }
-
-            if (ImGui::BeginCombo(
-                "##CameraResolution",
-                resolutionPreview
-            ))
-            {
-                for (
-                    int i = 0;
-                    i < static_cast<int>(resolutions.size());
-                    ++i
-                    )
-                {
-                    bool selected =
-                        i == selectedResolutionIndex;
-
-                    char label[64];
-
-                    std::snprintf(
-                        label,
-                        sizeof(label),
-                        "%d x %d",
-                        resolutions[i].first,
-                        resolutions[i].second
-                    );
-
-                    if (ImGui::Selectable(
-                        label,
-                        selected
-                    ))
-                    {
-                        const int newWidth =
-                            resolutions[i].first;
-
-                        const int newHeight =
-                            resolutions[i].second;
-
-                        // -------------------------------------
-                        // Keep current FPS if possible.
-                        // -------------------------------------
-
-                        bool currentFPSAvailable = false;
-
-                        for (
-                            const Camera::CameraMode& mode :
-                            modes
-                            )
-                        {
-                            if (
-                                mode.width ==
-                                newWidth &&
-                                mode.height ==
-                                newHeight &&
-                                mode.fpsNumerator ==
-                                m_cameraSettingsFPSNumerator &&
-                                mode.fpsDenominator ==
-                                m_cameraSettingsFPSDenominator
-                                )
-                            {
-                                currentFPSAvailable = true;
-                                break;
-                            }
-                        }
-
-                        UINT32 newFPSNumerator =
-                            m_cameraSettingsFPSNumerator;
-
-                        UINT32 newFPSDenominator =
-                            m_cameraSettingsFPSDenominator;
-
-                        // -------------------------------------
-                        // If unavailable, use highest FPS.
-                        // -------------------------------------
-
-                        if (!currentFPSAvailable)
-                        {
-                            bool foundMode = false;
-
-                            Camera::CameraMode bestMode;
-
-                            for (
-                                const Camera::CameraMode& mode :
-                                modes
-                                )
-                            {
-                                if (
-                                    mode.width != newWidth ||
-                                    mode.height != newHeight
-                                    )
-                                {
-                                    continue;
-                                }
-
-                                if (!foundMode)
-                                {
-                                    bestMode = mode;
-                                    foundMode = true;
-                                    continue;
-                                }
-
-                                if (
-                                    static_cast<UINT64>(
-                                        mode.fpsNumerator
-                                        ) *
-                                    static_cast<UINT64>(
-                                        bestMode.fpsDenominator
-                                        ) >
-                                    static_cast<UINT64>(
-                                        bestMode.fpsNumerator
-                                        ) *
-                                    static_cast<UINT64>(
-                                        mode.fpsDenominator
-                                        )
-                                    )
-                                {
-                                    bestMode = mode;
-                                }
-                            }
-
-                            if (foundMode)
-                            {
-                                newFPSNumerator =
-                                    bestMode.fpsNumerator;
-
-                                newFPSDenominator =
-                                    bestMode.fpsDenominator;
-                            }
-                        }
-
-                        if (
-                            m_camera.SetMode(
-                                newWidth,
-                                newHeight,
-                                newFPSNumerator,
-                                newFPSDenominator
-                            )
-                            )
-                        {
-                            m_cameraSettingsWidth =
-                                newWidth;
-
-                            m_cameraSettingsHeight =
-                                newHeight;
-
-                            m_cameraSettingsFPSNumerator =
-                                newFPSNumerator;
-
-                            m_cameraSettingsFPSDenominator =
-                                newFPSDenominator;
-                        }
-                    }
-
-                    if (selected)
-                    {
-                        ImGui::SetItemDefaultFocus();
-                    }
-                }
-
-                ImGui::EndCombo();
-            }
-
-            // =================================================
-            // FPS
-            // =================================================
-
-            ImGui::NextColumn();
-
-            ImGui::Text(
-                "Frame Rate"
-            );
-
-            const Camera::CameraMode* currentMode =
-                nullptr;
-
-            for (
-                const Camera::CameraMode& mode :
-                modes
-                )
-            {
-                if (
-                    mode.width ==
-                    m_cameraSettingsWidth &&
-                    mode.height ==
-                    m_cameraSettingsHeight &&
-                    mode.fpsNumerator ==
-                    m_cameraSettingsFPSNumerator &&
-                    mode.fpsDenominator ==
-                    m_cameraSettingsFPSDenominator
-                    )
-                {
-                    currentMode = &mode;
-                    break;
-                }
-            }
-
-            char fpsPreview[64];
-
-            if (currentMode != nullptr)
-            {
-                std::snprintf(
-                    fpsPreview,
-                    sizeof(fpsPreview),
-                    "%.3g FPS",
-                    currentMode->GetFPS()
-                );
-            }
-            else
-            {
-                std::snprintf(
-                    fpsPreview,
-                    sizeof(fpsPreview),
-                    "Unknown"
-                );
-            }
-
-            if (ImGui::BeginCombo(
-                "##CameraFPS",
-                fpsPreview
-            ))
-            {
-                for (
-                    const Camera::CameraMode& fpsMode :
-                    uniqueFPSModes
-                    )
-                {
-                    bool available = false;
-
-                    Camera::CameraMode availableMode;
-
-                    for (
-                        const Camera::CameraMode& mode :
-                        modes
-                        )
-                    {
-                        if (
-                            mode.width !=
-                            m_cameraSettingsWidth ||
-                            mode.height !=
-                            m_cameraSettingsHeight
-                            )
-                        {
-                            continue;
-                        }
-
-                        if (
-                            static_cast<UINT64>(
-                                mode.fpsNumerator
-                                ) *
-                            static_cast<UINT64>(
-                                fpsMode.fpsDenominator
-                                ) ==
-                            static_cast<UINT64>(
-                                fpsMode.fpsNumerator
-                                ) *
-                            static_cast<UINT64>(
-                                mode.fpsDenominator
-                                )
-                            )
-                        {
-                            available = true;
-                            availableMode = mode;
-                            break;
-                        }
-                    }
-
-                    bool selected =
-                        fpsMode.fpsNumerator ==
-                        m_cameraSettingsFPSNumerator &&
-                        fpsMode.fpsDenominator ==
-                        m_cameraSettingsFPSDenominator;
-
-                    char label[64];
-
-                    std::snprintf(
-                        label,
-                        sizeof(label),
-                        "%.3g FPS",
-                        fpsMode.GetFPS()
-                    );
-
-                    if (!available)
-                    {
-                        ImGui::BeginDisabled();
-                    }
-
-                    if (ImGui::Selectable(
-                        label,
-                        selected
-                    ))
-                    {
-                        if (
-                            m_camera.SetMode(
-                                availableMode.width,
-                                availableMode.height,
-                                availableMode.fpsNumerator,
-                                availableMode.fpsDenominator
-                            )
-                            )
-                        {
-                            m_cameraSettingsFPSNumerator =
-                                availableMode.fpsNumerator;
-
-                            m_cameraSettingsFPSDenominator =
-                                availableMode.fpsDenominator;
-                        }
-                    }
-
-                    if (!available)
-                    {
-                        ImGui::EndDisabled();
-                    }
-
-                    if (selected)
-                    {
-                        ImGui::SetItemDefaultFocus();
-                    }
-                }
-
-                ImGui::EndCombo();
-            }
-
-            ImGui::Columns(
-                1
-            );
-        }
-    }
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // =====================================================
-    // Exposure
-    // =====================================================
-
-    bool autoExposure = false;
-
-    if (
-        m_camera.Controls()
-        .GetAutoExposure(
-            autoExposure
-        )
-        )
-    {
-        if (
-            ImGui::Checkbox(
-                "Auto Exposure",
-                &autoExposure
-            )
-            )
-        {
-            m_camera.Controls()
-                .SetAutoExposure(
-                    autoExposure
-                );
-        }
-
-        if (!autoExposure)
-        {
-            int exposureMin = 0;
-            int exposureMax = 0;
-            int exposureStep = 1;
-
-            if (
-                m_camera.Controls()
-                .GetExposureRange(
-                    exposureMin,
-                    exposureMax,
-                    exposureStep
-                )
-                )
-            {
-                int exposure = 0;
-
-                if (
-                    m_camera.Controls()
-                    .GetExposure(
-                        exposure
-                    )
-                    )
-                {
-                    if (
-                        ImGui::SliderInt(
-                            "Exposure",
-                            &exposure,
-                            exposureMin,
-                            exposureMax
-                        )
-                        )
-                    {
-                        if (exposureStep > 1)
-                        {
-                            exposure =
-                                exposureMin +
-                                (
-                                    (exposure - exposureMin + exposureStep / 2) /
-                                    exposureStep
-                                    ) *
-                                exposureStep;
-
-                            exposure =
-                                std::clamp(
-                                    exposure,
-                                    exposureMin,
-                                    exposureMax
-                                );
-                        }
-
-                        m_camera.Controls()
-                            .SetExposure(
-                                exposure
-                            );
-                    }
-                }
-            }
-        }
-    }
-
-    // =====================================================
-    // Low Light Compensation
-    // =====================================================
-
-    bool lowLightCompensation = false;
-
-    if (
-        m_camera.Controls()
-        .GetLowLightCompensation(
-            lowLightCompensation
-        )
-        )
-    {
-        if (
-            ImGui::Checkbox(
-                "Low Light Compensation",
-                &lowLightCompensation
-            )
-            )
-        {
-            m_camera.Controls()
-                .SetLowLightCompensation(
-                    lowLightCompensation
-                );
-        }
-    }
-
-    // =====================================================
-    // Focus
-    // =====================================================
-
-    bool autoFocus = false;
-
-    if (
-        m_camera.Controls()
-        .GetAutoFocus(
-            autoFocus
-        )
-        )
-    {
-        if (
-            ImGui::Checkbox(
-                "Auto Focus",
-                &autoFocus
-            )
-            )
-        {
-            m_camera.Controls()
-                .SetAutoFocus(
-                    autoFocus
-                );
-        }
-
-        if (!autoFocus)
-        {
-            int focusMin = 0;
-            int focusMax = 0;
-            int focusStep = 1;
-
-            if (
-                m_camera.Controls()
-                .GetFocusRange(
-                    focusMin,
-                    focusMax,
-                    focusStep
-                )
-                )
-            {
-                int focus = 0;
-
-                if (
-                    m_camera.Controls()
-                    .GetFocus(
-                        focus
-                    )
-                    )
-                {
-                    if (
-                        ImGui::SliderInt(
-                            "Focus",
-                            &focus,
-                            focusMin,
-                            focusMax
-                        )
-                        )
-                    {
-                        if (focusStep > 1)
-                        {
-                            focus =
-                                focusMin +
-                                (
-                                    (focus - focusMin + focusStep / 2) /
-                                    focusStep
-                                    ) *
-                                focusStep;
-
-                            focus =
-                                std::clamp(
-                                    focus,
-                                    focusMin,
-                                    focusMax
-                                );
-                        }
-
-                        m_camera.Controls()
-                            .SetFocus(focus);
-                    }
-                }
-            }
-        }
-    }
-
-    // =====================================================
-    // White Balance
-    // =====================================================
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    ImGui::TextDisabled("IMAGE");
-
-    // ---------------------------------------------------------
-    // Brightness
-    // ---------------------------------------------------------
-
-    {
-        int minimum = 0;
-        int maximum = 0;
-        int step = 1;
-
-        if (m_camera.Controls().GetBrightnessRange(
-            minimum,
-            maximum,
-            step
-        ))
-        {
-            int value = 0;
-
-            if (m_camera.Controls().GetBrightness(value))
-            {
-                if (ImGui::SliderInt(
-                    "Brightness",
-                    &value,
-                    minimum,
-                    maximum
-                ))
-                {
-                    if (step > 1)
-                    {
-                        value =
-                            minimum +
-                            ((value - minimum + step / 2) / step) * step;
-
-                        value =
-                            std::clamp(
-                                value,
-                                minimum,
-                                maximum
-                            );
-                    }
-
-                    m_camera.Controls().SetBrightness(
-                        value
-                    );
-                }
-            }
-        }
-    }
-
-
-    // ---------------------------------------------------------
-    // Contrast
-    // ---------------------------------------------------------
-
-    {
-        int minimum = 0;
-        int maximum = 0;
-        int step = 1;
-
-        if (m_camera.Controls().GetContrastRange(
-            minimum,
-            maximum,
-            step
-        ))
-        {
-            int value = 0;
-
-            if (m_camera.Controls().GetContrast(value))
-            {
-                if (ImGui::SliderInt(
-                    "Contrast",
-                    &value,
-                    minimum,
-                    maximum
-                ))
-                {
-                    if (step > 1)
-                    {
-                        value =
-                            minimum +
-                            ((value - minimum + step / 2) / step) * step;
-
-                        value =
-                            std::clamp(
-                                value,
-                                minimum,
-                                maximum
-                            );
-                    }
-
-                    m_camera.Controls().SetContrast(
-                        value
-                    );
-                }
-            }
-        }
-    }
-
-
-    // ---------------------------------------------------------
-    // Saturation
-    // ---------------------------------------------------------
-
-    {
-        int minimum = 0;
-        int maximum = 0;
-        int step = 1;
-
-        if (m_camera.Controls().GetSaturationRange(
-            minimum,
-            maximum,
-            step
-        ))
-        {
-            int value = 0;
-
-            if (m_camera.Controls().GetSaturation(value))
-            {
-                if (ImGui::SliderInt(
-                    "Saturation",
-                    &value,
-                    minimum,
-                    maximum
-                ))
-                {
-                    if (step > 1)
-                    {
-                        value =
-                            minimum +
-                            ((value - minimum + step / 2) / step) * step;
-
-                        value =
-                            std::clamp(
-                                value,
-                                minimum,
-                                maximum
-                            );
-                    }
-
-                    m_camera.Controls().SetSaturation(
-                        value
-                    );
-                }
-            }
-        }
-    }
-
-
-    // ---------------------------------------------------------
-    // Sharpness
-    // ---------------------------------------------------------
-
-    {
-        int minimum = 0;
-        int maximum = 0;
-        int step = 1;
-
-        if (m_camera.Controls().GetSharpnessRange(
-            minimum,
-            maximum,
-            step
-        ))
-        {
-            int value = 0;
-
-            if (m_camera.Controls().GetSharpness(value))
-            {
-                if (ImGui::SliderInt(
-                    "Sharpness",
-                    &value,
-                    minimum,
-                    maximum
-                ))
-                {
-                    if (step > 1)
-                    {
-                        value =
-                            minimum +
-                            ((value - minimum + step / 2) / step) * step;
-
-                        value =
-                            std::clamp(
-                                value,
-                                minimum,
-                                maximum
-                            );
-                    }
-
-                    m_camera.Controls().SetSharpness(
-                        value
-                    );
-                }
-            }
-        }
-    }
-
-    ImGui::Spacing();
-    ImGui::Separator();
-
-    // =====================================================
-    // Virtual Camera
-    // =====================================================
-
-    ImGui::Text(
-        "Virtual Camera"
-    );
-
-    const bool virtualCameraAvailable =
-        m_virtualCamera.IsAvailable();
-
-    const bool virtualCameraActive =
-        m_virtualCamera.IsActive();
-
-    if (!virtualCameraAvailable)
-    {
-        ImGui::PushStyleVar(
-            ImGuiStyleVar_Alpha,
-            ImGui::GetStyle().Alpha * 0.5f
-        );
-    }
-
-    bool clicked =
-        ImGui::Button(
-            virtualCameraAvailable
-            ? (virtualCameraActive
-                ? "Stop Virtual Camera"
-                : "Start Virtual Camera")
-            : "Start Virtual Camera (Extension Required)"
-        );
-
-    if (!virtualCameraAvailable)
-    {
-        ImGui::PopStyleVar();
-    }
-
-    // ---------------------------------------------------------
-    // Button action
-    // ---------------------------------------------------------
-
-    if (clicked)
-    {
-        if (virtualCameraAvailable)
-        {
-            if (!virtualCameraActive)
-            {
-                if (m_virtualCamera.RegisterExtension())
-                {
-                    if (!m_virtualCamera.StartVirtualCamera())
-                    {
-                        m_virtualCamera.UnregisterExtension();
-                    }
-                }
-            }
-            else
-            {
-                if (m_virtualCamera.StopVirtualCamera())
-                {
-                    m_virtualCamera.UnregisterExtension();
-                }
-            }
-        }
-        else
-        {
-            ShellExecuteA(
-                nullptr,
-                "open",
-                "https://github.com/Ominus-tch/Piano-Visualizer",
-                nullptr,
-                nullptr,
-                SW_SHOWNORMAL
-            );
-        }
-    }
-
-    // ---------------------------------------------------------
-    // Tooltip
-    // ---------------------------------------------------------
-
-    if (ImGui::IsItemHovered())
-    {
-        ImGui::SetTooltip(virtualCameraAvailable ? 
-			"The virtual camera outputs the visualizer to other applications.\n"
-			"Click to start or stop the virtual camera."
-            :
-            "Virtual Camera extension not found.\n"
-            "Download the extension to enable this feature.\n"
-            "Click to visit the download page."
-        );
-    }
-
-    ImGui::End();
-}
-
-void PianoVisualizer::RenderAudioPanel()
-{
-    if (!m_showAudioSettings)
-        return;
-
-    ImGui::Begin(
-        "Audio Settings",
-        &m_showAudioSettings,
-        ImGuiWindowFlags_AlwaysAutoResize
-    );
-
-    if (!m_audioEngine)
-    {
-        ImGui::TextDisabled(
-            "Audio engine is not available."
-        );
-
-        ImGui::End();
-        return;
-    }
-
-    audio::AudioOutput* output =
-        m_audioEngine->output();
-
-    if (!output)
-    {
-        ImGui::TextDisabled(
-            "Audio output is not initialized."
-        );
-
-        ImGui::End();
-        return;
-    }
-
-    // =========================================================
-    // OUTPUT DEVICE
-    // =========================================================
-
-    ImGui::SeparatorText("Output");
-
-    const auto devices =
-        m_audioEngine->enumerateOutputDevices();
-
-    const auto configuration =
-        m_audioEngine->outputConfiguration();
-
-    int selectedDevice = -1;
-
-    for (int i = 0;
-        i < static_cast<int>(devices.size());
-        ++i)
-    {
-        if (devices[i].id == configuration.deviceId)
-        {
-            selectedDevice = i;
-            break;
-        }
-    }
-
-    // Empty device ID means Windows default device.
-    if (configuration.deviceId.empty())
-    {
-        for (int i = 0;
-            i < static_cast<int>(devices.size());
-            ++i)
-        {
-            if (devices[i].isDefault)
-            {
-                selectedDevice = i;
-                break;
-            }
-        }
-    }
-
-    std::string selectedDeviceName =
-        "Default";
-
-    if (selectedDevice >= 0 &&
-        selectedDevice < static_cast<int>(devices.size()))
-    {
-        selectedDeviceName =
-            std::string(
-                devices[selectedDevice].name.begin(),
-                devices[selectedDevice].name.end()
-            );
-    }
-
-    if (ImGui::BeginCombo(
-        "Device",
-        selectedDeviceName.c_str()))
-    {
-        // -----------------------------------------------------
-        // Default device
-        // -----------------------------------------------------
-
-        const bool isDefaultSelected =
-            configuration.deviceId.empty();
-
-        if (ImGui::Selectable(
-            "Default",
-            isDefaultSelected))
-        {
-            if (!isDefaultSelected)
-            {
-                m_audioEngine->setOutputDevice(
-                    L""
-                );
-            }
-        }
-
-        if (isDefaultSelected)
-            ImGui::SetItemDefaultFocus();
-
-        // -----------------------------------------------------
-        // Enumerated devices
-        // -----------------------------------------------------
-
-        for (int i = 0;
-            i < static_cast<int>(devices.size());
-            ++i)
-        {
-            const std::string deviceName(
-                devices[i].name.begin(),
-                devices[i].name.end()
-            );
-
-            const bool selected =
-                selectedDevice == i;
-
-            if (ImGui::Selectable(
-                deviceName.c_str(),
-                selected))
-            {
-                m_audioEngine->setOutputDevice(
-                    devices[i].id
-                );
-            }
-
-            if (selected)
-                ImGui::SetItemDefaultFocus();
-        }
-
-        ImGui::EndCombo();
-    }
-
-    // ---------------------------------------------------------
-    // Current device information
-    // ---------------------------------------------------------
-
-    ImGui::Text(
-        "Active device: %ls",
-        output->deviceName().c_str()
-    );
-
-    ImGui::Text(
-        "Channels: %d",
-        output->channels()
-    );
-
-    ImGui::Text(
-        "Sample rate: %.0f Hz",
-        output->sampleRate()
-    );
-
-
-    // =========================================================
-    // MODE
-    // =========================================================
-
-    ImGui::SeparatorText("Mode");
-
-    const char* modeNames[] =
-    {
-        "Shared",
-        "Exclusive"
-    };
-
-    int mode =
-        configuration.mode ==
-        audio::AudioOutput::Mode::Exclusive
-        ? 1
-        : 0;
-
-    if (ImGui::Combo(
-        "Mode",
-        &mode,
-        modeNames,
-        IM_ARRAYSIZE(modeNames)))
-    {
-        const auto newMode =
-            mode == 0
-            ? audio::AudioOutput::Mode::Shared
-            : audio::AudioOutput::Mode::Exclusive;
-
-        if (newMode != configuration.mode)
-        {
-            m_audioEngine->setOutputMode(
-                newMode
-            );
-        }
-    }
-
-
-    // =========================================================
-    // SAMPLE RATE
-    // =========================================================
-
-    ImGui::SeparatorText("Format");
-
-    const double currentSampleRate =
-        configuration.sampleRate;
-
-    int sampleRateIndex = 0;
-
-    if (currentSampleRate == 0.0)
-        sampleRateIndex = 0;
-    else if (currentSampleRate == 44100.0)
-        sampleRateIndex = 1;
-    else if (currentSampleRate == 48000.0)
-        sampleRateIndex = 2;
-    else if (currentSampleRate == 88200.0)
-        sampleRateIndex = 3;
-    else if (currentSampleRate == 96000.0)
-        sampleRateIndex = 4;
-    else
-        sampleRateIndex = 5;
-
-    const char* sampleRateNames[] =
-    {
-        "Device default",
-        "44.1 kHz",
-        "48 kHz",
-        "88.2 kHz",
-        "96 kHz",
-        "Custom"
-    };
-
-    if (ImGui::Combo(
-        "Sample rate",
-        &sampleRateIndex,
-        sampleRateNames,
-        IM_ARRAYSIZE(sampleRateNames)))
-    {
-        double newSampleRate = 0.0;
-
-        switch (sampleRateIndex)
-        {
-        case 0:
-            newSampleRate = 0.0;
-            break;
-
-        case 1:
-            newSampleRate = 44100.0;
-            break;
-
-        case 2:
-            newSampleRate = 48000.0;
-            break;
-
-        case 3:
-            newSampleRate = 88200.0;
-            break;
-
-        case 4:
-            newSampleRate = 96000.0;
-            break;
-
-        default:
-            newSampleRate = currentSampleRate;
-            break;
-        }
-
-        if (sampleRateIndex != 5 &&
-            newSampleRate != currentSampleRate)
-        {
-            m_audioEngine->setOutputSampleRate(
-                newSampleRate
-            );
-        }
-    }
-
-    // Custom sample rate
-    if (sampleRateIndex == 5)
-    {
-        double customSampleRate =
-            currentSampleRate > 0.0
-            ? currentSampleRate
-            : 48000.0;
-
-        if (ImGui::InputDouble(
-            "Custom sample rate",
-            &customSampleRate,
-            100.0,
-            1000.0,
-            "%.0f"))
-        {
-            if (customSampleRate >= 8000.0)
-            {
-                m_audioEngine->setOutputSampleRate(
-                    customSampleRate
-                );
-            }
-        }
-    }
-
-
-    // =========================================================
-    // BUFFER
-    // =========================================================
-
-    double bufferDuration =
-        configuration.bufferDurationMs;
-
-    constexpr double minBufferDuration = 2.0;
-    constexpr double maxBufferDuration = 100.0;
-
-    if (ImGui::SliderScalar(
-        "Buffer duration",
-        ImGuiDataType_Double,
-        &bufferDuration,
-        &minBufferDuration,
-        &maxBufferDuration,
-        "%.1f ms"))
-    {
-        if (ImGui::IsItemDeactivatedAfterEdit())
-        {
-            m_audioEngine->setOutputBufferDuration(
-                bufferDuration
-            );
-        }
-    }
-
-    ImGui::TextDisabled(
-        "Lower values reduce latency but increase CPU usage."
-    );
-
-
-    // =========================================================
-    // VOLUME
-    // =========================================================
-
-    ImGui::SeparatorText("Volume");
-
-    float volume =
-        m_audioEngine->outputVolume();
-
-    float volumeNormalized = volume * 100.f;
-
-    if (ImGui::SliderFloat(
-        "Volume",
-        &volumeNormalized,
-        0.0f,
-        100.0f,
-        "%.0f%%",
-        ImGuiSliderFlags_AlwaysClamp))
-    {
-        m_audioEngine->setOutputVolume(
-            volumeNormalized / 100.f
-        );
-    }
-
-    bool muted =
-        m_audioEngine->outputMuted();
-
-    if (ImGui::Checkbox(
-        "Mute",
-        &muted))
-    {
-        m_audioEngine->setOutputMuted(
-            muted
-        );
-    }
-
-
-    // =========================================================
-    // DEVICE FALLBACK
-    // =========================================================
-
-    ImGui::SeparatorText("Behavior");
-
-    bool fallback =
-        configuration.fallbackToDefaultDevice;
-
-    if (ImGui::Checkbox(
-        "Fallback to default device",
-        &fallback))
-    {
-        // This currently requires updating the whole
-        // configuration because AudioOutput exposes the
-        // setting through Configuration.
-        //
-        // We don't currently have a dedicated setter for it.
-        auto newConfiguration =
-            m_audioEngine->outputConfiguration();
-
-        newConfiguration.fallbackToDefaultDevice =
-            fallback;
-
-        // The current AudioEngine API doesn't expose a generic
-        // configuration setter, so this cannot be applied yet.
-        //
-        // Keep the UI here disabled until that setter exists.
-    }
-
-    ImGui::TextDisabled(
-        "Used if the selected output device disappears."
-    );
-
-
-    // =========================================================
-    // STATUS
-    // =========================================================
-
-    ImGui::SeparatorText("Status");
-
-    ImGui::Text(
-        "Output: %s",
-        output->isRunning()
-        ? "Running"
-        : "Stopped"
-    );
-
-    ImGui::Text(
-        "Engine: %s",
-        m_audioEngine->isRunning()
-        ? "Running"
-        : "Stopped"
-    );
-
-    ImGui::End();
-}
-
 
 // =========================================================
 // Shutdown

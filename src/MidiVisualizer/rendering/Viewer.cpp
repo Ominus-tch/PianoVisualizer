@@ -125,7 +125,6 @@ Viewer::Viewer(
 	_context(d3dInterface.context)
 {
 
-	_showGUI = true;
 	_showDebug = false;
 
 	_windowSize = glm::ivec2(width, height);
@@ -382,7 +381,7 @@ bool Viewer::connectDevice(const int port) {
 	return true;
 }
 
-SystemAction Viewer::draw(
+void Viewer::draw(
 	float currentTime,
 	bool transparentBG
 )
@@ -399,15 +398,6 @@ SystemAction Viewer::draw(
 	drawScene(transparentBG);
 
 	_texture = _finalFramebuffer->textureId();
-
-	SystemAction action = SystemAction::NONE;
-
-	if (_showGUI)
-	{
-		action = drawGUI(currentTime);
-	}
-
-	return action;
 }
 
 void Viewer::drawScene(bool transparentBG)
@@ -913,14 +903,16 @@ static std::string wideToUtf8(const std::wstring& wide)
 	return result;
 }
 
-SystemAction Viewer::drawGUI(const float currentTime) {
-
-	SystemAction action = SystemAction::NONE;
-
+void Viewer::drawGUI(const float currentTime)
+{
 	auto liveScene =
 		std::dynamic_pointer_cast<MIDISceneLive>(
 			_scene
 		);
+
+	// -------------------------------------------------------------------------
+	// Start recording popup
+	// -------------------------------------------------------------------------
 
 	if (_shouldOpenRecordingPopup)
 	{
@@ -928,11 +920,13 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 		_shouldOpenRecordingPopup = false;
 	}
 
-	if (ImGui::BeginPopupModal("Start Recording", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+	if (ImGui::BeginPopupModal(
+		"Start Recording",
+		nullptr,
+		ImGuiWindowFlags_AlwaysAutoResize
+	))
 	{
-		ImGui::Text("Recording Options");
-
-		ImGui::Separator();
+		ImGui::SeparatorText("Recording options");
 
 		ImGui::Checkbox(
 			"Record camera",
@@ -941,10 +935,7 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 
 		ImGui::Spacing();
 
-		if (ImGui::Button(
-			"Start Recording",
-			ImVec2(140.0f, 0.0f)
-		))
+		if (ImGui::Button("Start Recording", ImVec2(140.0f, 0.0f)))
 		{
 			_recording = true;
 
@@ -953,7 +944,8 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 				Logger::Log("Failed to create recording directory!\n");
 				ImGui::CloseCurrentPopup();
 			}
-			else {
+			else
+			{
 				if (_recordCamera && _onStartRecording)
 				{
 					_onStartRecording();
@@ -968,10 +960,7 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 
 		ImGui::SameLine();
 
-		if (ImGui::Button(
-			"Cancel",
-			ImVec2(100.0f, 0.0f)
-		))
+		if (ImGui::Button("Cancel", ImVec2(100.0f, 0.0f)))
 		{
 			ImGui::CloseCurrentPopup();
 		}
@@ -979,389 +968,362 @@ SystemAction Viewer::drawGUI(const float currentTime) {
 		ImGui::EndPopup();
 	}
 
-	if (ImGui::Begin("Visualizer Settings", &_showGUI, ImGuiWindowFlags_AlwaysAutoResize)) {
+	// -------------------------------------------------------------------------
+	// Device / recording
+	// -------------------------------------------------------------------------
 
-		action = showTopButtons(currentTime);
-		ImGui::Separator();
+	ImGui::SeparatorText("Session");
 
-		//// Detail text.
-		//const int nCount = _scene->notesCount();
-		//const double duration = _scene->duration();
-		//const int speed = int(std::round(double(nCount)/(std::max)(0.001, duration)));
-		//ImGui::Text("Time: %.2f, notes: %d, duration: %.1fs, speed: %d notes/s", _timer * _state.scrollSpeed, nCount, duration, speed);
+	const char* deviceChangeLabel =
+		_liveplay ? "Change device" : "Connect to device...";
 
-		//ImGui::Separator();
-		
-		// Load button.
-		//if (ImGui::Button("Load MIDI file..."))
-		//{
-		//	IFileOpenDialog* dialog = nullptr;
+	if (ImGui::Button(deviceChangeLabel))
+	{
+		ImGui::OpenPopup("Devices");
+	}
 
-		//	HRESULT hr = CoCreateInstance(
-		//		CLSID_FileOpenDialog,
-		//		nullptr,
-		//		CLSCTX_INPROC_SERVER,
-		//		IID_PPV_ARGS(&dialog)
-		//	);
+	showDevices();
 
-		//	if (SUCCEEDED(hr))
-		//	{
-		//		// Only allow MIDI files.
-		//		COMDLG_FILTERSPEC filters[] =
-		//		{
-		//			{ L"MIDI files", L"*.mid;*.midi" },
-		//			{ L"All files", L"*.*" }
-		//		};
+	if (liveScene)
+	{
+		ImGui::SameLine();
 
-		//		dialog->SetFileTypes(
-		//			static_cast<UINT>(std::size(filters)),
-		//			filters
-		//		);
+		const char* recordLabel =
+			_recording ? "Stop Recording" : "Start Recording";
 
-		//		dialog->SetTitle(L"Load MIDI file");
-
-		//		hr = dialog->Show(nullptr);
-
-		//		if (SUCCEEDED(hr))
-		//		{
-		//			IShellItem* item = nullptr;
-
-		//			hr = dialog->GetResult(&item);
-
-		//			if (SUCCEEDED(hr))
-		//			{
-		//				PWSTR path = nullptr;
-
-		//				hr = item->GetDisplayName(
-		//					SIGDN_FILESYSPATH,
-		//					&path
-		//				);
-
-		//				if (SUCCEEDED(hr))
-		//				{
-		//					loadFile(wideToUtf8(std::wstring(path)));
-
-		//					CoTaskMemFree(path);
-		//				}
-
-		//				item->Release();
-		//			}
-		//		}
-
-		//		dialog->Release();
-		//	}
-		//}
-		//ImGuiSameLine(COLUMN_SIZE);
-		//if(_liveplay){
-		//	if (ImGui::Button("Clear and stop session")) {
-		//		_scene = std::make_shared<MIDIScene>();
-		//		_liveplay = false;
-		//		_shouldPlay = false;
-		//		_timer = 0.0f;
-		//		applyAllSettings();
-		//	}
-		//} else {
-		//	if (ImGui::Button("Connect to device...")) {
-		//		ImGui::OpenPopup("Devices");
-		//	}
-		//	showDevices();
-		//}
-
-		const char* deviceChangeLabel = _liveplay ? "Change device" : "Connect to device...";
-		if (ImGui::Button(deviceChangeLabel)) {
-			ImGui::OpenPopup("Devices");
-		}
-		showDevices();
-		
-		if (liveScene) {
-			// Recording
-			ImGui::SameLine();
-
-			const char* recordLabel = _recording ? "Stop recording" : "Start recording";
-			if (ImGui::Button(recordLabel)) {
-
-
-				if (_recording) {
-					stopRecording();
-					liveScene->stopRecording();
-				}
-				else {
-					startRecording();
-				}
+		if (ImGui::Button(recordLabel))
+		{
+			if (_recording)
+			{
+				stopRecording();
+				liveScene->stopRecording();
 			}
-
-			ImGui::SameLine();
-
-			if (_recording) {
-				double elapsedTime = getElapsedRecordingTime();
-				ImGui::Text("Recording: %.2fs", elapsedTime);
+			else
+			{
+				startRecording();
 			}
 		}
 
-		if (hasRecordings())
+		if (_recording)
 		{
 			ImGui::SameLine();
-
-			if (ImGui::Button("Playback Recording"))
-			{
-				refreshRecordings();
-
-				_playbackWindowOpen = true;
-			}
-		}
-
-		/*const bool existingScene =
-			(std::dynamic_pointer_cast<MIDISceneFile>(_scene) != nullptr) ||
-			(std::dynamic_pointer_cast<MIDISceneLive>(_scene) != nullptr);
-
-		if (existingScene)
-		{
-			if (ImGui::Button("Export MIDI file..."))
-			{
-				IFileSaveDialog* dialog = nullptr;
-
-				HRESULT hr = CoCreateInstance(
-					CLSID_FileSaveDialog,
-					nullptr,
-					CLSCTX_INPROC_SERVER,
-					IID_PPV_ARGS(&dialog)
-				);
-
-				if (SUCCEEDED(hr))
-				{
-					COMDLG_FILTERSPEC filters[] =
-					{
-						{ L"MIDI files", L"*.mid;*.midi" },
-						{ L"All files", L"*.*" }
-					};
-
-					dialog->SetFileTypes(
-						static_cast<UINT>(std::size(filters)),
-						filters
-					);
-
-					dialog->SetTitle(L"Save MIDI file");
-					dialog->SetDefaultExtension(L"mid");
-
-					hr = dialog->Show(nullptr);
-
-					if (SUCCEEDED(hr))
-					{
-						IShellItem* item = nullptr;
-
-						hr = dialog->GetResult(&item);
-
-						if (SUCCEEDED(hr))
-						{
-							PWSTR path = nullptr;
-
-							hr = item->GetDisplayName(
-								SIGDN_FILESYSPATH,
-								&path
-							);
-
-							if (SUCCEEDED(hr))
-							{
-								std::ofstream outFile(
-									wideToUtf8(path),
-									std::ios::binary
-								);
-
-								if (outFile)
-								{
-									_scene->save(outFile);
-									outFile.close();
-								}
-
-								CoTaskMemFree(path);
-							}
-
-							item->Release();
-						}
-					}
-
-					dialog->Release();
-				}
-			}
-
-			ImGui::helpTooltip(
-				"Export a new MIDI file of the current session"
+			ImGui::TextDisabled(
+				"Recording: %.2fs",
+				getElapsedRecordingTime()
 			);
-		}*/
-
-		ImGui::Separator();
-
-		ImGuiPushItemWidth(100);
-		if (ImGui::Combo("Quality", (int *)(&_state.quality), "Half\0Low\0Medium\0High\0Double\0\0")) {
-			updateSizes();
-		}
-		ImGui::helpTooltip(s_quality_dsc);
-		ImGui::PopItemWidth();
-
-		// Add FXAA.
-		ImGuiSameLine(COLUMN_SIZE);
-		ImGui::Checkbox("Smoothing", &_state.applyAA);
-		ImGui::helpTooltip(s_smooth_dsc);
-
-		if (ImGui::Button("Show effect layers...")) {
-			_showLayers = true;
-		}
-		ImGui::helpTooltip("Define which effects are visible and their ordering");
-
-		if(_liveplay){
-			ImGui::BeginDisabled();
-		}
-
-		ImGuiSameLine(COLUMN_SIZE);
-		if (ImGui::Button("Tracks & channels visibility...")) {
-			ImGui::OpenPopup("Visibility options");
-		}
-		ImGui::helpTooltip("Define which tracks and channels are visible");
-		showVisibility();
-
-		if(_liveplay){
-			ImGui::EndDisabled();
-			if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)){
-				ImGui::SetTooltip("Not available in liveplay");
-			}
-		}
-
-		if(ImGui::Checkbox("Per-set colors", &_state.perSetColors)){
-			if(!_state.perSetColors){
-				_state.synchronizeSets();
-			}
-		}
-		ImGui::helpTooltip(s_colors_per_set_dsc);
-
-		if(_state.perSetColors){
-			ImGuiSameLine(COLUMN_SIZE);
-			if(ImGui::Button("Define color sets...")){
-				ImGui::OpenPopup("Note sets options");
-			}
-			ImGui::helpTooltip("Define how notes should be assigned to color sets");
-			showSets();
-		}
-
-		if (ImGui::Checkbox("Same colors for all effects", &_state.lockParticleColor)) {
-			// If we enable the lock, make sure the colors are synched.
-			synchronizeColors(_state.notes.majorColors);
-		}
-		ImGui::helpTooltip(s_lock_colors_dsc);
-
-		if(ImGui::CollapsingHeader("Playback##HEADER")){
-			ImGuiPushItemWidth(100);
-			if(ImGui::Combo("Min key", &_state.minKey, midiKeysStrings, 128)){
-				updateMinMaxKeys();
-			}
-			ImGui::helpTooltip(s_min_key_dsc);
-
-			ImGuiSameLine(COLUMN_SIZE);
-			if(ImGui::Combo("Max key", &_state.maxKey, midiKeysStrings, 128)){
-				updateMinMaxKeys();
-			}
-			ImGui::helpTooltip(s_max_key_dsc);
-		}
-
-		if(ImGui::CollapsingHeader("Notes##HEADER")){
-			showNoteOptions();
-		}
-
-		if (_state.showFlashes && ImGui::CollapsingHeader("Flashes##HEADER")) {
-			showFlashOptions();
-		}
-
-		if (_state.showParticles && ImGui::CollapsingHeader("Particles##HEADER")) {
-			showParticleOptions();
-		}
-
-		if (_state.showKeyboard && ImGui::CollapsingHeader("Keyboard##HEADER")) {
-			showKeyboardOptions();
-		}
-
-		//if(_state.showPedal && ImGui::CollapsingHeader("Pedal##HEADER")){
-		//	showPedalOptions();
-		//}
-
-		if(_state.showWave && ImGui::CollapsingHeader("Wave##HEADER")){
-			showWaveOptions();
-		}
-
-		//if (_state.showScore && ImGui::CollapsingHeader("Score##HEADER")) {
-		//	showScoreOptions();
-		//}
-
-		if (_state.showBlur && ImGui::CollapsingHeader("Blur##HEADER")) {
-			showBlurOptions();
-		}
-
-		if (ImGui::CollapsingHeader("Background##HEADER")) {
-			showBackgroundOptions();
-		}
-		ImGui::Separator();
-
-		showBottomButtons();
-
-		if (_showDebug) {
-			ImGui::Separator();
-			ImGui::Text("Debug: ");
-			ImGuiSameLine();
-			ImGui::TextDisabled("(press D to hide)");
-			ImGui::Text("%.1f FPS / %.1f ms", ImGui::GetIO().Framerate, ImGui::GetIO().DeltaTime * 1000.0f);
-			ImGui::Text("Timer: %.2f s", _timer);
-			ImGui::Text("Render size: %dx%d, screen size: %dx%d", _renderFramebuffer->width(), _renderFramebuffer->height(), _camera.screenSize()[0], _camera.screenSize()[1]);
-			if (ImGui::Button("Print MIDI content to console")) {
-				_scene->print();
-			}
-			ImGui::Checkbox("Verbose log", &_verbose);
-			if(ImGui::Button("Assign random colors")){
-				_state.lockParticleColor = true;
-
-				const ColorArray debugColors = {
-					glm::vec3{1.0f, 0.0f, 0.0f},
-					glm::vec3{1.0f, 0.5f, 0.0f},
-					glm::vec3{1.0f, 1.0f, 0.0f},
-					glm::vec3{0.5f, 1.0f, 0.0f},
-					glm::vec3{0.0f, 1.0f, 0.0f},
-					glm::vec3{0.0f, 1.0f, 0.5f},
-					glm::vec3{0.0f, 1.0f, 1.0f},
-					glm::vec3{0.0f, 0.5f, 1.0f},
-					glm::vec3{0.0f, 0.0f, 1.0f},
-					glm::vec3{0.5f, 0.0f, 1.0f},
-					glm::vec3{1.0f, 0.0f, 1.0f},
-					glm::vec3{1.0f, 0.0f, 0.5f}
-				};
-				synchronizeColors(debugColors);
-			}
-
-			ImGui::Text("Start Time: %.2f", _timerStart);
-			ImGui::Text("Current Time: %.2f", System::time());
 		}
 	}
-	ImGui::End();
 
-	
+	if (hasRecordings())
+	{
+		ImGui::SameLine();
 
-	if(_showLayers){
+		if (ImGui::Button("Playback Recording"))
+		{
+			refreshRecordings();
+			_playbackWindowOpen = true;
+		}
+	}
+
+	// -------------------------------------------------------------------------
+	// Render quality
+	// -------------------------------------------------------------------------
+
+	ImGui::SeparatorText("Rendering");
+
+	ImGui::PushItemWidth(140.0f);
+
+	if (ImGui::Combo(
+		"Quality",
+		(int*)(&_state.quality),
+		"Half\0Low\0Medium\0High\0Double\0\0"
+	))
+	{
+		updateSizes();
+	}
+
+	ImGui::helpTooltip(s_quality_dsc);
+
+	ImGui::PopItemWidth();
+
+	ImGui::SameLine();
+
+	ImGui::Checkbox(
+		"Smoothing",
+		&_state.applyAA
+	);
+
+	ImGui::helpTooltip(s_smooth_dsc);
+
+	// -------------------------------------------------------------------------
+	// Visibility / colors
+	// -------------------------------------------------------------------------
+
+	ImGui::SeparatorText("Visibility & Colors");
+
+	if (ImGui::Button("Effect Layers..."))
+	{
+		_showLayers = true;
+	}
+
+	ImGui::helpTooltip(
+		"Define which effects are visible and their ordering"
+	);
+
+	ImGui::SameLine();
+
+	if (_liveplay)
+	{
+		ImGui::BeginDisabled();
+	}
+
+	if (ImGui::Button("Tracks & Channels..."))
+	{
+		ImGui::OpenPopup("Visibility options");
+	}
+
+	ImGui::helpTooltip(
+		"Define which tracks and channels are visible"
+	);
+
+	showVisibility();
+
+	if (_liveplay)
+	{
+		ImGui::EndDisabled();
+
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		{
+			ImGui::SetTooltip("Not available in liveplay");
+		}
+	}
+
+	if (ImGui::Checkbox(
+		"Per-set colors",
+		&_state.perSetColors
+	))
+	{
+		if (!_state.perSetColors)
+		{
+			_state.synchronizeSets();
+		}
+	}
+
+	ImGui::helpTooltip(s_colors_per_set_dsc);
+
+	if (_state.perSetColors)
+	{
+		ImGui::SameLine();
+
+		if (ImGui::Button("Define Color Sets..."))
+		{
+			ImGui::OpenPopup("Note sets options");
+		}
+
+		ImGui::helpTooltip(
+			"Define how notes should be assigned to color sets"
+		);
+
+		showSets();
+	}
+
+	if (ImGui::Checkbox(
+		"Same colors for all effects",
+		&_state.lockParticleColor
+	))
+	{
+		synchronizeColors(_state.notes.majorColors);
+	}
+
+	ImGui::helpTooltip(s_lock_colors_dsc);
+
+	// -------------------------------------------------------------------------
+	// Playback range
+	// -------------------------------------------------------------------------
+
+	ImGui::SeparatorText("Key Range");
+
+	ImGui::PushItemWidth(150.0f);
+
+	if (ImGui::Combo(
+		"Min key",
+		&_state.minKey,
+		midiKeysStrings,
+		128
+	))
+	{
+		updateMinMaxKeys();
+	}
+
+	ImGui::helpTooltip(s_min_key_dsc);
+
+	ImGui::SameLine(300.0f);
+
+	if (ImGui::Combo(
+		"Max key",
+		&_state.maxKey,
+		midiKeysStrings,
+		128
+	))
+	{
+		updateMinMaxKeys();
+	}
+
+	ImGui::helpTooltip(s_max_key_dsc);
+
+	ImGui::PopItemWidth();
+
+	// -------------------------------------------------------------------------
+	// Visual effects
+	// -------------------------------------------------------------------------
+
+	ImGui::SeparatorText("Effects");
+
+	if (ImGui::CollapsingHeader("Notes"))
+	{
+		showNoteOptions();
+	}
+
+	if (_state.showFlashes && ImGui::CollapsingHeader("Flashes"))
+	{
+		showFlashOptions();
+	}
+
+	if (_state.showParticles && ImGui::CollapsingHeader("Particles"))
+	{
+		showParticleOptions();
+	}
+
+	if (_state.showKeyboard && ImGui::CollapsingHeader("Keyboard"))
+	{
+		showKeyboardOptions();
+	}
+
+	//if (_state.showPedal && ImGui::CollapsingHeader("Pedal"))
+	//{
+	//	showPedalOptions();
+	//}
+
+	if (_state.showWave && ImGui::CollapsingHeader("Wave"))
+	{
+		showWaveOptions();
+	}
+
+	//if (_state.showScore && ImGui::CollapsingHeader("Score"))
+	//{
+	//	showScoreOptions();
+	//}
+
+	if (_state.showBlur && ImGui::CollapsingHeader("Blur"))
+	{
+		showBlurOptions();
+	}
+
+	if (ImGui::CollapsingHeader("Background"))
+	{
+		showBackgroundOptions();
+	}
+
+	// -------------------------------------------------------------------------
+	// Bottom actions
+	// -------------------------------------------------------------------------
+
+	ImGui::Spacing();
+	ImGui::SeparatorText("Presets");
+
+	showBottomButtons();
+
+	// -------------------------------------------------------------------------
+	// Debug
+	// -------------------------------------------------------------------------
+
+	if (_showDebug)
+	{
+		ImGui::SeparatorText("Debug");
+
+		ImGui::Text(
+			"%.1f FPS  |  %.1f ms",
+			ImGui::GetIO().Framerate,
+			ImGui::GetIO().DeltaTime * 1000.0f
+		);
+
+		ImGui::Text("Timer: %.2f s", _timer);
+
+		ImGui::Text(
+			"Render: %dx%d",
+			_renderFramebuffer->width(),
+			_renderFramebuffer->height()
+		);
+
+		ImGui::Text(
+			"Screen: %dx%d",
+			_camera.screenSize()[0],
+			_camera.screenSize()[1]
+		);
+
+		ImGui::Spacing();
+
+		if (ImGui::Button("Print MIDI Content to Console"))
+		{
+			_scene->print();
+		}
+
+		ImGui::Checkbox("Verbose log", &_verbose);
+
+		if (ImGui::Button("Assign Random Colors"))
+		{
+			_state.lockParticleColor = true;
+
+			const ColorArray debugColors = {
+				glm::vec3{1.0f, 0.0f, 0.0f},
+				glm::vec3{1.0f, 0.5f, 0.0f},
+				glm::vec3{1.0f, 1.0f, 0.0f},
+				glm::vec3{0.5f, 1.0f, 0.0f},
+				glm::vec3{0.0f, 1.0f, 0.0f},
+				glm::vec3{0.0f, 1.0f, 0.5f},
+				glm::vec3{0.0f, 1.0f, 1.0f},
+				glm::vec3{0.0f, 0.5f, 1.0f},
+				glm::vec3{0.0f, 0.0f, 1.0f},
+				glm::vec3{0.5f, 0.0f, 1.0f},
+				glm::vec3{1.0f, 0.0f, 1.0f},
+				glm::vec3{1.0f, 0.0f, 0.5f}
+			};
+
+			synchronizeColors(debugColors);
+		}
+
+		ImGui::Text("Start Time: %.2f", _timerStart);
+		ImGui::Text("Current Time: %.2f", System::time());
+	}
+
+	// -------------------------------------------------------------------------
+	// Auxiliary editors / windows
+	// -------------------------------------------------------------------------
+
+	if (_showLayers)
+	{
 		showLayers();
 	}
 
-	if(_showSetListEditor){
+	if (_showSetListEditor)
+	{
 		showSetEditor();
 	}
 
-	if(_showParticleEditor){
+	if (_showParticleEditor)
+	{
 		showParticlesEditor();
 	}
 
-	if(_showPedalsEditor){
+	if (_showPedalsEditor)
+	{
 		showPedalsEditor();
 	}
 
-	if (_playbackWindowOpen){
+	if (_playbackWindowOpen)
+	{
 		drawPlaybackSettings();
 	}
-
-	return action;
 }
 
 void Viewer::synchronizeColors(const ColorArray & colors){
@@ -1381,60 +1343,19 @@ void Viewer::synchronizeColors(const ColorArray & colors){
 	//}
 }
 
-SystemAction Viewer::showTopButtons(double currentTime){
-	//if (ImGui::Button(_shouldPlay ? "Pause (p)" : "Play (p)")) {
-	//	_shouldPlay = !_shouldPlay;
-	//	_timerStart = float(currentTime) - _timer;
-	//}
-	//ImGuiSameLine();
-	//if (ImGui::Button("Restart (r)")) {
-	//	reset();
-	//}
-	//ImGuiSameLine();
-	if (ImGui::Button("Hide (i)")) {
-		_showGUI = false;
-	}
-	ImGuiSameLine();
-	if(ImGui::Button("Display")){
-		ImGui::OpenPopup("Display options");
-	}
-	ImGui::helpTooltip("Configure display settings");
-
-	SystemAction action = SystemAction::NONE;
-	if(ImGui::BeginPopup("Display options")){
-		
-		ImGuiPushItemWidth(100);
-		if(ImGui::InputFloat("GUI size", &_guiScale, 0.25f, 1.0f, "%.2fx")){
-			_guiScale = glm::clamp(_guiScale, 0.25f, 4.0f);
-			setGUIScale(_guiScale);
-		}
-		ImGui::helpTooltip("Scale of the interface texts and buttons on screen");
-		ImGui::PopItemWidth();
-		ImGuiSameLine(EXPORT_COLUMN_SIZE);
-		if(ImGui::Button("Reset##GUI")){
-			setGUIScale(1.0f);
-		}
-		ImGui::helpTooltip("Reset the scale of the interface to 1x");
-
-		ImGui::EndPopup();
-	}
-
-	return action;
-}
-
 void Viewer::showNoteOptions() {
 
 	if(channelColorEdit("Notes", "Notes", _state.notes.majorColors)){
 		synchronizeColors(_state.notes.majorColors);
 	}
 	ImGui::helpTooltip(s_color_major_dsc);
-	ImGuiSameLine();
+	ImGui::SameLine();
 
 	if(channelColorEdit("Minors", "Minors", _state.notes.minorColors)){
 		synchronizeColors(_state.notes.minorColors);
 	}
 	ImGui::helpTooltip(s_color_minor_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 
 	if (ImGui::Button("Use background images...")) {
 		ImGui::OpenPopup("Note background textures");
@@ -1533,7 +1454,7 @@ void Viewer::showNoteOptions() {
 
 			ImGui::Text("%s", group.name);
 
-			ImGuiSameLine(100);
+			ImGui::SameLine(100);
 
 			if (ImGui::Button("Load..."))
 			{
@@ -1578,7 +1499,7 @@ void Viewer::showNoteOptions() {
 				paramDescs[i][0]
 			);
 
-			ImGuiSameLine();
+			ImGui::SameLine();
 
 			if (ImGui::Button("Clear"))
 			{
@@ -1590,9 +1511,9 @@ void Viewer::showNoteOptions() {
 				"Remove the current image"
 			);
 
-			ImGuiSameLine();
+			ImGui::SameLine();
 
-			ImGuiPushItemWidth(100);
+			ImGui::PushItemWidth(100);
 
 			if (ImGui::SliderFloat(
 				"Scale",
@@ -1613,7 +1534,7 @@ void Viewer::showNoteOptions() {
 				paramDescs[i][1]
 			);
 
-			ImGuiSameLine();
+			ImGui::SameLine();
 
 			if (ImGui::SliderPercent(
 				"Intensity",
@@ -1634,7 +1555,7 @@ void Viewer::showNoteOptions() {
 				paramDescs[i][2]
 			);
 
-			ImGuiSameLine();
+			ImGui::SameLine();
 
 			ImGui::SliderFloat(
 				"Scroll Speed",
@@ -1678,7 +1599,7 @@ void Viewer::showNoteOptions() {
 		ImGui::EndPopup();
 	}
 
-	ImGuiPushItemWidth(100);
+	ImGui::PushItemWidth(100);
 	bool smw0 = ImGui::InputFloat("Scale", &_state.scale, 0.01f, 0.1f, "%.2fx");
 	ImGui::helpTooltip(s_time_scale_dsc);;
 
@@ -1693,13 +1614,13 @@ void Viewer::showNoteOptions() {
 		_renderer.setScaleAndMinorWidth(_state.scale, _state.background.minorsWidth);
 	}
 
-	ImGuiPushItemWidth(100);
+	ImGui::PushItemWidth(100);
 	if(ImGui::SliderFloat("Radius", &_state.notes.cornerRadius, 0.0f, 1.0f)){
 		_state.notes.cornerRadius = glm::clamp(_state.notes.cornerRadius, 0.0f, 1.0f);
 	}
 	ImGui::helpTooltip(s_notes_corner_radius_dsc);
 
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	if(ImGui::SliderFloat("Fadeout", &_state.notes.fadeOut, 0.0f, 1.0f)){
 		_state.notes.fadeOut = glm::clamp(_state.notes.fadeOut, 0.0f, 1.0f);
 		_renderer.setKeyboardSizeAndFadeout(_state.keyboard.size, _state.notes.fadeOut);
@@ -1710,7 +1631,7 @@ void Viewer::showNoteOptions() {
 		_state.notes.edgeWidth = glm::clamp(_state.notes.edgeWidth, 0.0f, 1.0f);
 	}
 	ImGui::helpTooltip(s_notes_edge_width_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 
 	if(ImGui::SliderPercent("Intensity", &_state.notes.edgeBrightness, 0.0f, 4.0f)){
 		_state.notes.edgeBrightness = glm::max(_state.notes.edgeBrightness, 0.0f);
@@ -1726,22 +1647,22 @@ void Viewer::showFlashOptions() {
 	}
 	ImGui::helpTooltip(s_color_flashes_dsc);
 
-	ImGuiPushItemWidth(100);
+	ImGui::PushItemWidth(100);
 	ImGui::SliderFloat("Scale##flash", &_state.flashes.size, 0.1f, 3.0f, "%.2fx");
 	ImGui::helpTooltip(s_flashes_size_dsc);
 
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	ImGui::SliderFloat("Fade Time##flash", &_state.flashes.fadeTime, 0.f, 3.f, "%.3fs");
 	ImGui::helpTooltip(s_flashes_fade_dsc);
 	ImGui::PopItemWidth();
 
 	// Additional halo control
-	ImGuiPushItemWidth(100);
+	ImGui::PushItemWidth(100);
 	if(ImGui::SliderFloat("Halo min", &_state.flashes.haloInnerRadius, 0.0f, 1.0f)){
 		_state.flashes.haloInnerRadius = glm::clamp(_state.flashes.haloInnerRadius, 0.0f, _state.flashes.haloOuterRadius);
 	}
 	ImGui::helpTooltip(s_flashes_halo_inner_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	if(ImGui::SliderFloat("Halo max", &_state.flashes.haloOuterRadius, 0.0f, 1.0f)){
 		_state.flashes.haloOuterRadius = glm::clamp(_state.flashes.haloOuterRadius, _state.flashes.haloInnerRadius, 1.0f);
 	}
@@ -1752,7 +1673,7 @@ void Viewer::showFlashOptions() {
 	}
 	ImGui::helpTooltip(s_flashes_halo_intensity_dsc);
 
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	if (ImGui::Button("Clear image##Flashes")) {
 		_state.flashes.imagePath.clear();
 		if(_state.flashes.tex != ResourcesManager::getTextureFor("flash")){
@@ -1771,7 +1692,7 @@ void Viewer::showFlashOptions() {
 			_state.flashes.texColCount = glm::max(1, _state.flashes.texColCount);
 		}
 		ImGui::helpTooltip(s_flashes_img_columns_dsc);
-		ImGuiSameLine(COLUMN_SIZE);
+		ImGui::SameLine(COLUMN_SIZE);
 		if(ImGui::InputInt("Rows", &_state.flashes.texRowCount)){
 			_state.flashes.texRowCount = glm::max(1, _state.flashes.texRowCount);
 		}
@@ -1789,9 +1710,9 @@ void Viewer::showParticleOptions(){
 	}
 	ImGui::helpTooltip(s_color_particles_dsc);
 
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 
-	ImGuiPushItemWidth(100);
+	ImGui::PushItemWidth(100);
 	if (ImGui::InputFloat("Size##particles", &_state.particles.scale, 1.0f, 10.0f, "%.0fpx")) {
 		_state.particles.scale = (std::max)(1.0f, _state.particles.scale);
 	}
@@ -1799,7 +1720,7 @@ void Viewer::showParticleOptions(){
 
 	const bool mp0 = ImGui::InputFloat("Speed", &_state.particles.speed, 0.01f, 1.0f, "%.2fx");
 	ImGui::helpTooltip(s_particles_speed_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 
 	const bool mp1 = ImGui::InputFloat("Spread", &_state.particles.expansion, 0.1f, 5.0f, "%.1fx");
 	ImGui::helpTooltip(s_particles_expansion_dsc);
@@ -1815,7 +1736,7 @@ void Viewer::showParticleOptions(){
 		_renderer.setParticlesParameters(_state.particles.speed, _state.particles.expansion);
 	}
 
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 
 	if(ImGui::Button("Configure images...##Particles")) {
 		_showParticleEditor = true;
@@ -1823,7 +1744,7 @@ void Viewer::showParticleOptions(){
 	}
 	ImGui::helpTooltip("Define images to assign randomly to each particle");
 
-	ImGuiPushItemWidth(100);
+	ImGui::PushItemWidth(100);
 	ImGui::SliderPercent("Turbulences", &_state.particles.turbulenceStrength, 0.01f, 8.0f);
 	ImGui::helpTooltip(s_particles_turbulences_dsc);
 	ImGui::PopItemWidth();
@@ -1832,21 +1753,21 @@ void Viewer::showParticleOptions(){
 }
 
 void Viewer::showKeyboardOptions(){
-	ImGuiPushItemWidth(25);
+	ImGui::PushItemWidth(25);
 	ImGui::ColorEdit3("Edge Color##Keys", &_state.keyboard.edgeColor[0], ImGuiColorEditFlags_NoInputs);
 	ImGui::helpTooltip(s_color_keyboard_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	ImGui::ColorEdit3("Fill Color##Keys", &_state.keyboard.backColor[0], ImGuiColorEditFlags_NoInputs);
 	ImGui::helpTooltip(s_color_keyboard_bg_dsc);
 	ImGui::PopItemWidth();
 
-	ImGuiPushItemWidth(100);
+	ImGui::PushItemWidth(100);
 	if(ImGui::SliderPercent("Height##Keys", &_state.keyboard.size, 0.0f, 1.0f)){
 		_state.keyboard.size = glm::clamp(_state.keyboard.size, 0.0f, 1.0f);
 		_renderer.setKeyboardSizeAndFadeout(_state.keyboard.size, _state.notes.fadeOut);
 	}
 	ImGui::helpTooltip(s_keyboard_size_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 
 	if(ImGui::SliderPercent("Minor height##Keys", &_state.keyboard.minorHeight, 0.0f, 1.0f)){
 		_state.keyboard.minorHeight = glm::clamp(_state.keyboard.minorHeight, 0.0f, 1.0f);
@@ -1856,14 +1777,14 @@ void Viewer::showKeyboardOptions(){
 	ImGui::helpTooltip(s_keyboard_minor_height_dsc);
 	ImGui::PopItemWidth();
 
-	ImGuiPushItemWidth(25);
+	ImGui::PushItemWidth(25);
 	if (ImGui::Checkbox("Minor edges##Keys", &_state.keyboard.minorEdges)){
 		// TODO: (MV) just apply when needed?
 		_renderer.setMinorEdgesAndHeight(_state.keyboard.minorEdges, _state.keyboard.minorHeight);
 	}
 	ImGui::helpTooltip(s_keyboard_minor_edges_dsc);
 	ImGui::PopItemWidth();
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	ImGui::Checkbox("Highlight keys", &_state.keyboard.highlightKeys);
 	ImGui::helpTooltip(s_keyboard_highlight_dsc);
 
@@ -1872,8 +1793,8 @@ void Viewer::showKeyboardOptions(){
 		ImGui::helpTooltip(s_keyboard_custom_colors_dsc);
 
 		if (_state.keyboard.customKeyColors) {
-			ImGuiSameLine(COLUMN_SIZE);
-			ImGuiPushItemWidth(25);
+			ImGui::SameLine(COLUMN_SIZE);
+			ImGui::PushItemWidth(25);
 			if(ImGui::ColorEdit3("Major##KeysHighlight", &_state.keyboard.majorColor[0][0], ImGuiColorEditFlags_NoInputs)){
 				// Ensure synchronization of the override array.
 				for(size_t cid = 1; cid < _state.keyboard.majorColor.size(); ++cid){
@@ -1882,7 +1803,7 @@ void Viewer::showKeyboardOptions(){
 			}
 			ImGui::helpTooltip(s_color_keyboard_major_dsc);
 
-			ImGuiSameLine(COLUMN_SIZE+80);
+			ImGui::SameLine(COLUMN_SIZE+80);
 			if(ImGui::ColorEdit3("Minor##KeysHighlight", &_state.keyboard.minorColor[0][0], ImGuiColorEditFlags_NoInputs)){
 				// Ensure synchronization of the override array.
 				for(size_t cid = 1; cid < _state.keyboard.minorColor.size(); ++cid){
@@ -1896,7 +1817,7 @@ void Viewer::showKeyboardOptions(){
 }
 
 void Viewer::showPedalOptions(){
-	ImGuiPushItemWidth(25);
+	ImGui::PushItemWidth(25);
 	if(ImGui::ColorEdit3("Colors##Pedals", &_state.pedals.centerColor[0], ImGuiColorEditFlags_NoInputs)){
 		// Synchronize other colors
 		_state.pedals.topColor = _state.pedals.centerColor;
@@ -1906,8 +1827,8 @@ void Viewer::showPedalOptions(){
 	ImGui::helpTooltip(s_color_pedal_dsc);
 	ImGui::PopItemWidth();
 
-	ImGuiPushItemWidth(100);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::PushItemWidth(100);
+	ImGui::SameLine(COLUMN_SIZE);
 	int locationValue = int(_state.pedals.location);
 	if(ImGui::Combo("Location", &locationValue, "Top left\0Bottom left\0Top right\0Bottom right\0")){
 		_state.pedals.location = State::PedalsState::Location(locationValue);
@@ -1918,7 +1839,7 @@ void Viewer::showPedalOptions(){
 		_state.pedals.opacity = glm::clamp(_state.pedals.opacity, 0.0f, 1.0f);
 	}
 	ImGui::helpTooltip(s_pedal_opacity_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	if(ImGui::SliderPercent("Size##Pedals", &_state.pedals.size, 0.05f, 0.5f)){
 		_state.pedals.size = glm::clamp(_state.pedals.size, 0.05f, 0.5f);
 	}
@@ -1927,7 +1848,7 @@ void Viewer::showPedalOptions(){
 
 	ImGui::Checkbox("Merge pedals", &_state.pedals.merge);
 	ImGui::helpTooltip(s_pedal_merge_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	if(ImGui::Button("Configure images...##Pedals")) {
 		_showPedalsEditor = true;
 		_backupState = _state;
@@ -1937,19 +1858,19 @@ void Viewer::showPedalOptions(){
 }
 
 void Viewer::showWaveOptions(){
-	ImGuiPushItemWidth(25);
+	ImGui::PushItemWidth(25);
 	ImGui::ColorEdit3("Color##Waves", &_state.waves.color[0], ImGuiColorEditFlags_NoInputs);
 	ImGui::helpTooltip(s_color_wave_dsc);
 	ImGui::PopItemWidth();
 
-	ImGuiPushItemWidth(100);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::PushItemWidth(100);
+	ImGui::SameLine(COLUMN_SIZE);
 	ImGui::SliderFloat("Amplitude##Waves", &_state.waves.amplitude, 0.0f, 5.0f, "%.2fx");
 	ImGui::helpTooltip(s_wave_amplitude_dsc);
 
 	ImGui::SliderFloat("Spread##Waves", &_state.waves.spread, 0.0f, 5.0f, "%.2fx");
 	ImGui::helpTooltip(s_wave_size_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	ImGui::SliderFloat("Frequency##Waves", &_state.waves.frequency, 0.0f, 5.0f, "%.2fx");
 	ImGui::helpTooltip(s_wave_frequency_dsc);
 
@@ -1957,13 +1878,13 @@ void Viewer::showWaveOptions(){
 		_state.waves.opacity = glm::clamp(_state.waves.opacity, 0.0f, 1.0f);
 	}
 	ImGui::helpTooltip(s_wave_opacity_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	ImGui::SliderFloat("Speed##Waves", &_state.waves.speed, 0.0f, 5.0f, "%.2fx");
 	ImGui::helpTooltip(s_wave_speed_dsc);
 	
 	ImGui::SliderPercent("Noise##Waves", &_state.waves.noiseIntensity, 0.0f, 2.0f);
 	ImGui::helpTooltip(s_wave_noise_intensity_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	ImGui::SliderPercent("Extent##Waves", &_state.waves.noiseSize, 0.0f, 1.0f);
 	ImGui::helpTooltip(s_wave_noise_extent_dsc);
 	ImGui::PopItemWidth();
@@ -1974,9 +1895,9 @@ void Viewer::showBlurOptions()
 {
 	ImGui::Checkbox("Blur the notes", &_state.showBlurNotes);
 	ImGui::helpTooltip(s_show_blur_notes_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 
-	ImGuiPushItemWidth(100);
+	ImGui::PushItemWidth(100);
 
 	if (ImGui::SliderFloat(
 		"Fading",
@@ -1999,14 +1920,14 @@ void Viewer::showBlurOptions()
 }
 
 void Viewer::showScoreOptions(){
-	ImGuiPushItemWidth(25);
+	ImGui::PushItemWidth(25);
 	ImGui::ColorEdit3("Vertical lines##Background", &_state.score.vLinesColor[0], ImGuiColorEditFlags_NoInputs);
 	ImGui::helpTooltip(s_color_lines_vertical_dsc);
-	ImGuiSameLine();
+	ImGui::SameLine();
 
 	ImGui::ColorEdit3("Horizontal lines##Background", &_state.score.hLinesColor[0], ImGuiColorEditFlags_NoInputs);
 	ImGui::helpTooltip(s_color_lines_horizontal_dsc);
-	ImGuiSameLine();
+	ImGui::SameLine();
 
 	ImGui::ColorEdit3("Labels##Background", &_state.score.digitsColor[0], ImGuiColorEditFlags_NoInputs);
 	ImGui::helpTooltip(s_color_numbers_dsc);
@@ -2014,32 +1935,32 @@ void Viewer::showScoreOptions(){
 
 	ImGui::Checkbox("Horizontal lines", &_state.score.hLines);
 	ImGui::helpTooltip(s_show_horiz_lines_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
-	ImGuiPushItemWidth(100);
+	ImGui::SameLine(COLUMN_SIZE);
+	ImGui::PushItemWidth(100);
 	ImGui::SliderFloat("Thickness##Horizontal", &_state.score.hLinesWidth, 0.0f, 15.0f, "%.0fpx");
 	ImGui::helpTooltip(s_score_lines_horizontal_width_dsc);
 	ImGui::PopItemWidth();
 
 	ImGui::Checkbox("Vertical lines", &_state.score.vLines);
 	ImGui::helpTooltip(s_show_vert_lines_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
-	ImGuiPushItemWidth(100);
+	ImGui::SameLine(COLUMN_SIZE);
+	ImGui::PushItemWidth(100);
 	ImGui::SliderFloat("Thickness##Vertical", &_state.score.vLinesWidth, 0.0f, 15.0f, "%.0fpx");
 	ImGui::helpTooltip(s_score_lines_vertical_width_dsc);
 	ImGui::PopItemWidth();
 
 	ImGui::Checkbox("Digits", &_state.score.digits);
 	ImGui::helpTooltip(s_show_numbers_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
-	ImGuiPushItemWidth(100);
+	ImGui::SameLine(COLUMN_SIZE);
+	ImGui::PushItemWidth(100);
 	ImGui::SliderPercent("Scale##Digits", &_state.score.digitsScale, 0.0f, 0.5f);
 	ImGui::helpTooltip(s_score_digits_size_dsc);
 	ImGui::PopItemWidth();
 
-	ImGuiPushItemWidth(100);
+	ImGui::PushItemWidth(100);
 	ImGui::SliderPercent("Offset X##Digits", &_state.score.digitsOffset[0], -1.f, 1.0f);
 	ImGui::helpTooltip(s_score_digits_offset_x_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	ImGui::SliderPercent("Offset Y##Digits", &_state.score.digitsOffset[1], -1.f, 1.0f);
 	ImGui::helpTooltip(s_score_digits_offset_y_dsc);
 	ImGui::PopItemWidth();
@@ -2047,7 +1968,7 @@ void Viewer::showScoreOptions(){
 }
 
 void Viewer::showBackgroundOptions(){
-	ImGuiPushItemWidth(25);
+	ImGui::PushItemWidth(25);
 	const glm::vec3 oldColor(_state.background.color);
 	ImGui::ColorEdit3("Color##Background", &_state.background.color[0],
 		ImGuiColorEditFlags_NoInputs);
@@ -2056,9 +1977,9 @@ void Viewer::showBackgroundOptions(){
 		applyBackgroundColor();
 	}
 	ImGui::PopItemWidth();
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 
-	ImGuiPushItemWidth(100);
+	ImGui::PushItemWidth(100);
 	if (ImGui::SliderPercent("Opacity##Background", &_state.background.imageAlpha, 0.0f, 1.0f)) {
 		_state.background.imageAlpha = glm::clamp(_state.background.imageAlpha, 0.0f, 1.0f);
 	}
@@ -2106,7 +2027,7 @@ void Viewer::showBackgroundOptions(){
 		}
 	}
 	ImGui::helpTooltip("Define an image for the background");
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 
 	if (ImGui::Button("Clear image##Background")) {
 		_state.background.image = false;
@@ -2115,10 +2036,10 @@ void Viewer::showBackgroundOptions(){
 	}
 	ImGui::helpTooltip("Remove the background image");
 
-	ImGuiPushItemWidth(100);
+	ImGui::PushItemWidth(100);
 	ImGui::SliderFloat("Scroll X##Background", &_state.background.scrollSpeed[0], -0.25f, 0.25f);
 	ImGui::helpTooltip(s_bg_img_scroll_x_dsc);
-	ImGuiSameLine(COLUMN_SIZE);
+	ImGui::SameLine(COLUMN_SIZE);
 	ImGui::SliderFloat("Scroll Y##Background", &_state.background.scrollSpeed[1], -0.25f, 0.25f);
 	ImGui::helpTooltip(s_bg_img_scroll_y_dsc);
 	ImGui::PopItemWidth();
@@ -2201,7 +2122,7 @@ void Viewer::showBottomButtons()
 		ImGui::EndCombo();
 	}
 
-	ImGuiSameLine();
+	ImGui::SameLine();
 
 	// Save preset.
 	if (ImGui::Button("Save Preset..."))
@@ -2282,7 +2203,7 @@ void Viewer::showBottomButtons()
 		ImGui::EndPopup();
 	}
 
-	ImGuiSameLine();
+	ImGui::SameLine();
 
 	// Rename preset.
 	ImGui::BeginDisabled(currentPreset.empty());
@@ -2398,7 +2319,7 @@ void Viewer::showBottomButtons()
 		ImGui::EndPopup();
 	}
 
-	ImGuiSameLine();
+	ImGui::SameLine();
 
 	if (ImGui::Button("Reset##config"))
 	{
@@ -2431,7 +2352,7 @@ void Viewer::showLayers() {
 			ImGui::PushID(layerId);
 
 			ImGui::Checkbox("##LayerCheckbox", layer.toggle);
-			ImGuiSameLine();
+			ImGui::SameLine();
 			ImGui::Selectable(layer.name.c_str());
 
 			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
@@ -2466,11 +2387,11 @@ void Viewer::showDevices(){
 	if(ImGui::BeginPopupModal("Devices", nullptr, ImGuiWindowFlags_AlwaysAutoResize)){
 
 		bool starting = false;
-		const ImVec2 buttonSize(_guiScale * (EXPORT_COLUMN_SIZE-20.0f), 0.0f);
+		const ImVec2 buttonSize(EXPORT_COLUMN_SIZE-20.0f, 0.0f);
 
 		ImGui::Text("Select a device to listen to or");
 
-		/*ImGuiSameLine();
+		/*ImGui::SameLine();
 
 		if(ImGui::SmallButton("start virtual device")){
 			_scene = std::make_shared<MIDISceneLive>(-1, _verbose);
@@ -2495,7 +2416,7 @@ void Viewer::showDevices(){
 		}
 
 		if(!devices.empty()){
-			ImGuiSameLine(EXPORT_COLUMN_SIZE);
+			ImGui::SameLine(EXPORT_COLUMN_SIZE);
 			if(ImGui::Button("Start", buttonSize)){
 				//_scene.reset();
 
@@ -2530,7 +2451,7 @@ void Viewer::showVisibility(){
 
 		ImGui::Text("Tracks");
 		ImGui::Separator();
-		ImGuiPushItemWidth(35);
+		ImGui::PushItemWidth(35);
 		const size_t trackCount = _state.filter.tracks.size();
 		const std::string tenPrefix = trackCount < 10 ? "" : "0";
 		for(size_t cid = 0; cid < trackCount; ++cid){
@@ -2541,7 +2462,7 @@ void Viewer::showVisibility(){
 				_state.filter.tracks[cid] = val;
 			}
 			if((cid % 4 != 3) && (cid != (trackCount-1))){
-				ImGuiSameLine();
+				ImGui::SameLine();
 			}
 		}
 		ImGui::PopItemWidth();
@@ -2549,12 +2470,12 @@ void Viewer::showVisibility(){
 		// Do 4x4 columns of checkboxes
 		ImGui::Text("Channels");
 		ImGui::Separator();
-		ImGuiPushItemWidth(35);
+		ImGui::PushItemWidth(35);
 		for(size_t cid = 0; cid < _state.filter.channels.size(); ++cid){
 			const std::string nameC = std::string(cid < 10 ? "0" : "") + std::to_string(cid);
 			shouldUpdate = ImGui::Checkbox(nameC.c_str(), &_state.filter.channels[cid]) || shouldUpdate;
 			if(cid % 4 != 3){
-				ImGuiSameLine();
+				ImGui::SameLine();
 			}
 		}
 		ImGui::PopItemWidth();
@@ -2578,27 +2499,27 @@ void Viewer::showSets(){
 		bool shouldUpdate = false;
 		shouldUpdate = radioButtonSetMode("Channel", _state.setOptions.mode, SetMode::CHANNEL) || shouldUpdate;
 		ImGui::helpTooltip("Assign each channel to a color set");
-		ImGuiSameLine(90);
+		ImGui::SameLine(90);
 		shouldUpdate = radioButtonSetMode("Track", _state.setOptions.mode, SetMode::TRACK) || shouldUpdate;
 		ImGui::helpTooltip("Assign each track to a color set");
-		ImGuiSameLine(2*90);
+		ImGui::SameLine(2*90);
 		shouldUpdate = radioButtonSetMode("Key", _state.setOptions.mode, SetMode::KEY) || shouldUpdate;
 		ImGui::helpTooltip("Assign each of the eight keys to a color set");
-		ImGuiSameLine(3*90);
+		ImGui::SameLine(3*90);
 		shouldUpdate = radioButtonSetMode("Chromatic", _state.setOptions.mode, SetMode::CHROMATIC) || shouldUpdate;
 		ImGui::helpTooltip("Assign each of the twelve keys to a color set");
 
 		shouldUpdate = radioButtonSetMode("Split", _state.setOptions.mode, SetMode::SPLIT) || shouldUpdate;
 		ImGui::helpTooltip("Assign keys to a color set based on a separating key");
-		ImGuiSameLine();
-		ImGuiPushItemWidth(100);
+		ImGui::SameLine();
+		ImGui::PushItemWidth(100);
 		shouldUpdate = ImGui::Combo("##key", &_state.setOptions.key, midiKeysStrings, 128) || shouldUpdate;
 		ImGui::PopItemWidth();
 
-		ImGuiSameLine(2*90);
+		ImGui::SameLine(2*90);
 		shouldUpdate = radioButtonSetMode("List", _state.setOptions.mode, SetMode::LIST) || shouldUpdate;
 		ImGui::helpTooltip("Assign keys to sets based on a list of keys, sets and timings");
-		ImGuiSameLine();
+		ImGui::SameLine();
 		if(ImGui::Button("Configure...")){
 			_showSetListEditor = true;
 			_backupState = _state;
@@ -2705,7 +2626,7 @@ void Viewer::showSetEditor(){
 			}
 		}
 
-		ImGuiSameLine();
+		ImGui::SameLine();
 
 		if (ImGui::Button("Load control points..."))
 		{
@@ -2776,7 +2697,7 @@ void Viewer::showSetEditor(){
 
 			refreshSetOptions = true;
 		}
-		ImGuiSameLine();
+		ImGui::SameLine();
 		// Just restore the last backup.
 		if(ImGui::Button("Reset")){
 			_state = _backupState;
@@ -2794,9 +2715,9 @@ void Viewer::showSetEditor(){
 
 			// Header
 			ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
-			ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, _guiScale * colWidth);
-			ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_WidthFixed, _guiScale * colWidth);
-			ImGui::TableSetupColumn("Set", ImGuiTableColumnFlags_WidthFixed, _guiScale * colWidth);
+			ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, colWidth);
+			ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_WidthFixed, colWidth);
+			ImGui::TableSetupColumn("Set", ImGuiTableColumnFlags_WidthFixed, colWidth);
 			ImGui::TableSetupColumn("Remove", ImGuiTableColumnFlags_NoHeaderLabel | ImGuiTableColumnFlags_WidthFixed, colButtonWidth);
 			ImGui::TableHeadersRow();
 
@@ -2809,7 +2730,7 @@ void Viewer::showSetEditor(){
 				ImGui::TableNextColumn();
 				ImGui::PushID((unsigned int)row);
 
-				ImGuiPushItemWidth(colWidth);
+				ImGui::PushItemWidth(colWidth);
 				if(ImGui::InputDouble("##Time", &key.time, 0, 0, "%.3fs")){
 					key.time = (std::max)(key.time, 0.0);
 				}
@@ -2820,14 +2741,14 @@ void Viewer::showSetEditor(){
 				ImGui::PopItemWidth();
 
 				ImGui::TableNextColumn();
-				ImGuiPushItemWidth(colWidth);
+				ImGui::PushItemWidth(colWidth);
 				if(ImGui::Combo("##Key", &key.key, midiKeysStrings, 128)){
 					refreshSetOptions = true;
 				}
 				ImGui::PopItemWidth();
 
 				ImGui::TableNextColumn();
-				ImGuiPushItemWidth(colWidth);
+				ImGui::PushItemWidth(colWidth);
 				// It is simpler to use a combo here (no weird focus issues when sorting rows).
 				if(ImGui::Combo("##Set", &key.set, kSetsComboString)){
 					refreshSetOptions = true;
@@ -2853,22 +2774,22 @@ void Viewer::showSetEditor(){
 
 		// Section to add a new key.
 		// Mimic the inputs and size/alignment of the table items.
-		ImGuiPushItemWidth(colWidth);
+		ImGui::PushItemWidth(colWidth);
 		if(ImGui::InputDouble("##Time", &newKey.time, 0, 0, "%.3fs")){
 			newKey.time = (std::max)(0.0, newKey.time);
 		}
 		ImGui::PopItemWidth();
-		ImGuiSameLine(int(colWidth + 2 * offset));
-		ImGuiPushItemWidth(colWidth);
+		ImGui::SameLine(int(colWidth + 2 * offset));
+		ImGui::PushItemWidth(colWidth);
 		ImGui::Combo("##Key", &newKey.key, midiKeysStrings, 128);
 		ImGui::PopItemWidth();
 
-		ImGuiSameLine(int(2 * colWidth + 3 * offset));
-		ImGuiPushItemWidth(colWidth);
+		ImGui::SameLine(int(2 * colWidth + 3 * offset));
+		ImGui::PushItemWidth(colWidth);
 		ImGui::Combo("##Set", &newKey.set, kSetsComboString);
 		ImGui::PopItemWidth();
 
-		ImGuiSameLine(int(3 * colWidth + 4 * offset));
+		ImGui::SameLine(int(3 * colWidth + 4 * offset));
 		if(ImGui::Button("Add")){
 			auto insert = std::upper_bound(_state.setOptions.keys.begin(), _state.setOptions.keys.end(), newKey);
 			_state.setOptions.keys.insert(insert, newKey);
@@ -2909,7 +2830,7 @@ void Viewer::showSetEditor(){
 			}
 			ImGui::Separator();
 			ImGui::Text("Debug: ");
-			ImGuiSameLine();
+			ImGui::SameLine();
 			ImGui::TextDisabled("(press D to hide)");
 			ImGui::Text("At time %.3fs: ", time);
 
@@ -2936,7 +2857,7 @@ void Viewer::showParticlesEditor(){
 	const unsigned int colButtonWidth = 20;
 	const float offset = 8;
 	const unsigned int thumbSize = 24;
-	const float thumbDisplaySize = _guiScale * thumbSize;
+	const float thumbDisplaySize = thumbSize;
 
 	// For previewing.
 	static std::vector<ComPtr<ID3D11ShaderResourceView>> previewTextures;
@@ -2964,7 +2885,7 @@ void Viewer::showParticlesEditor(){
 			refreshTextures = true;
 		}
 		ImGui::helpTooltip("Remove all particle images");
-		ImGuiSameLine();
+		ImGui::SameLine();
 		// Just restore the last backup.
 		if(ImGui::Button("Reset")){
 			_state = _backupState;
@@ -2985,7 +2906,7 @@ void Viewer::showParticlesEditor(){
 			ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
 			ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHeaderLabel, 1.5f * thumbDisplaySize);
 			ImGui::TableSetupColumn("File", ImGuiTableColumnFlags_WidthStretch);
-			ImGui::TableSetupColumn("Remove", ImGuiTableColumnFlags_NoHeaderLabel | ImGuiTableColumnFlags_WidthFixed, _guiScale * colButtonWidth);
+			ImGui::TableSetupColumn("Remove", ImGuiTableColumnFlags_NoHeaderLabel | ImGuiTableColumnFlags_WidthFixed, colButtonWidth);
 			ImGui::TableHeadersRow();
 
 			int removeIndex = -1;
@@ -3020,7 +2941,7 @@ void Viewer::showParticlesEditor(){
 				}
 				ImGui::TableNextColumn();
 				ImGui::AlignTextToFramePadding();
-				ImGuiPushItemWidth(colWidth);
+				ImGui::PushItemWidth(colWidth);
 				// Display the filename.
 				std::string::size_type pos = path.find_last_of("/\\");
 				pos = (pos == std::string::npos) ? 0 : (pos + 1);
@@ -3258,7 +3179,7 @@ bool Viewer::drawPedalImageSettings(
 			ImVec2(0.3f * size.x, 5.0f)
 		);
 
-		ImGuiSameLine(0);
+		ImGui::SameLine(0);
 	}
 
 	ImGui::PushStyleVar(
@@ -3486,8 +3407,8 @@ void Viewer::showPedalsEditor(){
 	// Initial window position.
 	const ImVec2 & screenSize = ImGui::GetIO().DisplaySize;
 	ImGui::SetNextWindowPos(ImVec2(screenSize.x * 0.5f, screenSize.y * 0.1f), ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.0f));
-	const float fixedWidth = _guiScale * 300.0f;
-	const float fixedHeight = _guiScale * 440.0f;
+	const float fixedWidth = 300.0f;
+	const float fixedHeight = 440.0f;
 	ImGui::SetNextWindowSize({fixedWidth, fixedHeight}, ImGuiCond_Always);
 
 	if(ImGui::Begin("Pedal Images Editor", &_showPedalsEditor, ImGuiWindowFlags_NoResize)){
@@ -3504,7 +3425,7 @@ void Viewer::showPedalsEditor(){
 				refreshTextures = true;
 			}
 			ImGui::helpTooltip("Remove all images");
-			ImGuiSameLine();
+			ImGui::SameLine();
 			// Just restore the last backup.
 			if(ImGui::Button("Reset")){
 				_state = _backupState;
@@ -3533,12 +3454,12 @@ void Viewer::showPedalsEditor(){
 		ImGui::PushID("Left");
 		refreshTextures |= drawPedalImageSettings(_state.pedals.texSides[0], sideSize, true, false, _state.pedals.sideImagePaths, 0, _state.pedals.leftColor);
 		ImGui::PopID();
-		ImGuiSameLine(0);
+		ImGui::SameLine(0);
 
 		ImGui::PushID("Center");
 		refreshTextures |= drawPedalImageSettings(_state.pedals.texCenter, centerSize, true, false, _state.pedals.centerImagePath, 0, _state.pedals.centerColor);
 		ImGui::PopID();
-		ImGuiSameLine(0);
+		ImGui::SameLine(0);
 
 		ImGui::PushID("Right");
 		refreshTextures |= drawPedalImageSettings(_state.pedals.texSides[1], sideSize, true, _state.pedals.mirror, _state.pedals.sideImagePaths, 1, _state.pedals.rightColor);
@@ -3547,18 +3468,18 @@ void Viewer::showPedalsEditor(){
 		ImGui::Separator();
 
 		{
-			ImGuiPushItemWidth(100);
+			ImGui::PushItemWidth(100);
 			if(ImGui::SliderFloat("##OffsetX", &_state.pedals.margin[0], -0.5f, 0.5f, "Horiz.: %.2f")){
 				_state.pedals.margin[0] = glm::clamp(_state.pedals.margin[0], -0.5f, 0.5f);
 			}
 			ImGui::helpTooltip(s_pedal_img_offset_x_dsc);
-			ImGuiSameLine();
+			ImGui::SameLine();
 			if(ImGui::SliderFloat("##OffsetY", &_state.pedals.margin[1], -0.5f, 0.5f, "Vert.: %.2f")){
 				_state.pedals.margin[1] = glm::clamp(_state.pedals.margin[1], -0.5f, 0.5f);
 			}
 			ImGui::helpTooltip(s_pedal_img_offset_y_dsc);
 			ImGui::PopItemWidth();
-			ImGuiSameLine();
+			ImGui::SameLine();
 			ImGui::AlignTextToFramePadding();
 			ImGui::Text("Offsets");
 
@@ -3773,11 +3694,6 @@ void Viewer::keyPressed(int key, int action)
 
 		break;
 	}
-
-	case 'I':
-		_showGUI = !_showGUI;
-		break;
-
 	case 'D':
 		_showDebug = !_showDebug;
 		break;
@@ -3990,21 +3906,10 @@ bool Viewer::stopRecording()
 	return true;
 }
 
-void  Viewer::setGUIScale(float scale){
-	_guiScale = (std::max)(0.25f, scale);
-	ImGui::GetStyle() = ImGuiStyle();
-	ImGui::configureStyle();
-	ImGui::GetIO().FontGlobalScale = _guiScale;
-	ImGui::GetStyle().ScaleAllSizes(_guiScale);
-	ImGui::GetStyle().FrameRounding = 3 * _guiScale;
-}
-
-
 void Viewer::updateConfiguration(Configuration& config){
 	// Reset
 	config.lastMidiPath = "";
 	config.lastMidiDevice = "";
-	config.guiScale = _guiScale;
 	// Settings file.
 	config.lastConfigPath = _state.filePath();
 	// MIDI File.
@@ -4032,7 +3937,7 @@ bool Viewer::radioButtonSetMode(const char* name, SetMode& mode, SetMode value){
 bool Viewer::channelColorEdit(const char * name, const char * displayName, ColorArray & colors){
 	if(!_state.perSetColors){
 		// If locked, display color sink.
-		ImGuiPushItemWidth(25);
+		ImGui::PushItemWidth(25);
 		const bool inter = ImGui::ColorEdit3(name, &colors[0][0], ImGuiColorEditFlags_NoInputs);
 		ImGui::PopItemWidth();
 
@@ -4053,17 +3958,17 @@ bool Viewer::channelColorEdit(const char * name, const char * displayName, Color
 	if(ImGui::ArrowButton(name, ImGuiDir_Down)){
 		ImGui::OpenPopup(name);
 	}
-	ImGuiSameLine(); ImGui::Text("%s", displayName);
+	ImGui::SameLine(); ImGui::Text("%s", displayName);
 
 	if(ImGui::BeginPopup(name)){
 		// Do 3 columns of color sinks.
 		bool edit = false;
-		ImGuiPushItemWidth(35);
+		ImGui::PushItemWidth(35);
 		for(size_t cid = 0; cid < colors.size(); ++cid){
 			const std::string nameC = "Set " + std::to_string(cid);
 			edit = ImGui::ColorEdit3(nameC.c_str(), &colors[cid][0], ImGuiColorEditFlags_NoInputs) || edit;
 			if(cid % 3 != 2 && cid != colors.size()-1){
-				ImGuiSameLine(75 * (cid%3+1));
+				ImGui::SameLine(75 * (cid%3+1));
 			}
 		}
 		ImGui::PopItemWidth();
@@ -4097,15 +4002,6 @@ void Viewer::updateMinMaxKeys(){
 	const int noteCount = (maxKeyMaj - minKeyMaj + 1);
 
 	_renderer.setMinMaxKeys(realMinKey, minKeyMaj, noteCount);
-}
-
-
-void Viewer::ImGuiPushItemWidth(int w){
-	ImGui::PushItemWidth(_guiScale * w);
-}
-
-void Viewer::ImGuiSameLine(int w){
-	ImGui::SameLine(_guiScale * w);
 }
 
 bool Viewer::createRecordingDirectory()
@@ -4295,6 +4191,13 @@ void Viewer::stopPlayback()
 
 void Viewer::drawPlaybackSettings()
 {
+	ImVec2 mousePos = ImGui::GetMousePos();
+
+	ImGui::SetNextWindowPos(
+		mousePos,
+		ImGuiCond_Appearing
+	);
+
 	if (!ImGui::Begin(
 		"Playback Settings",
 		&_playbackWindowOpen,
@@ -5034,11 +4937,6 @@ void Viewer::drawPlaybackSettings()
 	}
 
 	ImGui::End();
-}
-
-SystemAction::SystemAction(SystemAction::Type act) {
-	type = act;
-	data = glm::ivec4(0);
 }
 
 void Viewer::handleMIDIDeviceEvent()

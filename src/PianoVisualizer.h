@@ -64,6 +64,52 @@ public:
         PianoRoll
     };
 
+    struct PianoConfiguration
+    {
+        std::vector<ImVec2> polygonPoints;
+
+        PianoScene pianoScene;
+
+        float horizontalFovDegrees;
+        float planeWidth;
+        float planeHeight;
+        float planePivot;
+
+        float surfaceXOffset;
+        float surfaceYOffset;
+        float surfaceZOffset;
+
+        float pianoRollVisualizerHeight;
+        float pianoRollCameraSourceScale;
+
+        bool operator==(const PianoConfiguration& other) const
+        {
+            return
+                pianoScene == other.pianoScene &&
+                horizontalFovDegrees == other.horizontalFovDegrees &&
+                planeWidth == other.planeWidth &&
+                planeHeight == other.planeHeight &&
+                planePivot == other.planePivot &&
+                surfaceXOffset == other.surfaceXOffset &&
+                surfaceYOffset == other.surfaceYOffset &&
+                surfaceZOffset == other.surfaceZOffset &&
+                pianoRollVisualizerHeight == other.pianoRollVisualizerHeight &&
+                pianoRollCameraSourceScale == other.pianoRollCameraSourceScale &&
+                polygonPoints.size() == other.polygonPoints.size() &&
+                std::equal(
+                    polygonPoints.begin(),
+                    polygonPoints.end(),
+                    other.polygonPoints.begin(),
+                    [](const ImVec2& a, const ImVec2& b)
+                    {
+                        return
+                            a.x == b.x &&
+                            a.y == b.y;
+                    }
+                );
+        }
+    };
+
     PianoVisualizer();
     ~PianoVisualizer();
 
@@ -197,21 +243,31 @@ private:
 
     void RenderCameraOutput();
 
-    void RenderVisualizer();
-
     void RenderPianoRoll();
 
     void RenderPianoRollVisualizer();
 
-    void RenderSettings();
-
     void RenderVSTDropTarget();
 
+    void RenderVisualizer();
+
+    // GUI
+
+    void RenderDisplayTab();
+
+    void RenderVisualizerTab();
+
+    void RenderCameraTab();
+
+    void RenderAudioTab();
+
+    void RenderPluginsTab();
+
+    void RenderConfigurationTab();
+
+    // STATS
+
     void RenderStatistics();
-
-    void RenderCameraSettingsPanel();
-
-    void RenderAudioPanel();
 
     // =========================================================
     // Camera / Piano
@@ -300,6 +356,28 @@ private:
     // Configuration
     // =========================================================
 
+    PianoConfiguration GetCurrentConfiguration() const
+    {
+        return {
+            m_polygonPoints,
+            m_pianoScene,
+            m_horizontalFovDegrees,
+            m_planeWidth,
+            m_planeHeight,
+            m_planePivot,
+            m_surfaceXOffset,
+            m_surfaceYOffset,
+            m_surfaceZOffset,
+            m_pianoRollVisualizerHeight,
+            m_pianoRollCameraSourceScale
+        };
+    }
+
+    bool HasUnsavedChanges() const
+    {
+        return GetCurrentConfiguration() != m_savedConfiguration;
+    }
+
     void LoadPianoConfiguration();
 
     void SavePianoConfiguration();
@@ -354,10 +432,6 @@ private:
     bool m_showCameraError = false;
 
     std::string m_cameraErrorMessage;
-
-    bool m_showCameraSettings = false;
-
-    bool m_showAudioSettings = false;
 
     int m_cameraSelectedIndex = -1;
 
@@ -443,7 +517,7 @@ private:
 
     float m_planeWidth = 16.0f / 9.0f;
 
-    float m_planeDepth = 1.0f;
+    float m_planeHeight = 1.0f;
 
     float m_planePivot = 90.0f;
 
@@ -454,6 +528,8 @@ private:
     float m_surfaceYOffset = 0.0f;
 
     float m_surfaceZOffset = 0.0f;
+
+    PianoConfiguration m_savedConfiguration;
 
     // =========================================================
     // State

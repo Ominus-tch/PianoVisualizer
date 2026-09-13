@@ -3099,11 +3099,6 @@ bool Camera::EnumerateCameras()
         return false;
     }
 
-    Logger::Log(
-        "[Camera] Found %u camera(s).\n",
-        count
-    );
-
     for (UINT32 i = 0; i < count; ++i)
     {
         WCHAR* friendlyName = nullptr;
@@ -3169,12 +3164,6 @@ bool Camera::EnumerateCameras()
 
         m_availableCameras.push_back(
             device
-        );
-
-        Logger::Log(
-            "[Camera] Camera %d: %s\n",
-            device.index,
-            device.name.c_str()
         );
     }
 

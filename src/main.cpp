@@ -500,13 +500,6 @@ INT APIENTRY WinMain(
     ImGuiIO& io =
         ImGui::GetIO();
 
-    io.ConfigFlags |=
-        ImGuiConfigFlags_DockingEnable;
-
-    io.IniFilename =
-        nullptr;
-
-
     ImFontConfig font;
 
     ImGui::configureFont(

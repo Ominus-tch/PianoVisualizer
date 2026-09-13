@@ -26,17 +26,6 @@ using Microsoft::WRL::ComPtr;
 
 #define DEBUG_SPEED (1.0f)
 
-struct SystemAction {
-	enum Type {
-		NONE, FIX_SIZE, FREE_SIZE, FULLSCREEN, QUIT, RESIZE
-	};
-
-	Type type;
-	glm::ivec4 data;
-
-	SystemAction(Type action);
-};
-
 struct D3D11Interface {
 	ID3D11Device* device = nullptr;
 	ID3D11DeviceContext* context = nullptr;
@@ -113,7 +102,9 @@ public:
 	}
 	
 	/// Draw function
-	SystemAction draw(const float currentTime, bool transparentBG = true);
+	void draw(const float currentTime, bool transparentBG = true);
+	void drawGUI(const float currentTime);
+
 	ID3D11ShaderResourceView* getTexture() { return _texture.Get(); }
 
 	std::shared_ptr<MIDIScene> scene() const
@@ -134,9 +125,6 @@ public:
 
 	/// Handle keyboard inputs
 	void keyPressed(int key, int action);
-
-	void setGUIScale(float scale);
-	void setShowGUI(bool state) { _showGUI = state; }
 
 	void updateConfiguration(Configuration& config);
 
@@ -224,11 +212,7 @@ private:
 
 	void drawBackground(const glm::vec2& invSize);
 
-	SystemAction drawGUI(const float currentTime);
-
 	void drawScene(bool transparentBG = true);
-
-	SystemAction showTopButtons(double currentTime);
 
 	void showNoteOptions();
 
@@ -284,10 +268,6 @@ private:
 
 	void synchronizeColors(const ColorArray & colors);
 
-	void ImGuiPushItemWidth(int w);
-
-	void ImGuiSameLine(int w = 0);
-
 	bool createRecordingDirectory();
 
 	void refreshRecordings();
@@ -308,7 +288,6 @@ private:
 	float _timer = 0.0f;
 	float _timerStart = 0.0f;
 	bool _shouldPlay = false;
-	bool _showGUI = true;
 	bool _showDebug = false;
 	bool _verbose = false;
 
@@ -333,7 +312,6 @@ private:
 
 	glm::ivec2 _windowSize;
 	glm::ivec2 _backbufferSize;
-	float _guiScale = 1.0f;
 	unsigned int _shouldQuit = 0;
 	int _selectedPort = 0;
 	bool _showLayers = false;
