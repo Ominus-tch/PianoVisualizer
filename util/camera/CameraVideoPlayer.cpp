@@ -840,7 +840,6 @@ void CameraVideoPlayer::Close()
     m_filePath.clear();
 }
 
-
 void CameraVideoPlayer::DecodeThread(
     std::string filePath
 )
@@ -850,18 +849,15 @@ void CameraVideoPlayer::DecodeThread(
         std::memory_order_release
     );
 
-
     HRESULT comResult =
         CoInitializeEx(
             nullptr,
             COINIT_MULTITHREADED
         );
 
-
     const bool
         comInitialized =
         SUCCEEDED(comResult);
-
 
     if (
         FAILED(comResult) &&
@@ -886,30 +882,26 @@ void CameraVideoPlayer::DecodeThread(
         return;
     }
 
-
     const std::filesystem::path path =
         filePath;
 
     const std::wstring widePath =
         path.wstring();
 
-
     /*
-        * ---------------------------------------------------------
-        * Source reader attributes
-        * ---------------------------------------------------------
-        */
+     * ---------------------------------------------------------
+     * Source reader attributes
+     * ---------------------------------------------------------
+     */
 
     ComPtr<IMFAttributes>
         attributes;
-
 
     HRESULT hr =
         MFCreateAttributes(
             &attributes,
             2
         );
-
 
     if (FAILED(hr))
     {
@@ -934,17 +926,15 @@ void CameraVideoPlayer::DecodeThread(
         return;
     }
 
-
     /*
-        * Prefer the native decoded NV12 format. This avoids asking
-        * Media Foundation to convert every frame to RGB32.
-        */
+     * Prefer the native decoded NV12 format. This avoids asking
+     * Media Foundation to convert every frame to RGB32.
+     */
     hr =
         attributes->SetUINT32(
             MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING,
             FALSE
         );
-
 
     if (FAILED(hr))
     {
@@ -969,16 +959,14 @@ void CameraVideoPlayer::DecodeThread(
         return;
     }
 
-
     /*
-        * ---------------------------------------------------------
-        * Open MP4
-        * ---------------------------------------------------------
-        */
+     * ---------------------------------------------------------
+     * Open MP4
+     * ---------------------------------------------------------
+     */
 
     ComPtr<IMFSourceReader>
         reader;
-
 
     hr =
         MFCreateSourceReaderFromURL(
@@ -986,7 +974,6 @@ void CameraVideoPlayer::DecodeThread(
             attributes.Get(),
             &reader
         );
-
 
     if (FAILED(hr))
     {
@@ -1011,27 +998,23 @@ void CameraVideoPlayer::DecodeThread(
         return;
     }
 
-
     /*
-        * ---------------------------------------------------------
-        * Prefer NV12 output
-        * ---------------------------------------------------------
-        */
+     * ---------------------------------------------------------
+     * Prefer NV12 output
+     * ---------------------------------------------------------
+     */
 
     PixelFormat
         pixelFormat =
         PixelFormat::NV12;
 
-
     ComPtr<IMFMediaType>
         outputType;
-
 
     hr =
         MFCreateMediaType(
             &outputType
         );
-
 
     if (FAILED(hr))
     {
@@ -1056,13 +1039,11 @@ void CameraVideoPlayer::DecodeThread(
         return;
     }
 
-
     hr =
         outputType->SetGUID(
             MF_MT_MAJOR_TYPE,
             MFMediaType_Video
         );
-
 
     if (FAILED(hr))
     {
@@ -1082,13 +1063,11 @@ void CameraVideoPlayer::DecodeThread(
         return;
     }
 
-
     hr =
         outputType->SetGUID(
             MF_MT_SUBTYPE,
             MFVideoFormat_NV12
         );
-
 
     if (SUCCEEDED(hr))
     {
@@ -1100,11 +1079,10 @@ void CameraVideoPlayer::DecodeThread(
             );
     }
 
-
     /*
-        * Some sources may not expose NV12 through the decoder.
-        * Fall back to RGB32 with Media Foundation video processing.
-        */
+     * Some sources may not expose NV12 through the decoder.
+     * Fall back to RGB32 with Media Foundation video processing.
+     */
     if (FAILED(hr))
     {
         Logger::Log(
@@ -1112,17 +1090,14 @@ void CameraVideoPlayer::DecodeThread(
             static_cast<unsigned>(hr)
         );
 
-
         ComPtr<IMFAttributes>
             fallbackAttributes;
-
 
         hr =
             MFCreateAttributes(
                 &fallbackAttributes,
                 2
             );
-
 
         if (SUCCEEDED(hr))
         {
@@ -1133,10 +1108,8 @@ void CameraVideoPlayer::DecodeThread(
                 );
         }
 
-
         ComPtr<IMFSourceReader>
             fallbackReader;
-
 
         if (SUCCEEDED(hr))
         {
@@ -1147,7 +1120,6 @@ void CameraVideoPlayer::DecodeThread(
                     &fallbackReader
                 );
         }
-
 
         if (FAILED(hr))
         {
@@ -1172,16 +1144,13 @@ void CameraVideoPlayer::DecodeThread(
             return;
         }
 
-
         ComPtr<IMFMediaType>
             fallbackType;
-
 
         hr =
             MFCreateMediaType(
                 &fallbackType
             );
-
 
         if (SUCCEEDED(hr))
         {
@@ -1192,7 +1161,6 @@ void CameraVideoPlayer::DecodeThread(
                 );
         }
 
-
         if (SUCCEEDED(hr))
         {
             hr =
@@ -1201,7 +1169,6 @@ void CameraVideoPlayer::DecodeThread(
                     MFVideoFormat_RGB32
                 );
         }
-
 
         if (SUCCEEDED(hr))
         {
@@ -1212,7 +1179,6 @@ void CameraVideoPlayer::DecodeThread(
                     fallbackType.Get()
                 );
         }
-
 
         if (FAILED(hr))
         {
@@ -1237,7 +1203,6 @@ void CameraVideoPlayer::DecodeThread(
             return;
         }
 
-
         reader =
             std::move(
                 fallbackReader
@@ -1247,23 +1212,20 @@ void CameraVideoPlayer::DecodeThread(
             PixelFormat::RGB32;
     }
 
-
     /*
-        * ---------------------------------------------------------
-        * Read actual output media type
-        * ---------------------------------------------------------
-        */
+     * ---------------------------------------------------------
+     * Read actual output media type
+     * ---------------------------------------------------------
+     */
 
     ComPtr<IMFMediaType>
         currentType;
-
 
     hr =
         reader->GetCurrentMediaType(
             MF_SOURCE_READER_FIRST_VIDEO_STREAM,
             &currentType
         );
-
 
     if (FAILED(hr))
     {
@@ -1288,16 +1250,13 @@ void CameraVideoPlayer::DecodeThread(
         return;
     }
 
-
     GUID currentSubtype{};
-
 
     hr =
         currentType->GetGUID(
             MF_MT_SUBTYPE,
             &currentSubtype
         );
-
 
     if (SUCCEEDED(hr))
     {
@@ -1344,10 +1303,8 @@ void CameraVideoPlayer::DecodeThread(
         }
     }
 
-
     UINT32 width = 0;
     UINT32 height = 0;
-
 
     hr =
         MFGetAttributeSize(
@@ -1356,7 +1313,6 @@ void CameraVideoPlayer::DecodeThread(
             &width,
             &height
         );
-
 
     if (
         FAILED(hr) ||
@@ -1384,15 +1340,12 @@ void CameraVideoPlayer::DecodeThread(
         return;
     }
 
-
     LONG sourceStride =
         pixelFormat == PixelFormat::NV12
         ? static_cast<LONG>(width)
         : static_cast<LONG>(width * 4);
 
-
     UINT32 strideUnsigned = 0;
-
 
     if (
         SUCCEEDED(
@@ -1409,10 +1362,8 @@ void CameraVideoPlayer::DecodeThread(
                 );
     }
 
-
     UINT32 fpsNumerator = 0;
     UINT32 fpsDenominator = 1;
-
 
     if (
         FAILED(
@@ -1432,7 +1383,6 @@ void CameraVideoPlayer::DecodeThread(
             1;
     }
 
-
     m_width.store(
         static_cast<int>(width),
         std::memory_order_release
@@ -1442,7 +1392,6 @@ void CameraVideoPlayer::DecodeThread(
         static_cast<int>(height),
         std::memory_order_release
     );
-
 
     m_fpsNumerator.store(
         fpsNumerator,
@@ -1454,7 +1403,6 @@ void CameraVideoPlayer::DecodeThread(
         std::memory_order_release
     );
 
-
     const double videoFps =
         fpsDenominator != 0
         ? static_cast<double>(
@@ -1465,13 +1413,11 @@ void CameraVideoPlayer::DecodeThread(
             )
         : 0.0;
 
-
     const char*
         pixelFormatName =
         pixelFormat == PixelFormat::NV12
         ? "NV12"
         : "RGB32";
-
 
     Logger::Log(
         "[CameraVideoPlayer] Decoder ready: %ux%u, stride=%ld, FPS=%.3f, format=%s\n",
@@ -1482,18 +1428,16 @@ void CameraVideoPlayer::DecodeThread(
         pixelFormatName
     );
 
-
     const size_t outputSize =
         static_cast<size_t>(width) *
         static_cast<size_t>(height) *
         4;
 
-
     /*
-        * ---------------------------------------------------------
-        * Decode loop
-        * ---------------------------------------------------------
-        */
+     * ---------------------------------------------------------
+     * Decode loop
+     * ---------------------------------------------------------
+     */
 
     while (
         !m_stopRequested.load(
@@ -1502,16 +1446,14 @@ void CameraVideoPlayer::DecodeThread(
         )
     {
         /*
-            * Handle seek requests from the main thread.
-            */
+         * Handle seek requests from the main thread.
+         */
         double seekTime = 0.0;
         bool performSeek = false;
-
 
         {
             std::lock_guard<std::mutex>
                 lock(m_queueMutex);
-
 
             if (m_seekRequested)
             {
@@ -1531,7 +1473,6 @@ void CameraVideoPlayer::DecodeThread(
             }
         }
 
-
         if (performSeek)
         {
             seekTime =
@@ -1540,13 +1481,11 @@ void CameraVideoPlayer::DecodeThread(
                     seekTime
                     );
 
-
             PROPVARIANT position;
 
             PropVariantInit(
                 &position
             );
-
 
             position.vt =
                 VT_I8;
@@ -1559,41 +1498,48 @@ void CameraVideoPlayer::DecodeThread(
                         )
                     );
 
-
             hr =
                 reader->SetCurrentPosition(
                     GUID_NULL,
                     position
                 );
 
-
             PropVariantClear(
                 &position
             );
 
-
             if (FAILED(hr))
             {
+                /*
+                 * A failed seek must NOT terminate the decoder.
+                 * Close() is the only operation that should stop it.
+                 */
                 Logger::Log(
-                    "[CameraVideoPlayer] Seek failed: 0x%08X\n",
+                    "[CameraVideoPlayer] Seek failed: 0x%08X. Keeping decoder thread alive.\n",
                     static_cast<unsigned>(hr)
                 );
 
-                m_decoderFailed.store(
-                    true,
-                    std::memory_order_release
+                /*
+                 * Leave the decoder alive and wait for another seek or
+                 * an explicit Close(). Do not mark it as failed.
+                 */
+                std::unique_lock<std::mutex>
+                    lock(m_queueMutex);
+
+                m_queueCondition.wait(
+                    lock,
+                    [&]
+                    {
+                        return
+                            m_stopRequested.load(
+                                std::memory_order_acquire
+                            ) ||
+                            m_seekRequested;
+                    }
                 );
 
-                break;
+                continue;
             }
-
-
-            /*
-                * Do not modify m_currentFrameTime here.
-                *
-                * The GPU is still displaying the previous frame until
-                * Update() uploads a newly decoded frame.
-                */
 
             m_seekInProgress.store(
                 true,
@@ -1601,24 +1547,11 @@ void CameraVideoPlayer::DecodeThread(
             );
         }
 
-
         /*
-            * ---------------------------------------------------------
-            * Decoder pacing
-            * ---------------------------------------------------------
-            *
-            * The decoder is intentionally allowed to run ahead of the
-            * playback clock. Update() decides when a decoded frame
-            * should actually be presented.
-            *
-            * Keep a small amount of decoded video ahead of the current
-            * playback position. This gives the decoder headroom instead
-            * of forcing it to chase a moving playback target.
-            *
-            * After a seek, bypass this wait once. The decoded timestamp
-            * from before the seek is no longer relevant and must not
-            * prevent the first post-seek frame from being decoded.
-            */
+         * ---------------------------------------------------------
+         * Decoder pacing
+         * ---------------------------------------------------------
+         */
         if (!performSeek)
         {
             std::unique_lock<std::mutex>
@@ -1638,18 +1571,15 @@ void CameraVideoPlayer::DecodeThread(
                         return true;
                     }
 
-
                     const double currentTarget =
                         m_targetTime.load(
                             std::memory_order_acquire
                         );
 
-
                     const double currentDecoded =
                         m_lastDecodedFrameTime.load(
                             std::memory_order_acquire
                         );
-
 
                     return
                         currentDecoded <
@@ -1658,7 +1588,6 @@ void CameraVideoPlayer::DecodeThread(
                 }
             );
         }
-
 
         if (
             m_stopRequested.load(
@@ -1669,12 +1598,11 @@ void CameraVideoPlayer::DecodeThread(
             break;
         }
 
-
         /*
-            * -----------------------------------------------------
-            * Read one sample
-            * -----------------------------------------------------
-            */
+         * -----------------------------------------------------
+         * Read one sample
+         * -----------------------------------------------------
+         */
 
         DWORD streamIndex = 0;
         DWORD flags = 0;
@@ -1684,7 +1612,7 @@ void CameraVideoPlayer::DecodeThread(
         ComPtr<IMFSample>
             sample;
 
-
+        
         hr =
             reader->ReadSample(
                 MF_SOURCE_READER_FIRST_VIDEO_STREAM,
@@ -1695,6 +1623,53 @@ void CameraVideoPlayer::DecodeThread(
                 &sample
             );
 
+
+
+        {
+            double decodedFrameTime =
+                static_cast<double>(timestamp) /
+                static_cast<double>(HNS_PER_SECOND);
+
+            while (
+                performSeek && 
+                decodedFrameTime <= seekTime
+                ) 
+            {
+
+                sample.Reset();
+
+                hr = reader->ReadSample(
+                    MF_SOURCE_READER_FIRST_VIDEO_STREAM,
+                    0,
+                    &streamIndex,
+                    &flags,
+                    &timestamp,
+                    &sample
+                );
+
+                if (FAILED(hr))
+                {
+                    Logger::Log(
+                        "[CameraVideoPlayer] ReadSample failed: 0x%08X\n",
+                        static_cast<unsigned>(hr)
+                    );
+
+                    m_decoderFailed.store(
+                        true,
+                        std::memory_order_release
+                    );
+
+                    break;
+                }
+
+                if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
+                    break;
+
+                decodedFrameTime =
+                    static_cast<double>(timestamp) /
+                    static_cast<double>(HNS_PER_SECOND);
+            }
+        }
 
         if (FAILED(hr))
         {
@@ -1711,11 +1686,9 @@ void CameraVideoPlayer::DecodeThread(
             break;
         }
 
-
         const double decodedFrameTime =
             static_cast<double>(timestamp) /
             static_cast<double>(HNS_PER_SECOND);
-
 
         if (
             flags &
@@ -1730,10 +1703,15 @@ void CameraVideoPlayer::DecodeThread(
                     true;
             }
 
-
+            /*
+             * EOF is NOT a reason to stop the decoder thread.
+             *
+             * Keep the thread alive and wait until either:
+             *  - Close() requests shutdown, or
+             *  - a new seek is requested.
+             */
             std::unique_lock<std::mutex>
                 lock(m_queueMutex);
-
 
             m_queueCondition.wait(
                 lock,
@@ -1747,10 +1725,8 @@ void CameraVideoPlayer::DecodeThread(
                 }
             );
 
-
             continue;
         }
-
 
         if (
             flags &
@@ -1760,35 +1736,29 @@ void CameraVideoPlayer::DecodeThread(
             continue;
         }
 
-
         if (!sample)
         {
             continue;
         }
 
-
         /*
-            * -----------------------------------------------------
-            * Decode to CPU BGRA
-            * -----------------------------------------------------
-            */
+         * -----------------------------------------------------
+         * Decode to CPU BGRA
+         * -----------------------------------------------------
+         */
 
         std::vector<uint8_t>
             frameBuffer;
-
 
         frameBuffer.resize(
             outputSize
         );
 
-
         const auto decodeStart =
             std::chrono::steady_clock::now();
 
-
         bool decodeSucceeded =
             false;
-
 
         if (
             pixelFormat ==
@@ -1816,7 +1786,6 @@ void CameraVideoPlayer::DecodeThread(
                 );
         }
 
-
         if (!decodeSucceeded)
         {
             Logger::Log(
@@ -1831,22 +1800,18 @@ void CameraVideoPlayer::DecodeThread(
             break;
         }
 
-
         const auto decodeEnd =
             std::chrono::steady_clock::now();
-
 
         const double decodeFrameTimeMs =
             std::chrono::duration<double, std::milli>(
                 decodeEnd - decodeStart
             ).count();
 
-
         m_decodeFrameTimeAccumulatorMs.fetch_add(
             decodeFrameTimeMs,
             std::memory_order_relaxed
         );
-
 
         const uint64_t decodeFrameCount =
             m_decodeStatFrameCount.fetch_add(
@@ -1854,25 +1819,21 @@ void CameraVideoPlayer::DecodeThread(
                 std::memory_order_relaxed
             ) + 1;
 
-
         m_framesDecoded.fetch_add(
             1,
             std::memory_order_relaxed
         );
-
 
         m_lastDecodedFrameTime.store(
             decodedFrameTime,
             std::memory_order_release
         );
 
-
         const double decodeStatElapsed =
             std::chrono::duration<double>(
                 decodeEnd -
                 m_decodeStatStart
             ).count();
-
 
         if (
             decodeStatElapsed >=
@@ -1885,13 +1846,11 @@ void CameraVideoPlayer::DecodeThread(
                     std::memory_order_acq_rel
                 );
 
-
             const uint64_t frameCount =
                 m_decodeStatFrameCount.exchange(
                     0,
                     std::memory_order_acq_rel
                 );
-
 
             if (frameCount > 0)
             {
@@ -1903,7 +1862,6 @@ void CameraVideoPlayer::DecodeThread(
                     std::memory_order_release
                 );
 
-
                 m_decodeFrameTimeMs.store(
                     accumulatedMs /
                     static_cast<double>(
@@ -1913,17 +1871,15 @@ void CameraVideoPlayer::DecodeThread(
                 );
             }
 
-
             m_decodeStatStart =
                 decodeEnd;
         }
 
-
         /*
-            * -----------------------------------------------------
-            * Put decoded frame into the queue
-            * -----------------------------------------------------
-            */
+         * -----------------------------------------------------
+         * Put decoded frame into the queue
+         * -----------------------------------------------------
+         */
 
         DecodedFrame frame;
 
@@ -1936,7 +1892,6 @@ void CameraVideoPlayer::DecodeThread(
                 frameBuffer
             );
 
-
         {
             std::lock_guard<std::mutex>
                 lock(m_queueMutex);
@@ -1946,22 +1901,18 @@ void CameraVideoPlayer::DecodeThread(
             );
         }
 
-
         m_queueCondition.notify_one();
     }
-
 
     if (comInitialized)
     {
         CoUninitialize();
     }
 
-
     m_threadRunning.store(
         false,
         std::memory_order_release
     );
-
 
     Logger::Log(
         "[CameraVideoPlayer] Decoder thread stopped.\n"

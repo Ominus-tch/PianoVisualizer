@@ -388,8 +388,12 @@ void Viewer::draw(
 {
 	handleMIDIDeviceEvent();
 
+	bool shouldPlay = _shouldPlay;
+	if (_playbackPlaying && !_playbackPaused && _timer >= _playbackDuration)
+		shouldPlay = false;
+
 	_timer =
-		_shouldPlay// && !_pauseTimer
+		shouldPlay// && !_pauseTimer
 		? (currentTime - _timerStart)
 		: _timer;
 
