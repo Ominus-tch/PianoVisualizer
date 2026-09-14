@@ -149,6 +149,9 @@ public:
         int key,
         int state
     );
+    
+    void RequestExit() { m_exitRequested = true; }
+    bool OnExit();
 
     // ---------------------------------------------------------
     // Accessors
@@ -203,8 +206,6 @@ public:
     {
         return m_virtualWindowRenderer;
     }
-
-    bool test = false;
 
 private:
 
@@ -602,5 +603,6 @@ private:
     // Application shutdown
     // =========================================================
 
-    std::atomic<bool> m_shouldExit = false;
+    bool m_exitRequested = false;
+    bool m_exitPopupOpened = false;
 };

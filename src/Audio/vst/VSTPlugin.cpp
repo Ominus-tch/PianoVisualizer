@@ -85,8 +85,6 @@ namespace vst
 
     VSTPlugin::VSTPlugin()
     {
-        Logger::Log(
-            "[VST] VSTPlugin created\n");
     }
 
 
@@ -115,17 +113,10 @@ namespace vst
 
         std::string error;
 
-        Logger::Log(
-            "[VST] Module::create START\n");
-
         _module =
             VST3::Hosting::Module::create(
                 path,
                 error);
-
-        Logger::Log(
-            "[VST] Module::create END module=%p\n",
-            _module.get());
 
         if (!_module)
         {
@@ -143,25 +134,11 @@ namespace vst
          * --------------------------------------------------------
          */
 
-        Logger::Log(
-            "[VST] Creating HostApplication START\n");
-
         _hostApplication =
             new VSTHostApplication();
 
-        Logger::Log(
-            "[VST] Creating HostApplication END ptr=%p\n",
-            _hostApplication);
-
-        Logger::Log(
-            "[VST] Creating ComponentHandler START\n");
-
         _componentHandler =
             new VSTComponentHandler();
-
-        Logger::Log(
-            "[VST] Creating ComponentHandler END ptr=%p\n",
-            _componentHandler);
 
         if (!_hostApplication ||
             !_componentHandler)
@@ -181,25 +158,11 @@ namespace vst
          * --------------------------------------------------------
          */
 
-        Logger::Log(
-            "[VST] getFactory START\n");
-
         const auto& factory =
             _module->getFactory();
 
-        Logger::Log(
-            "[VST] getFactory END\n");
-
-        Logger::Log(
-            "[VST] factory.classInfos START\n");
-
         const auto classes =
             factory.classInfos();
-
-        Logger::Log(
-            "[VST] factory.classInfos END count=%zu\n",
-            classes.size());
-
 
         /*
          * --------------------------------------------------------
@@ -225,18 +188,10 @@ namespace vst
              * ----------------------------------------------------
              */
 
-            Logger::Log(
-                "[VST] createInstance<IComponent> START: %s\n",
-                classInfo.name().data());
-
             _component =
                 factory.createInstance<
                 Steinberg::Vst::IComponent>(
                     classInfo.ID());
-
-            Logger::Log(
-                "[VST] createInstance<IComponent> END component=%p\n",
-                _component.get());
 
             if (!_component)
             {
@@ -277,16 +232,9 @@ namespace vst
              * ----------------------------------------------------
              */
 
-            Logger::Log(
-                "[VST] Component initialize START\n");
-
             auto result =
                 componentPluginBase->initialize(
                     _hostApplication);
-
-            Logger::Log(
-                "[VST] Component initialize END result=%d\n",
-                result);
 
             if (result !=
                 Steinberg::kResultOk)
@@ -310,19 +258,11 @@ namespace vst
             Steinberg::Vst::IAudioProcessor*
                 processor = nullptr;
 
-            Logger::Log(
-                "[VST] queryInterface(IAudioProcessor) START\n");
-
             result =
                 _component->queryInterface(
                     Steinberg::Vst::IAudioProcessor::iid,
                     reinterpret_cast<void**>(
                         &processor));
-
-            Logger::Log(
-                "[VST] queryInterface(IAudioProcessor) END result=%d processor=%p\n",
-                result,
-                processor);
 
             if (result !=
                 Steinberg::kResultOk ||
@@ -353,20 +293,11 @@ namespace vst
                 controllerFromComponent =
                 nullptr;
 
-            Logger::Log(
-                "[VST] queryInterface(IEditController) START\n");
-
             result =
                 _component->queryInterface(
                     Steinberg::Vst::IEditController::iid,
                     reinterpret_cast<void**>(
                         &controllerFromComponent));
-
-            Logger::Log(
-                "[VST] queryInterface(IEditController) END result=%d controller=%p\n",
-                result,
-                controllerFromComponent);
-
 
             if (result ==
                 Steinberg::kResultOk &&
@@ -392,16 +323,9 @@ namespace vst
 
                 Steinberg::TUID controllerCID{};
 
-                Logger::Log(
-                    "[VST] getControllerClassId START\n");
-
                 result =
                     _component->getControllerClassId(
                         controllerCID);
-
-                Logger::Log(
-                    "[VST] getControllerClassId END result=%d\n",
-                    result);
 
                 if (result !=
                     Steinberg::kResultOk)
@@ -422,18 +346,11 @@ namespace vst
                  * ------------------------------------------------
                  */
 
-                Logger::Log(
-                    "[VST] createInstance<IEditController> START\n");
-
                 _controller =
                     factory.createInstance<
                     Steinberg::Vst::IEditController>(
                         VST3::UID(
                             controllerCID));
-
-                Logger::Log(
-                    "[VST] createInstance<IEditController> END controller=%p\n",
-                    _controller.get());
 
                 if (!_controller)
                 {
@@ -467,16 +384,9 @@ namespace vst
                     return false;
                 }
 
-                Logger::Log(
-                    "[VST] Controller initialize START\n");
-
                 result =
                     controllerPluginBase->initialize(
                         _hostApplication);
-
-                Logger::Log(
-                    "[VST] Controller initialize END result=%d\n",
-                    result);
 
                 if (result !=
                     Steinberg::kResultOk)
@@ -500,16 +410,10 @@ namespace vst
 
             if (_controller)
             {
-                Logger::Log(
-                    "[VST] setComponentHandler START\n");
 
                 result =
                     _controller->setComponentHandler(
                         _componentHandler);
-
-                Logger::Log(
-                    "[VST] setComponentHandler END result=%d\n",
-                    result);
 
                 if (result !=
                     Steinberg::kResultOk)
@@ -541,20 +445,11 @@ namespace vst
                     controllerConnection =
                     nullptr;
 
-
-                Logger::Log(
-                    "[VST] queryInterface(IConnectionPoint component) START\n");
-
                 result =
                     _component->queryInterface(
                         Steinberg::Vst::IConnectionPoint::iid,
                         reinterpret_cast<void**>(
                             &componentConnection));
-
-                Logger::Log(
-                    "[VST] queryInterface(IConnectionPoint component) END result=%d ptr=%p\n",
-                    result,
-                    componentConnection);
 
                 if (result !=
                     Steinberg::kResultOk ||
@@ -568,20 +463,11 @@ namespace vst
                     return false;
                 }
 
-
-                Logger::Log(
-                    "[VST] queryInterface(IConnectionPoint controller) START\n");
-
                 result =
                     _controller->queryInterface(
                         Steinberg::Vst::IConnectionPoint::iid,
                         reinterpret_cast<void**>(
                             &controllerConnection));
-
-                Logger::Log(
-                    "[VST] queryInterface(IConnectionPoint controller) END result=%d ptr=%p\n",
-                    result,
-                    controllerConnection);
 
                 if (result !=
                     Steinberg::kResultOk ||
@@ -617,16 +503,9 @@ namespace vst
                  * Component -> controller
                  */
 
-                Logger::Log(
-                    "[VST] componentConnection->connect START\n");
-
                 result =
                     _componentConnection->connect(
                         _controllerConnection);
-
-                Logger::Log(
-                    "[VST] componentConnection->connect END result=%d\n",
-                    result);
 
                 if (result !=
                     Steinberg::kResultOk)
@@ -645,16 +524,9 @@ namespace vst
                  * Controller -> component
                  */
 
-                Logger::Log(
-                    "[VST] controllerConnection->connect START\n");
-
                 result =
                     _controllerConnection->connect(
                         _componentConnection);
-
-                Logger::Log(
-                    "[VST] controllerConnection->connect END result=%d\n",
-                    result);
 
                 if (result !=
                     Steinberg::kResultOk)
@@ -690,18 +562,9 @@ namespace vst
             setup.maxSamplesPerBlock =
                 512;
 
-            Logger::Log(
-                "[VST] setupProcessing START sampleRate=%f maxBlockSize=%d\n",
-                setup.sampleRate,
-                setup.maxSamplesPerBlock);
-
             result =
                 _processor->setupProcessing(
                     setup);
-
-            Logger::Log(
-                "[VST] setupProcessing END result=%d\n",
-                result);
 
             if (result !=
                 Steinberg::kResultOk)
@@ -722,19 +585,12 @@ namespace vst
              * ----------------------------------------------------
              */
 
-            Logger::Log(
-                "[VST] activateBus(output) START\n");
-
             result =
                 _component->activateBus(
                     Steinberg::Vst::kAudio,
                     Steinberg::Vst::kOutput,
                     0,
                     true);
-
-            Logger::Log(
-                "[VST] activateBus(output) END result=%d\n",
-                result);
 
             if (result !=
                 Steinberg::kResultOk)
@@ -764,16 +620,9 @@ namespace vst
              * ----------------------------------------------------
              */
 
-            Logger::Log(
-                "[VST] setActive(true) START\n");
-
             result =
                 _component->setActive(
                     true);
-
-            Logger::Log(
-                "[VST] setActive(true) END result=%d\n",
-                result);
 
             if (result !=
                 Steinberg::kResultOk)
@@ -794,16 +643,9 @@ namespace vst
              * ----------------------------------------------------
              */
 
-            Logger::Log(
-                "[VST] setProcessing(true) START\n");
-
             result =
                 _processor->setProcessing(
                     true);
-
-            Logger::Log(
-                "[VST] setProcessing(true) END result=%d\n",
-                result);
 
             if (result !=
                 Steinberg::kResultOk)
@@ -894,15 +736,8 @@ namespace vst
 
         if (_processor)
         {
-            Logger::Log(
-                "[VST] setProcessing(false) START\n");
-
             auto result =
                 _processor->setProcessing(false);
-
-            Logger::Log(
-                "[VST] setProcessing(false) END result=%d\n",
-                result);
         }
 
         /*
@@ -924,15 +759,8 @@ namespace vst
 
         if (_component)
         {
-            Logger::Log(
-                "[VST] setActive(false) START\n");
-
             auto result =
                 _component->setActive(false);
-
-            Logger::Log(
-                "[VST] setActive(false) END result=%d\n",
-                result);
         }
 
 
@@ -945,37 +773,19 @@ namespace vst
         if (_componentConnection &&
             _controllerConnection)
         {
-            Logger::Log(
-                "[VST] componentConnection->disconnect START\n");
-
             auto componentResult =
                 _componentConnection->disconnect(
                     _controllerConnection);
 
-            Logger::Log(
-                "[VST] componentConnection->disconnect END result=%d\n",
-                componentResult);
-
-
-            Logger::Log(
-                "[VST] controllerConnection->disconnect START\n");
-
             auto controllerResult =
                 _controllerConnection->disconnect(
                     _componentConnection);
-
-            Logger::Log(
-                "[VST] controllerConnection->disconnect END result=%d\n",
-                controllerResult);
         }
 
 
         /*
          * Release connection points.
          */
-
-        Logger::Log(
-            "[VST] Releasing connection points\n");
 
         _componentConnection =
             nullptr;
@@ -992,9 +802,6 @@ namespace vst
 
         if (_component)
         {
-            Logger::Log(
-                "[VST] Component terminate START\n");
-
             auto* componentPluginBase =
                 static_cast<
                 Steinberg::IPluginBase*>(
@@ -1004,10 +811,6 @@ namespace vst
             {
                 auto result =
                     componentPluginBase->terminate();
-
-                Logger::Log(
-                    "[VST] Component terminate END result=%d\n",
-                    result);
             }
             else
             {
@@ -1026,9 +829,6 @@ namespace vst
         if (_controller &&
             !_singleComponent)
         {
-            Logger::Log(
-                "[VST] Controller terminate START\n");
-
             auto* controllerPluginBase =
                 static_cast<
                 Steinberg::IPluginBase*>(
@@ -1038,10 +838,6 @@ namespace vst
             {
                 auto result =
                     controllerPluginBase->terminate();
-
-                Logger::Log(
-                    "[VST] Controller terminate END result=%d\n",
-                    result);
             }
             else
             {
@@ -1056,9 +852,6 @@ namespace vst
          * Release plugin interfaces
          * --------------------------------------------------------
          */
-
-        Logger::Log(
-            "[VST] Releasing plugin interfaces\n");
 
         _processor =
             nullptr;
@@ -1081,9 +874,6 @@ namespace vst
 
         if (_componentHandler)
         {
-            Logger::Log(
-                "[VST] Destroying ComponentHandler\n");
-
             _componentHandler->release();
 
             _componentHandler =
@@ -1092,9 +882,6 @@ namespace vst
 
         if (_hostApplication)
         {
-            Logger::Log(
-                "[VST] Destroying HostApplication\n");
-
             _hostApplication->release();
 
             _hostApplication =
@@ -1110,22 +897,13 @@ namespace vst
 
         if (_module)
         {
-            Logger::Log(
-                "[VST] Unloading module\n");
-
             _module.reset();
-
-            Logger::Log(
-                "[VST] Module unloaded\n");
         }
 
         _editorName =
             "VST Editor";
 
         _path.clear();
-
-        Logger::Log(
-            "[VST] Plugin unload complete\n");
     }
 
 

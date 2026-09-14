@@ -965,6 +965,18 @@ LRESULT CALLBACK window_procedure(
         break;
     }
 
+    case WM_CLOSE:
+    {
+        if (gPianoVisualizer)
+        {
+            gPianoVisualizer->RequestExit();
+            return 0;
+        }
+
+        DestroyWindow(window);
+        return 0;
+    }
+
     case WM_DESTROY:
     {
         PostQuitMessage(EXIT_SUCCESS);

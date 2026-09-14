@@ -733,7 +733,7 @@ void PianoVisualizer::LoadPianoConfiguration()
         gui::onceFlag,
         [&]()
         {
-            int scene;
+            int scene = 0;
 
             if (!Config::LoadPianoConfig(
                 m_polygonPoints,
@@ -750,7 +750,23 @@ void PianoVisualizer::LoadPianoConfiguration()
             ))
             {
                 Logger::Log(
-                    "No piano config found. Using defaults.\n"
+                    "Piano Config not found or corrupted. Using defaults.\n"
+                );
+
+                scene = 0;
+
+                Config::SavePianoConfig(
+                    m_polygonPoints,
+                    scene,
+                    m_horizontalFovDegrees,
+                    m_planeWidth,
+                    m_planeHeight,
+                    m_planePivot,
+                    m_surfaceXOffset,
+                    m_surfaceYOffset,
+                    m_surfaceZOffset,
+                    m_pianoRollVisualizerHeight,
+                    m_pianoRollCameraSourceScale
                 );
             }
 
@@ -798,6 +814,15 @@ void PianoVisualizer::Update()
 {
     if (!m_initialized)
         return;
+
+    if (m_exitRequested)
+    {
+        if (OnExit())
+        {
+            gui::running = false;
+            return;
+        }
+    }
 
     auto currentTime =
         std::chrono::steady_clock::now();
@@ -5942,6 +5967,58 @@ void PianoVisualizer::KeyPressed(
             state
         );
     }
+}
+
+bool PianoVisualizer::OnExit()
+{
+    if (!HasUnsavedChanges())
+        return true;
+
+    if (!m_exitPopupOpened)
+    {
+        ImGui::OpenPopup("Unsaved Changes");
+        m_exitPopupOpened = true;
+    }
+
+    bool quit = false;
+
+    if (ImGui::BeginPopupModal(
+        "Unsaved Changes",
+        nullptr,
+        ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text(
+            "You have unsaved changes, are you sure you want to quit?"
+        );
+
+        if (ImGui::Button("Save & Quit"))
+        {
+            SavePianoConfiguration();
+            quit = true;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("Quit"))
+        {
+            quit = true;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("Cancel"))
+        {
+            m_exitRequested = false;
+            m_exitPopupOpened = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+
+    return quit;
 }
 
 

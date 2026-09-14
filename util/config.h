@@ -316,38 +316,39 @@ namespace Config {
         if (configPath.empty())
             return false;
 
-        if (polygonPoints.size() != 4)
-            return false;
-
         json config;
 
         // --------------------------------------------------------
         // Selected polygon points
         // --------------------------------------------------------
 
-        config["points"]["P1"]["x"] =
-            polygonPoints[0].x;
+        if (polygonPoints.size() == 4) {
 
-        config["points"]["P1"]["y"] =
-            polygonPoints[0].y;
+            config["points"]["P1"]["x"] =
+                polygonPoints[0].x;
 
-        config["points"]["P2"]["x"] =
-            polygonPoints[1].x;
+            config["points"]["P1"]["y"] =
+                polygonPoints[0].y;
 
-        config["points"]["P2"]["y"] =
-            polygonPoints[1].y;
+            config["points"]["P2"]["x"] =
+                polygonPoints[1].x;
 
-        config["points"]["P3"]["x"] =
-            polygonPoints[2].x;
+            config["points"]["P2"]["y"] =
+                polygonPoints[1].y;
 
-        config["points"]["P3"]["y"] =
-            polygonPoints[2].y;
+            config["points"]["P3"]["x"] =
+                polygonPoints[2].x;
 
-        config["points"]["P4"]["x"] =
-            polygonPoints[3].x;
+            config["points"]["P3"]["y"] =
+                polygonPoints[2].y;
 
-        config["points"]["P4"]["y"] =
-            polygonPoints[3].y;
+            config["points"]["P4"]["x"] =
+                polygonPoints[3].x;
+
+            config["points"]["P4"]["y"] =
+                polygonPoints[3].y;
+
+        }
 
         // --------------------------------------------------------
         // Camera / plane settings
@@ -471,46 +472,40 @@ namespace Config {
             json config;
             file >> config;
 
-            // ----------------------------------------------------
-            // Make sure all points exist
-            // ----------------------------------------------------
+            if (config.contains("points")) {
 
-            if (!config.contains("points"))
-                return false;
+                if (config["points"].contains("P1") &&
+                    config["points"].contains("P2") &&
+                    config["points"].contains("P3") &&
+                    config["points"].contains("P4")) {
 
-            if (!config["points"].contains("P1") ||
-                !config["points"].contains("P2") ||
-                !config["points"].contains("P3") ||
-                !config["points"].contains("P4"))
-            {
-                return false;
+                    // ----------------------------------------------------
+                    // Load points
+                    // ----------------------------------------------------
+
+                    polygonPoints.resize(4);
+
+                    polygonPoints[0] = ImVec2(
+                        config["points"]["P1"]["x"].get<float>(),
+                        config["points"]["P1"]["y"].get<float>()
+                    );
+
+                    polygonPoints[1] = ImVec2(
+                        config["points"]["P2"]["x"].get<float>(),
+                        config["points"]["P2"]["y"].get<float>()
+                    );
+
+                    polygonPoints[2] = ImVec2(
+                        config["points"]["P3"]["x"].get<float>(),
+                        config["points"]["P3"]["y"].get<float>()
+                    );
+
+                    polygonPoints[3] = ImVec2(
+                        config["points"]["P4"]["x"].get<float>(),
+                        config["points"]["P4"]["y"].get<float>()
+                    );
+                }
             }
-
-            // ----------------------------------------------------
-            // Load points
-            // ----------------------------------------------------
-
-            polygonPoints.resize(4);
-
-            polygonPoints[0] = ImVec2(
-                config["points"]["P1"]["x"].get<float>(),
-                config["points"]["P1"]["y"].get<float>()
-            );
-
-            polygonPoints[1] = ImVec2(
-                config["points"]["P2"]["x"].get<float>(),
-                config["points"]["P2"]["y"].get<float>()
-            );
-
-            polygonPoints[2] = ImVec2(
-                config["points"]["P3"]["x"].get<float>(),
-                config["points"]["P3"]["y"].get<float>()
-            );
-
-            polygonPoints[3] = ImVec2(
-                config["points"]["P4"]["x"].get<float>(),
-                config["points"]["P4"]["y"].get<float>()
-            );
 
             // ----------------------------------------------------
             // Load settings
@@ -589,6 +584,7 @@ namespace Config {
                         settings["pianoRollCameraSourceScale"].get<float>();
                 }
             }
+            else { return false; }
 
             return true;
         }

@@ -150,10 +150,6 @@ namespace audio
 
         _vstPath = path;
 
-        Logger::Log(
-            "[VST] Plugin loaded successfully: %s\n",
-            path.c_str());
-
         _vstAudio = new vst::VSTAudio(
             _vstPlugin->processor(),
             _output->sampleRate(),
