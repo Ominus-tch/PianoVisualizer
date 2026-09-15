@@ -57,6 +57,27 @@ void Renderer::SetDefaultBlending()
 	);
 }
 
+void Renderer::BindTextureSampler()
+{
+	ID3D11SamplerState* samplers[] =
+	{
+		_linearClampSampler.Get(),
+		_linearClampSampler.Get()
+	};
+
+	_context->VSSetSamplers(
+		0,
+		2,
+		samplers
+	);
+
+	_context->PSSetSamplers(
+		0,
+		2,
+		samplers
+	);
+}
+
 void Renderer::renderSetup(
 	ID3D11Device* device,
 	ID3D11DeviceContext* context
@@ -413,6 +434,38 @@ void Renderer::renderSetup(
 	_texParticles =
 		ResourcesManager::getTextureFor("particles");
 
+	// --------------------------------------------------------
+	// Texture samplers
+	// --------------------------------------------------------
+
+	{
+		D3D11_SAMPLER_DESC desc{};
+		desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+
+		desc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+		desc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+		desc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+
+		desc.MipLODBias = 0.0f;
+		desc.MaxAnisotropy = 1;
+		desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+
+		desc.BorderColor[0] = 0.0f;
+		desc.BorderColor[1] = 0.0f;
+		desc.BorderColor[2] = 0.0f;
+		desc.BorderColor[3] = 0.0f;
+
+		desc.MinLOD = 0.0f;
+		desc.MaxLOD = D3D11_FLOAT32_MAX;
+
+		HRESULT hr = _device->CreateSamplerState(
+			&desc,
+			&_linearClampSampler
+		);
+
+		if (FAILED(hr))
+			throw std::runtime_error("Failed to create linear clamp sampler.");
+	}
 
 	// --------------------------------------------------------
 	// Particle texture size
@@ -639,6 +692,8 @@ void Renderer::drawParticles(
 
 	_programParticules.use(_context);
 
+	BindTextureSampler();
+
 	// --------------------------------------------------------
 	// Common uniforms
 	// --------------------------------------------------------
@@ -678,17 +733,20 @@ void Renderer::drawParticles(
 	// Textures
 	// --------------------------------------------------------
 
-	_programParticules.texture(_context,
+	_programParticules.texture(
+		_context,
 		"textureParticles",
 		_texParticles.Get()
 	);
 
-	_programParticules.texture(_context,
+	_programParticules.texture(
+		_context,
 		"textureNoise",
 		_texNoise.Get()
 	);
 
-	_programParticules.texture(_context, 
+	_programParticules.texture(
+		_context,
 		"lookParticles",
 		state.tex
 	);
@@ -827,6 +885,8 @@ void Renderer::drawNotes(
 	bool prepass)
 {
 	_programNotes.use(_context);
+
+	BindTextureSampler();
 
 	// --------------------------------------------------------
 	// Uniforms that are specific to drawing notes
@@ -1133,6 +1193,8 @@ void Renderer::drawFlashes(
 	SetAdditiveBlending();
 
 	_programFlashes.use(_context);
+
+	BindTextureSampler();
 
 	// Uniforms
 	_programFlashes.uniform(
@@ -1669,6 +1731,8 @@ void Renderer::drawPedals(
 
 	_programPedals.use(_context);
 
+	BindTextureSampler();
+
 	ID3D11Buffer* vertexBuffer = _quadVertices.Get();
 
 	const UINT stride = sizeof(float) * 2;
@@ -1864,6 +1928,8 @@ void Renderer::drawWaves(
 	// --------------------------------------------------------
 
 	_programWaveNoise.use(_context);
+
+	BindTextureSampler();
 
 	_programWaveNoise.uniform(
 		"keyboardSize",
@@ -2255,6 +2321,8 @@ void Renderer::drawScore(
 		{
 			_programScoreBars.use(_context);
 
+			BindTextureSampler();
+
 			_programScoreBars.uniform(
 				"baseOffset",
 				glm::vec2(0.0f, firstBarCoord)
@@ -2340,6 +2408,8 @@ void Renderer::drawScore(
 				: offset;
 
 			_programScoreLabels.use(_context);
+
+			BindTextureSampler();
 
 			_programScoreLabels.uniform(
 				"baseOffset",

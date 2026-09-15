@@ -156,9 +156,9 @@ Viewer::Viewer(
 
 	_background.init(_device, "background_vert", "background_frag");
 
-	_blurringScreen.init(_device, _particlesFramebuffer->textureId(), "particlesblur_frag");
-	_fxaa.init(_device, "fxaa_frag");
-	_passthrough.init(_device, "screenquad_frag");
+	_blurringScreen.init(_device, _particlesFramebuffer->textureId(), "particlesblur_frag", "particlesblur_vert", true);
+	_fxaa.init(_device, "fxaa_frag", "screenquad_vert", false, ShaderProgram::InputLayoutType::None);
+	_passthrough.init(_device, "screenquad_frag", "screenquad_vert", false, ShaderProgram::InputLayoutType::None);
 
 	// Create the layers.
 	//_layers[Layer::BGCOLOR].type = Layer::BGCOLOR;
@@ -3509,21 +3509,21 @@ void Viewer::showPedalsEditor(){
 
 void Viewer::applyBackgroundColor()
 {
-	//const float clearColor[4] =
-	//{
-	//	_state.background.color.r,
-	//	_state.background.color.g,
-	//	_state.background.color.b,
-	//	0.0f
-	//};
-
 	const float clearColor[4] =
+	{
+		_state.background.color.r,
+		_state.background.color.g,
+		_state.background.color.b,
+		0.0f
+	};
+
+	/*const float clearColor[4] =
 	{
 		0.1f,
 		0.1f,
 		0.1f,
 		0.0f
-	};
+	};*/
 
 	// Clear particle framebuffer.
 	_particlesFramebuffer->bind(_context);

@@ -2206,6 +2206,12 @@ void PianoVisualizer::RenderPolygonSelectionTooltip()
         m_choosingPolygonPoints =
             false;
 
+        if (m_temporaryPerspectiveScene)
+        {
+            m_pianoScene = PianoScene::PianoRoll;
+            m_temporaryPerspectiveScene = false;
+        }
+
         m_polygonClickCount =
             static_cast<int>(
                 m_polygonPoints.size()
@@ -3669,6 +3675,12 @@ void PianoVisualizer::HandlePolygonPointSelection(
         m_choosingPolygonPoints =
             false;
 
+        if (m_temporaryPerspectiveScene)
+        {
+            m_pianoScene = PianoScene::PianoRoll;
+            m_temporaryPerspectiveScene = false;
+        }
+
         Logger::Log(
             "Piano corner selection complete.\n"
         );
@@ -3955,7 +3967,7 @@ void PianoVisualizer::RenderDisplayTab()
     // Piano Surface
     // =================================================
 
-    if (m_pianoScene == PianoScene::Perspective)
+    if (m_pianoScene == PianoScene::Perspective && !m_temporaryPerspectiveScene)
     {
         ImGui::Spacing();
         ImGui::Separator();
@@ -4089,14 +4101,67 @@ void PianoVisualizer::RenderDisplayTab()
     // Piano Roll
     // =================================================
 
-    else if (m_pianoScene == PianoScene::PianoRoll)
+    else
     {
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
 
-        ImGui::Text(
-            "PIANO ROLL"
+        ImGui::SeparatorText(
+            "Piano Surface"
+        );
+
+        ImGui::Spacing();
+
+        if (!m_choosingPolygonPoints)
+        {
+            if (ImGui::Button(
+                "Choose Piano Corners",
+                ImVec2(-1.0f, 36.0f)
+            ))
+            {
+                m_savedPolygonPoints =
+                    m_polygonPoints;
+
+                m_polygonPoints.clear();
+
+                m_polygonClickCount = 0;
+
+                m_choosingPolygonPoints =
+                    true;
+
+                m_temporaryPerspectiveScene =
+                    true;
+
+                m_pianoScene = PianoScene::Perspective;
+
+                Logger::Log(
+                    "[Piano Visualizer] Waiting for 4 piano corner points...\n"
+                );
+            }
+        }
+        else
+        {
+            ImGui::PushStyleColor(
+                ImGuiCol_Button,
+                ImVec4(
+                    0.20f,
+                    0.45f,
+                    0.75f,
+                    1.0f
+                )
+            );
+
+            ImGui::Button(
+                "Click 4 piano corners...",
+                ImVec2(-1.0f, 36.0f)
+            );
+
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::TextDisabled(
+            "Piano Roll"
         );
 
         ImGui::Spacing();
@@ -5799,7 +5864,7 @@ void PianoVisualizer::RenderConfigurationTab()
         ImVec2(buttonWidth, 36.0f)
     ))
     {
-        int _scene;
+        int _scene = 0;
 
         if (
             Config::LoadPianoConfig(

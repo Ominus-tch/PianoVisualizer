@@ -4,10 +4,12 @@ struct VSInput {
 
 struct VSOutput {
     float4 position : SV_Position;
+    float2 uv : TEXCOORD0;
 };
 
 VSOutput main(VSInput input) {
     VSOutput output;
     output.position = float4(input.v,1.0);
+    output.uv = input.v.xy * 0.5 + 0.5;
     return output;
 }

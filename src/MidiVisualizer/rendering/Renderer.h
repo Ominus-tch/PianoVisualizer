@@ -139,6 +139,8 @@ public:
     void SetAdditiveBlending();
     void SetDefaultBlending();
 
+    void BindTextureSampler();
+
 private:
 
 
@@ -194,6 +196,9 @@ private:
     ComPtr<ID3D11ShaderResourceView> _texParticles;
     ComPtr<ID3D11ShaderResourceView> _texFont;
     ComPtr<ID3D11ShaderResourceView> _texNoise;
+
+    ComPtr<ID3D11SamplerState> _linearClampSampler;
+    ComPtr<ID3D11SamplerState> _linearWrapSampler;
 
     // Cached info.
     unsigned int _minKeyMajor{ 0 };

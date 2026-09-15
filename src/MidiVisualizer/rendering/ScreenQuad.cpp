@@ -16,10 +16,11 @@ void ScreenQuad::init(
     ID3D11ShaderResourceView* texture,
     const std::string& fragName,
     const std::string& vertName,
-    bool verbose
+    bool verbose,
+    ShaderProgram::InputLayoutType layoutType
 )
 {
-    init(device, fragName, vertName, verbose);
+    init(device, fragName, vertName, verbose, layoutType);
 
     _texture = texture;
 }
@@ -28,7 +29,8 @@ void ScreenQuad::init(
     ID3D11Device* device,
     const std::string& fragName,
     const std::string& vertName,
-    bool verbose
+    bool verbose,
+    ShaderProgram::InputLayoutType layoutType
 )
 {
     _verbose = verbose;
@@ -36,7 +38,7 @@ void ScreenQuad::init(
         device,
         vertName,
         fragName,
-        ShaderProgram::InputLayoutType::Position3D,
+        layoutType,
         verbose
     );
 
@@ -203,7 +205,6 @@ void ScreenQuad::draw(
     if (!context)
         return;
 
-
     _program.use(context);
 
     if (texture)
@@ -215,11 +216,32 @@ void ScreenQuad::draw(
         );
     }
 
+    const UINT stride = sizeof(Vertex);
+    const UINT offset = 0;
+
+    context->IASetVertexBuffers(
+        0,
+        1,
+        _vertexBuffer.GetAddressOf(),
+        &stride,
+        &offset
+    );
+
+    context->IASetIndexBuffer(
+        _indexBuffer.Get(),
+        DXGI_FORMAT_R32_UINT,
+        0
+    );
+
     context->IASetPrimitiveTopology(
         D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
     );
 
-    context->Draw(3, 0);
+    context->DrawIndexed(
+        _indexCount,
+        0,
+        0
+    );
 }
 
 void ScreenQuad::draw(
@@ -229,15 +251,55 @@ void ScreenQuad::draw(
     const glm::vec2& invScreenSize
 )
 {
+    if (!context)
+        return;
+
+    _program.use(context);
+
     _program.uniform(
         "inverseScreenSize",
         invScreenSize
     );
 
-    draw(
-        context,
-        texture,
+    _program.uniform(
+        "time",
         time
+    );
+
+    if (texture)
+    {
+        _program.texture(
+            context,
+            "screenTexture",
+            texture
+        );
+    }
+
+    const UINT stride = sizeof(Vertex);
+    const UINT offset = 0;
+
+    context->IASetVertexBuffers(
+        0,
+        1,
+        _vertexBuffer.GetAddressOf(),
+        &stride,
+        &offset
+    );
+
+    context->IASetIndexBuffer(
+        _indexBuffer.Get(),
+        DXGI_FORMAT_R32_UINT,
+        0
+    );
+
+    context->IASetPrimitiveTopology(
+        D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
+    );
+
+    context->DrawIndexed(
+        _indexCount,
+        0,
+        0
     );
 }
 

@@ -21,14 +21,16 @@ public:
         ID3D11ShaderResourceView* texture,
         const std::string& fragName,
         const std::string& vertName = "screenquad_vert",
-        bool verbose = false
+        bool verbose = false,
+        ShaderProgram::InputLayoutType layoutType = ShaderProgram::InputLayoutType::Position3D
     );
 
     void init(
         ID3D11Device* device,
         const std::string& fragName,
         const std::string& vertName = "screenquad_vert",
-        bool verbose = false
+        bool verbose = false,
+        ShaderProgram::InputLayoutType layoutType = ShaderProgram::InputLayoutType::Position3D
     );
 
     void draw(
@@ -75,6 +77,7 @@ private:
     ComPtr<ID3D11Buffer> _indexBuffer;
 
     ID3D11ShaderResourceView* _texture = nullptr;
+    ID3D11SamplerState* _screenSampler = nullptr;
 
     UINT _indexCount = 0;
 

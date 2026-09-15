@@ -222,6 +222,7 @@ private:
     bool InitializeWindowCapture();
 
     bool InitializeRenderTarget();
+
     bool InitializeCameraOutput();
 
     // =========================================================
@@ -494,6 +495,7 @@ private:
     float m_pianoRollCameraSourceScale = 1.0f;
 
     bool m_choosingPolygonPoints = false;
+    bool m_temporaryPerspectiveScene = false;
 
     int m_polygonClickCount = 0;
 

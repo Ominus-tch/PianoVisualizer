@@ -36,7 +36,7 @@
     <IntDir>$(SolutionDir)build\intermediates\</IntDir>
     <IncludePath>$(ProjectDir)\ext;$(IncludePath)</IncludePath>
     <ExternalIncludePath>$(ProjectDir)\ext;$(ExternalIncludePath)</ExternalIncludePath>
-    <PreBuildEventUseInBuild>false</PreBuildEventUseInBuild>
+    <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
