@@ -484,6 +484,8 @@ private:
 
     static constexpr size_t MAX_RECENT_VST_PLUGINS = 8;
 
+    double m_bufferDuration = 20.0;
+
     // =========================================================
     // Piano configuration
     // =========================================================

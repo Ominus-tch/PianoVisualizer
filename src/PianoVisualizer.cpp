@@ -539,6 +539,8 @@ bool PianoVisualizer::InitializeAudio()
         }
     }
 
+    m_bufferDuration = m_audioEngine->outputConfiguration().bufferDurationMs;
+
     return true;
 }
 
@@ -5255,7 +5257,7 @@ void PianoVisualizer::RenderAudioTab()
     const auto devices =
         m_audioEngine->enumerateOutputDevices();
 
-    const auto configuration =
+    auto configuration =
         m_audioEngine->outputConfiguration();
 
     int selectedDevice = -1;
@@ -5414,7 +5416,6 @@ void PianoVisualizer::RenderAudioTab()
         }
     }
 
-
     // =========================================================
     // SAMPLE RATE
     // =========================================================
@@ -5517,31 +5518,26 @@ void PianoVisualizer::RenderAudioTab()
         }
     }
 
-
     // =========================================================
     // BUFFER
     // =========================================================
 
-    double bufferDuration =
-        configuration.bufferDurationMs;
-
     constexpr double minBufferDuration = 2.0;
     constexpr double maxBufferDuration = 100.0;
 
-    if (ImGui::SliderScalar(
+    ImGui::SliderScalar(
         "Buffer duration",
         ImGuiDataType_Double,
-        &bufferDuration,
+        &m_bufferDuration,
         &minBufferDuration,
         &maxBufferDuration,
-        "%.1f ms"))
+        "%.1f ms");
+
+    if (ImGui::IsItemDeactivatedAfterEdit())
     {
-        if (ImGui::IsItemDeactivatedAfterEdit())
-        {
-            m_audioEngine->setOutputBufferDuration(
-                bufferDuration
-            );
-        }
+        m_audioEngine->setOutputBufferDuration(
+            m_bufferDuration
+        );
     }
 
     ImGui::TextDisabled(

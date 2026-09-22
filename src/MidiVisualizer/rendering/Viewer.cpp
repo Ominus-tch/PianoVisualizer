@@ -972,6 +972,259 @@ void Viewer::drawGUI(const float currentTime)
 		ImGui::EndPopup();
 	}
 
+	if (ImGui::BeginPopupModal(
+		"Recording Ended",
+		nullptr,
+		ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		static char recordingName[256] = {};
+		ImGui::SeparatorText("Recording Name:");
+
+		if (ImGui::IsWindowAppearing())
+		{
+
+			const std::string currentName =
+				_recordingDirectory.filename().string();
+
+			std::strncpy(
+				recordingName,
+				currentName.c_str(),
+				sizeof(recordingName) - 1
+			);
+			recordingName[sizeof(recordingName) - 1] = '\0';
+
+			ImGui::SetKeyboardFocusHere();
+		}
+
+
+		ImGui::InputText(
+			"##recording_name",
+			recordingName,
+			sizeof(recordingName),
+			ImGuiInputTextFlags_EnterReturnsTrue
+		);
+
+		const std::string newName = recordingName;
+		const std::string currentName =
+			_recordingDirectory.filename().string();
+
+		const bool emptyName = newName.empty();
+		const bool sameName = newName == currentName;
+
+		const fs::path newDirectory =
+			_recordingDirectory.parent_path() / newName;
+
+		const bool alreadyExists =
+			!emptyName &&
+			!sameName &&
+			fs::exists(newDirectory);
+
+		if (alreadyExists)
+		{
+			ImGui::TextWrapped(
+				"A recording with this name already exists."
+			);
+		}
+
+		ImGui::Spacing();
+
+		// Save recording.
+		ImGui::BeginDisabled(emptyName || alreadyExists);
+
+		if (ImGui::Button("Save & Playback"))
+		{
+			if (!sameName)
+			{
+				std::error_code renameError;
+
+				fs::rename(
+					_recordingDirectory,
+					newDirectory,
+					renameError
+				);
+
+				if (renameError)
+				{
+					Logger::Log(
+						"Failed to rename recording '%s' to '%s': %s\n",
+						currentName.c_str(),
+						newName.c_str(),
+						renameError.message().c_str()
+					);
+				}
+				else
+				{
+					Logger::Log(
+						"Renamed recording '%s' to '%s'\n",
+						currentName.c_str(),
+						newName.c_str()
+					);
+
+					_recordingDirectory = newDirectory;
+				}
+
+				refreshRecordings();
+
+				_playbackWindowOpen = true;
+
+				_playbackRecordingDirectory = _recordingDirectory;
+
+				const std::string videoPath =
+					(
+						_playbackRecordingDirectory /
+						"cameraRecording.mp4"
+						).string();
+
+				if (
+					_onStartPlayback &&
+					_onStartPlayback(videoPath)
+					)
+				{
+					_playbackVideoPath =
+						videoPath;
+
+					_playbackMidiPath =
+						(
+							_playbackRecordingDirectory /
+							"midiRecording.mid"
+							).string();
+
+					_playbackLoaded =
+						true;
+
+					_playbackPlaying =
+						true;
+
+					_playbackPaused =
+						true;
+
+					_shouldPlay =
+						false;
+
+					_timerStart =
+						getCurrentTime();
+
+					_playbackPauseStart = _timerStart;
+
+					_timer =
+						0.0f;
+
+					_playbackSeekTime =
+						0.0f;
+
+					_playbackDuration = GetVideoDuration(videoPath);
+
+					std::shared_ptr<MIDIScene> scene(nullptr);
+
+					try {
+						scene = std::make_shared<MIDISceneFile>(_playbackMidiPath, _state.setOptions, _state.filter);
+					}
+					catch (...) {
+						Logger::Log("[Error] Failed to create recording scene!\n");
+						return;
+					}
+
+					_scene = scene;
+
+					_playbackPlaying = true;
+					_playbackPaused = true;
+
+					auto* midiScene = dynamic_cast<MIDISceneFile*>(_scene.get());
+					midiScene->resetPlaybackState(
+						_playbackSeekTime
+					);
+
+					_renderer.clearFlashes();
+
+					applyAllSettings();
+				}
+			}
+
+			_inputting = false;
+
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("Save"))
+		{
+			if (!sameName)
+			{
+				std::error_code renameError;
+
+				fs::rename(
+					_recordingDirectory,
+					newDirectory,
+					renameError
+				);
+
+				if (renameError)
+				{
+					Logger::Log(
+						"Failed to rename recording '%s' to '%s': %s\n",
+						currentName.c_str(),
+						newName.c_str(),
+						renameError.message().c_str()
+					);
+				}
+				else
+				{
+					Logger::Log(
+						"Renamed recording '%s' to '%s'\n",
+						currentName.c_str(),
+						newName.c_str()
+					);
+
+					_recordingDirectory = newDirectory;
+				}
+			}
+
+			_inputting = false;
+
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndDisabled();
+
+		ImGui::SameLine();
+
+		// Delete recording.
+		if (ImGui::Button("Delete Recording"))
+		{
+			std::error_code deleteError;
+
+			fs::remove_all(
+				_recordingDirectory,
+				deleteError
+			);
+
+			if (deleteError)
+			{
+				Logger::Log(
+					"Failed to delete recording '%s': %s\n",
+					_recordingDirectory.string().c_str(),
+					deleteError.message().c_str()
+				);
+			}
+			else
+			{
+				Logger::Log(
+					"Deleted recording '%s'\n",
+					_recordingDirectory.string().c_str()
+				);
+
+				_recordingDirectory.clear();
+
+				ImGui::CloseCurrentPopup();
+			}
+
+			_inputting = false;
+		}
+
+		ImGui::EndPopup();
+	}
+
 	// -------------------------------------------------------------------------
 	// Device / recording
 	// -------------------------------------------------------------------------
@@ -3906,6 +4159,9 @@ bool Viewer::stopRecording()
 	_renderer.clearFlashes();
 
 	refreshRecordings();
+
+	_inputting = true;
+	ImGui::OpenPopup("Recording Ended");
 
 	return true;
 }

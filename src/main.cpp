@@ -30,7 +30,7 @@
 // Forward declarations
 // =========================================================
 
-void DebugSetup();
+bool DebugSetup(bool console = true);
 void DebugEnd();
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(
@@ -112,7 +112,6 @@ static int RunMessageLoop()
     return 0;
 }
 
-
 // =========================================================
 // WinMain
 // =========================================================
@@ -128,39 +127,8 @@ INT APIENTRY WinMain(
     // Debug
     // =========================================================
 
-    DebugSetup();
-
-
-    // =========================================================
-    // Logger
-    // =========================================================
-
-    if (!Logger::Init())
-    {
-        AllocConsole();
-
-        freopen_s(
-            &gui::file,
-            "CONOUT$",
-            "w",
-            stdout
-        );
-
-        std::cout
-            << "Unable to initialize logger!\n";
-
-        system("pause");
-
-        fclose(gui::file);
-        FreeConsole();
-
+    if (!DebugSetup(false))
         return 1;
-    }
-
-    Logger::Log(
-        "[main] Logger initialized!\n"
-    );
-
 
     // =========================================================
     // OLE
@@ -863,26 +831,50 @@ INT APIENTRY WinMain(
 // Debug
 // =========================================================
 
-void DebugSetup()
+bool DebugSetup(bool console)
 {
     gui::debug = true;
 
-    AllocConsole();
+    if (console) {
+        AllocConsole();
 
-    freopen_s(
-        &gui::file,
-        "CONOUT$",
-        "w",
-        stdout
+        freopen_s(
+            &gui::file,
+            "CONOUT$",
+            "w",
+            stdout
+        );
+
+        SetConsoleCtrlHandler(
+            ConsoleHandler,
+            TRUE
+        );
+    }
+
+    // =========================================================
+    // Logger
+    // =========================================================
+
+    if (!Logger::Init(console))
+    {
+        std::cout
+            << "Unable to initialize logger!\n";
+
+        system("pause");
+
+        if (console) {
+            fclose(gui::file);
+            FreeConsole();
+        }
+
+        return false;
+    }
+
+    Logger::Log(
+        "[main] Logger initialized!\n"
     );
 
-    SetConsoleCtrlHandler(
-        ConsoleHandler,
-        TRUE
-    );
-
-    std::cout
-        << "Debug Mode Started!\n";
+    return true;
 }
 
 

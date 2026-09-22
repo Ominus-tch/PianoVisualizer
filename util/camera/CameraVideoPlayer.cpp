@@ -2193,12 +2193,6 @@ bool CameraVideoPlayer::RequestSeek(
     double time
 )
 {
-    Logger::Log(
-        "Seek Requested: %.2f\n",
-        time
-    );
-
-
     time =
         (std::max)(
             0.0,

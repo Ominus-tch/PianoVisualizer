@@ -713,6 +713,8 @@ namespace audio
             }
         }
 
+        start();
+
         return true;
     }
 
