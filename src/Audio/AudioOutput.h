@@ -220,6 +220,7 @@ namespace audio
 
         SampleFormat _sampleFormat;
 
+        HANDLE _audioEvent;
 
         // =====================================================
         // CONFIGURATION

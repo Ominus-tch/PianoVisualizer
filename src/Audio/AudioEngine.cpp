@@ -6,6 +6,10 @@
 
 #include "../../util/Logger.h"
 
+#include <avrt.h>
+
+#pragma comment(lib, "Avrt.lib")
+
 namespace audio
 {
 
@@ -735,8 +739,25 @@ namespace audio
                 "missing VSTAudio or AudioOutput\n");
 
             _running = false;
-
             return;
+        }
+
+        DWORD taskIndex = 0;
+
+        HANDLE mmcssHandle =
+            AvSetMmThreadCharacteristicsW(
+                L"Pro Audio",
+                &taskIndex);
+
+        if (!mmcssHandle)
+        {
+            Logger::Log(
+                "[Audio] Failed to register audio thread with MMCSS\n");
+        }
+        else
+        {
+            Logger::Log(
+                "[Audio] Audio thread registered with MMCSS (Pro Audio)\n");
         }
 
         const int32_t blockSize =
@@ -777,6 +798,12 @@ namespace audio
 
                 break;
             }
+        }
+
+        if (mmcssHandle)
+        {
+            AvRevertMmThreadCharacteristics(
+                mmcssHandle);
         }
 
         _running = false;
