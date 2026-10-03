@@ -363,13 +363,7 @@ private:
         return {
             m_polygonPoints,
             m_pianoScene,
-            m_horizontalFovDegrees,
-            m_planeWidth,
-            m_planeHeight,
             m_planePivot,
-            m_surfaceXOffset,
-            m_surfaceYOffset,
-            m_surfaceZOffset,
             m_pianoRollVisualizerHeight,
             m_pianoRollCameraSourceScale
         };
@@ -520,19 +514,7 @@ private:
 
     float m_virtualDepth = 1080.0f;
 
-    float m_planeWidth = 16.0f / 9.0f;
-
-    float m_planeHeight = 1.0f;
-
     float m_planePivot = 90.0f;
-
-    float m_horizontalFovDegrees = 90.0f;
-
-    float m_surfaceXOffset = 0.0f;
-
-    float m_surfaceYOffset = 0.0f;
-
-    float m_surfaceZOffset = 0.0f;
 
     PianoConfiguration m_savedConfiguration;
 
