@@ -866,14 +866,7 @@ void PianoVisualizer::Update()
             m_camera.Update(time);
         }
 
-        auto scene = m_viewer->scene();
-
-        if (scene)
-        {
-            scene->setAudioEngine(
-                m_audioEngine
-            );
-        }
+        m_viewer->setAudioEngine(m_audioEngine);
     }
 
     // ---------------------------------------------------------
@@ -2989,8 +2982,6 @@ void PianoVisualizer::RenderPianoOverlay()
 
     if (!pose.valid)
         return;
-
-    Logger::Log("Pose FOV: %.2f, %.2f\n", pose.horizontalFovDegrees, pose.focalLength);
 
     float surfaceHeight = 0.0f;
 
@@ -5282,44 +5273,6 @@ void PianoVisualizer::RenderAudioTab()
         "Sample rate: %.0f Hz",
         output->sampleRate()
     );
-
-
-    // =========================================================
-    // MODE
-    // =========================================================
-
-    ImGui::SeparatorText("Mode");
-
-    const char* modeNames[] =
-    {
-        "Shared",
-        "Exclusive"
-    };
-
-    int mode =
-        configuration.mode ==
-        audio::AudioOutput::Mode::Exclusive
-        ? 1
-        : 0;
-
-    if (ImGui::Combo(
-        "Mode",
-        &mode,
-        modeNames,
-        IM_ARRAYSIZE(modeNames)))
-    {
-        const auto newMode =
-            mode == 0
-            ? audio::AudioOutput::Mode::Shared
-            : audio::AudioOutput::Mode::Exclusive;
-
-        if (newMode != configuration.mode)
-        {
-            m_audioEngine->setOutputMode(
-                newMode
-            );
-        }
-    }
 
     // =========================================================
     // SAMPLE RATE

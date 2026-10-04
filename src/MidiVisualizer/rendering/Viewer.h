@@ -12,12 +12,14 @@
 
 #include "../helpers/System.h"
 
-#include "Framebuffer.h"
+
 #include "camera/MidiCamera.h"
 #include "scene/MIDIScene.h"
-#include "ScreenQuad.h"
+#include "../editor/MIDIEditor.h"
 
 #include "State.h"
+#include "Framebuffer.h"
+#include "ScreenQuad.h"
 #include "Renderer.h"
 
 #include <wrl/client.h>
@@ -177,6 +179,14 @@ public:
 		return _bufferAhead;
 	}
 
+	void setAudioEngine(audio::AudioEngine* engine)
+	{
+		if (_scene)
+			_scene->setAudioEngine(engine);
+
+		_audioEngine = engine;
+	}
+
 private:
 
 	struct Layer {
@@ -278,6 +288,10 @@ private:
 
 	void stopPlayback();
 
+	void restartPlayback();
+
+	void syncMIDIEditorToPlayback();
+
 	bool hasRecordings() const;
 
 	State _state;
@@ -368,6 +382,8 @@ private:
 
 	bool _inputting = false;
 
+	audio::AudioEngine* _audioEngine = nullptr;
+
 	struct MIDIDeviceEvent {
 		bool connected;
 		std::string deviceName;
@@ -377,4 +393,11 @@ private:
 
 	std::mutex _midiDeviceEventMutex;
 	std::optional<MIDIDeviceEvent> _pendingMIDIDeviceEvent;
+
+	////////////////////////////////
+	//        MIDI EDITOR         //
+	////////////////////////////////
+
+	MIDIEditor _midiEditor;
+	bool _midiEditorOpen = false;
 };

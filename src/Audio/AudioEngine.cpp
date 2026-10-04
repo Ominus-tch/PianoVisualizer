@@ -452,30 +452,6 @@ namespace audio
     }
 
 
-    bool AudioEngine::setOutputMode(
-        AudioOutput::Mode mode)
-    {
-        if (!_output)
-        {
-            Logger::Log(
-                "[Audio] Cannot change output mode: "
-                "AudioOutput is null\n");
-
-            return false;
-        }
-
-        AudioOutput::Configuration configuration =
-            _output->configuration();
-
-        configuration.mode = mode;
-
-        Logger::Log(
-            "[Audio] Changing output mode...\n");
-
-        return reconfigureOutput(configuration);
-    }
-
-
     bool AudioEngine::setOutputSampleRate(
         double sampleRate)
     {

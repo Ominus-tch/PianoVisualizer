@@ -210,6 +210,15 @@
     <ClCompile Include="src\MidiVisualizer\resources\replayButton_image.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\MidiVisualizer\midi\editor\MIDIEditorDocument.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MidiVisualizer\midi\editor\MIDIEditorIO.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MidiVisualizer\editor\MIDIEditor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ext\imgui\imconfig.h">
@@ -2304,6 +2313,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="util\camera\CameraUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MidiVisualizer\midi\editor\MIDIEditorDocument.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MidiVisualizer\midi\editor\MIDIEditorIO.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MidiVisualizer\editor\MIDIEditor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

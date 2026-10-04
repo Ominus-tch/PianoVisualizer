@@ -30,25 +30,15 @@ namespace audio
             bool isDefault = false;
         };
 
-
         // =====================================================
         // CONFIGURATION
         // =====================================================
-
-        enum class Mode
-        {
-            Shared,
-            Exclusive
-        };
 
 
         struct Configuration
         {
             // Empty = use Windows default output device.
             std::wstring deviceId;
-
-            // WASAPI shared or exclusive mode.
-            Mode mode = Mode::Shared;
 
             // Number of output channels.
             int32_t channels = 2;

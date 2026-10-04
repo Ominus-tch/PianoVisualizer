@@ -445,7 +445,9 @@ namespace audio
         }
 
         /*
-         * Get the device's actual shared-mode mix format.
+         * Get the device's shared-mode mix format.
+         *
+         * This is the format Windows uses for shared-mode playback.
          */
         hr = _audioClient->GetMixFormat(
             &_format);
@@ -461,11 +463,7 @@ namespace audio
         }
 
         /*
-         * If the user requested a specific sample rate, apply it
-         * to the format before initialization.
-         *
-         * In shared mode Windows may reject this if the format
-         * is not compatible with the device's shared-mode format.
+         * Apply an explicitly requested sample rate.
          */
         if (_configuration.sampleRate > 0.0)
         {
@@ -505,8 +503,6 @@ namespace audio
                 _format->nBlockAlign;
         }
 
-        //_format->nChannels = 2;
-
         Logger::Log(
             "[Audio] Device format: channels=%u, sampleRate=%u, bits=%u\n",
             _format->nChannels,
@@ -521,263 +517,29 @@ namespace audio
                 _configuration.bufferDurationMs *
                 10000.0);
 
-        if (_configuration.mode ==
-            Mode::Exclusive)
+        /*
+         * Initialize WASAPI in shared mode.
+         */
+        hr = _audioClient->Initialize(
+            AUDCLNT_SHAREMODE_SHARED,
+            0,
+            bufferDuration,
+            0,
+            _format,
+            nullptr);
+
+        if (FAILED(hr))
         {
             Logger::Log(
-                "[Audio] Initializing WASAPI in exclusive mode\n");
+                "[Audio] Shared IAudioClient::Initialize failed: 0x%08X\n",
+                static_cast<unsigned>(hr));
 
-            REFERENCE_TIME defaultPeriod = 0;
-            REFERENCE_TIME minimumPeriod = 0;
-
-            hr = _audioClient->GetDevicePeriod(
-                &defaultPeriod,
-                &minimumPeriod);
-
-            if (FAILED(hr))
-            {
-                Logger::Log(
-                    "[Audio] GetDevicePeriod failed: 0x%08X\n",
-                    static_cast<unsigned>(hr));
-
-                shutdown();
-                return false;
-            }
-
-            const REFERENCE_TIME requestedPeriod =
-                bufferDuration;
-
-            Logger::Log(
-                "[Audio] Device periods: default=%.3f ms, minimum=%.3f ms\n",
-                static_cast<double>(defaultPeriod) / 10000.0,
-                static_cast<double>(minimumPeriod) / 10000.0);
-
-            // The device cannot normally run below its minimum period.
-            const REFERENCE_TIME exclusivePeriod =
-                (std::max)(
-                    requestedPeriod,
-                    minimumPeriod);
-
-            bool formatSupported = false;
-
-            if (_format->wFormatTag == WAVE_FORMAT_EXTENSIBLE)
-            {
-                auto* extensible =
-                    reinterpret_cast<WAVEFORMATEXTENSIBLE*>(
-                        _format);
-
-                const GUID originalSubFormat =
-                    extensible->SubFormat;
-
-                // Try the current format first.
-                hr = _audioClient->IsFormatSupported(
-                    AUDCLNT_SHAREMODE_EXCLUSIVE,
-                    _format,
-                    nullptr);
-
-                if (hr == S_OK)
-                {
-                    formatSupported = true;
-                }
-                else
-                {
-                    // Try PCM32.
-                    extensible->SubFormat =
-                        KSDATAFORMAT_SUBTYPE_PCM;
-
-                    extensible->Samples.wValidBitsPerSample =
-                        32;
-
-                    _format->wBitsPerSample = 32;
-                    _format->nBlockAlign =
-                        _format->nChannels *
-                        sizeof(int32_t);
-
-                    _format->nAvgBytesPerSec =
-                        _format->nSamplesPerSec *
-                        _format->nBlockAlign;
-
-                    hr = _audioClient->IsFormatSupported(
-                        AUDCLNT_SHAREMODE_EXCLUSIVE,
-                        _format,
-                        nullptr);
-
-                    if (hr == S_OK)
-                    {
-                        Logger::Log(
-                            "[Audio] Exclusive format: 32-bit PCM\n");
-
-                        formatSupported = true;
-                    }
-                    else
-                    {
-                        // Try PCM24.
-                        extensible->SubFormat =
-                            KSDATAFORMAT_SUBTYPE_PCM;
-
-                        extensible->Samples.wValidBitsPerSample =
-                            24;
-
-                        _format->wBitsPerSample = 24;
-                        _format->nBlockAlign =
-                            _format->nChannels * 3;
-
-                        _format->nAvgBytesPerSec =
-                            _format->nSamplesPerSec *
-                            _format->nBlockAlign;
-
-                        hr = _audioClient->IsFormatSupported(
-                            AUDCLNT_SHAREMODE_EXCLUSIVE,
-                            _format,
-                            nullptr);
-
-                        if (hr == S_OK)
-                        {
-                            Logger::Log(
-                                "[Audio] Exclusive format: 24-bit PCM\n");
-
-                            formatSupported = true;
-                        }
-                        else
-                        {
-                            // Try PCM16.
-                            extensible->SubFormat =
-                                KSDATAFORMAT_SUBTYPE_PCM;
-
-                            extensible->Samples.wValidBitsPerSample =
-                                16;
-
-                            _format->wBitsPerSample = 16;
-                            _format->nBlockAlign =
-                                _format->nChannels * sizeof(int16_t);
-
-                            _format->nAvgBytesPerSec =
-                                _format->nSamplesPerSec *
-                                _format->nBlockAlign;
-
-                            hr = _audioClient->IsFormatSupported(
-                                AUDCLNT_SHAREMODE_EXCLUSIVE,
-                                _format,
-                                nullptr);
-
-                            if (hr == S_OK)
-                            {
-                                Logger::Log(
-                                    "[Audio] Exclusive format: 16-bit PCM\n");
-
-                                formatSupported = true;
-                            }
-                        }
-                    }
-
-                    if (!formatSupported)
-                    {
-                        extensible->SubFormat =
-                            originalSubFormat;
-                    }
-                }
-            }
-
-            if (!formatSupported)
-            {
-                hr = _audioClient->IsFormatSupported(
-                    AUDCLNT_SHAREMODE_EXCLUSIVE,
-                    _format,
-                    nullptr);
-
-                if (hr != S_OK)
-                {
-                    Logger::Log(
-                        "[Audio] No supported exclusive format found: 0x%08X\n",
-                        static_cast<unsigned>(hr));
-
-                    shutdown();
-                    return false;
-                }
-            }
-
-            hr = _audioClient->Initialize(
-                AUDCLNT_SHAREMODE_EXCLUSIVE,
-                0,
-                exclusivePeriod,
-                exclusivePeriod,
-                _format,
-                nullptr);
-
-            if (hr == AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED)
-            {
-                UINT32 alignedFrames = 0;
-
-                hr = _audioClient->GetBufferSize(
-                    &alignedFrames);
-
-                if (FAILED(hr))
-                {
-                    Logger::Log(
-                        "[Audio] GetBufferSize after alignment failure failed: 0x%08X\n",
-                        static_cast<unsigned>(hr));
-
-                    shutdown();
-                    return false;
-                }
-
-                const REFERENCE_TIME alignedDuration =
-                    static_cast<REFERENCE_TIME>(
-                        (static_cast<double>(alignedFrames) /
-                            static_cast<double>(_format->nSamplesPerSec)) *
-                        10000000.0 + 0.5);
-
-                Logger::Log(
-                    "[Audio] Buffer alignment required: %u frames (%.3f ms)\n",
-                    alignedFrames,
-                    static_cast<double>(alignedDuration) / 10000.0);
-
-                hr = _audioClient->Initialize(
-                    AUDCLNT_SHAREMODE_EXCLUSIVE,
-                    0,
-                    alignedDuration,
-                    alignedDuration,
-                    _format,
-                    nullptr);
-            }
-
-            if (FAILED(hr))
-            {
-                Logger::Log(
-                    "[Audio] Exclusive IAudioClient::Initialize failed: 0x%08X\n",
-                    static_cast<unsigned>(hr));
-
-                shutdown();
-                return false;
-            }
-        }
-        else
-        {
-            hr = _audioClient->Initialize(
-                AUDCLNT_SHAREMODE_SHARED,
-                0,
-                bufferDuration,
-                0,
-                _format,
-                nullptr);
-
-            if (FAILED(hr))
-            {
-                Logger::Log(
-                    "[Audio] Shared IAudioClient::Initialize failed: 0x%08X\n",
-                    static_cast<unsigned>(hr));
-
-                shutdown();
-                return false;
-            }
+            shutdown();
+            return false;
         }
 
         /*
          * Determine the actual sample format from the final format.
-         *
-         * This must happen after exclusive-mode format negotiation,
-         * because GetMixFormat() describes the shared-mode format and
-         * exclusive mode may have selected a different format.
          */
         _sampleFormat =
             SampleFormat::Unknown;
@@ -958,7 +720,6 @@ namespace audio
 
         return true;
     }
-
 
     // =========================================================
     // SHUTDOWN

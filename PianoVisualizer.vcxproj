@@ -95,6 +95,9 @@
     <ClCompile Include="src\Audio\vst\VSTEventList.cpp" />
     <ClCompile Include="src\Audio\vst\VSTHostApplication.cpp" />
     <ClCompile Include="src\Audio\vst\VSTStateStream.cpp" />
+    <ClCompile Include="src\MidiVisualizer\editor\MIDIEditor.cpp" />
+    <ClCompile Include="src\MidiVisualizer\midi\editor\MIDIEditorDocument.cpp" />
+    <ClCompile Include="src\MidiVisualizer\midi\editor\MIDIEditorIO.cpp" />
     <ClCompile Include="src\MidiVisualizer\resources\pauseButton_image.cpp" />
     <ClCompile Include="src\MidiVisualizer\resources\playButton_image.cpp" />
     <ClCompile Include="src\MidiVisualizer\resources\replayButton_image.cpp" />
@@ -761,6 +764,9 @@
     <ClInclude Include="src\Audio\vst\VSTEventList.h" />
     <ClInclude Include="src\Audio\vst\VSTHostApplication.h" />
     <ClInclude Include="src\Audio\vst\VSTStateStream.h" />
+    <ClInclude Include="src\MidiVisualizer\editor\MIDIEditor.h" />
+    <ClInclude Include="src\MidiVisualizer\midi\editor\MIDIEditorDocument.h" />
+    <ClInclude Include="src\MidiVisualizer\midi\editor\MIDIEditorIO.h" />
     <ClInclude Include="src\VirtualCameraExtension\VirtualCameraExtension.h" />
     <ClInclude Include="util\camera\Camera.h" />
     <ClInclude Include="util\camera\CameraControls.h" />
