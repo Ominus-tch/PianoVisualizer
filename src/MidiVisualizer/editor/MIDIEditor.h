@@ -111,6 +111,13 @@ private:
 
     void notifyDocumentChanged();
 
+    struct NoteEditSnapshot
+    {
+        uint64_t id = 0;
+        size_t trackIndex = 0;
+        MIDIEditorNote note;
+    };
+
     void startAudition(
         int pitch,
         int channel,
@@ -118,6 +125,37 @@ private:
     );
 
     void stopAudition();
+
+    bool isNoteSelected(
+        uint64_t noteId
+    ) const;
+
+    void clearSelection();
+
+    void setSingleSelection(
+        uint64_t noteId
+    );
+
+    void appendSelection(
+        uint64_t noteId
+    );
+
+    void refreshSelectionVelocity();
+
+    void copySelection();
+    void cutSelection();
+    void pasteSelection();
+
+    size_t findNoteTrackIndex(
+        uint64_t noteId
+    ) const;
+
+    bool noteExistsIgnoringSelection(
+        size_t trackIndex,
+        int pitch,
+        int channel,
+        uint64_t startTick
+    ) const;
 
     uint64_t findHoveredNote(
         float mouseX,
@@ -158,10 +196,34 @@ private:
     MIDIEditorGridSubdivision _gridSubdivision =
         MIDIEditorGridSubdivision::Sixteenth;
 
-    bool _snapEnabled = true;
+    bool _snapEnabled = false;
 
     bool _isDraggingNote = false;
     bool _isResizingNote = false;
+
+    bool _isSelectingNotes = false;
+    bool _selectionHasMoved = false;
+
+    float _selectionStartX = 0.0f;
+    float _selectionStartY = 0.0f;
+    float _selectionCurrentX = 0.0f;
+    float _selectionCurrentY = 0.0f;
+
+    std::vector<uint64_t> _selectedNoteIds;
+    std::vector<NoteEditSnapshot> _editOriginalSelectionNotes;
+
+    struct ClipboardNote
+    {
+        float xOffsetPixels = 0.0f;
+
+        int pitch = 60;
+        int velocity = 100;
+        int channel = 0;
+
+        uint64_t durationTick = 0;
+    };
+
+    std::vector<ClipboardNote> _clipboardNotes;
 
     uint64_t _activeNoteId = 0;
 
@@ -176,13 +238,18 @@ private:
     int _auditionPitch = -1;
     int _auditionChannel = 0;
     bool _auditioning = false;
+    bool _auditionFromKeyboard = false;
 
     bool _editUndoSaved = false;
+
+    int _velocityEditorValue = 100;
+    bool _velocityUndoSaved = false;
 
     bool _pianoRollHovered = false;
 
 
     static constexpr float NoteResizeHandleWidth = 7.0f;
+    static constexpr float SelectionDragThreshold = 4.0f;
 
     static constexpr float MinPixelsPerTick = 0.02f;
     static constexpr float MaxPixelsPerTick = 4.0f;

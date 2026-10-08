@@ -86,6 +86,476 @@ void MIDIEditor::notifyDocumentChanged()
     }
 }
 
+bool MIDIEditor::isNoteSelected(
+    uint64_t noteId
+) const
+{
+    return std::find(
+        _selectedNoteIds.begin(),
+        _selectedNoteIds.end(),
+        noteId
+    ) != _selectedNoteIds.end();
+}
+
+
+void MIDIEditor::clearSelection()
+{
+    _selectedNoteIds.clear();
+
+    _activeNoteId = 0;
+
+    _editOriginalSelectionNotes.clear();
+
+    _velocityUndoSaved = false;
+
+    _velocityEditorValue = 100;
+}
+
+
+void MIDIEditor::setSingleSelection(
+    uint64_t noteId
+)
+{
+    _selectedNoteIds.clear();
+
+    if (noteId != 0)
+    {
+        _selectedNoteIds.push_back(noteId);
+    }
+
+    _activeNoteId = noteId;
+
+    _editOriginalSelectionNotes.clear();
+
+    _velocityUndoSaved = false;
+
+    refreshSelectionVelocity();
+}
+
+
+void MIDIEditor::appendSelection(
+    uint64_t noteId
+)
+{
+    if (noteId == 0)
+    {
+        return;
+    }
+
+    if (!isNoteSelected(noteId))
+    {
+        _selectedNoteIds.push_back(noteId);
+    }
+
+    _activeNoteId = noteId;
+
+    _editOriginalSelectionNotes.clear();
+
+    _velocityUndoSaved = false;
+
+    refreshSelectionVelocity();
+}
+
+
+void MIDIEditor::refreshSelectionVelocity()
+{
+    if (_selectedNoteIds.empty())
+    {
+        _velocityEditorValue = 100;
+
+        return;
+    }
+
+    const MIDIEditorNote* note =
+        _document.findNote(
+            _selectedNoteIds.front()
+        );
+
+    if (note)
+    {
+        _velocityEditorValue =
+            (std::clamp)(
+                note->velocity,
+                1,
+                127
+                );
+    }
+    else
+    {
+        _velocityEditorValue = 100;
+    }
+}
+
+void MIDIEditor::copySelection()
+{
+    _clipboardNotes.clear();
+
+    if (_selectedNoteIds.empty())
+    {
+        return;
+    }
+
+    _clipboardNotes.reserve(
+        _selectedNoteIds.size()
+    );
+
+    for (const uint64_t noteId : _selectedNoteIds)
+    {
+        const MIDIEditorNote* note =
+            _document.findNote(noteId);
+
+        if (!note)
+        {
+            continue;
+        }
+
+        const double noteOffsetTicks =
+            static_cast<double>(
+                note->startTick
+                ) -
+            static_cast<double>(
+                _viewStartTick
+                );
+
+        const float xOffsetPixels =
+            static_cast<float>(
+                noteOffsetTicks *
+                static_cast<double>(
+                    _pixelsPerTick
+                    )
+                );
+
+        ClipboardNote clipboardNote;
+
+        clipboardNote.xOffsetPixels =
+            xOffsetPixels;
+
+        clipboardNote.pitch =
+            note->pitch;
+
+        clipboardNote.velocity =
+            note->velocity;
+
+        clipboardNote.channel =
+            note->channel;
+
+        clipboardNote.durationTick =
+            note->durationTick;
+
+        _clipboardNotes.push_back(
+            clipboardNote
+        );
+    }
+}
+
+void MIDIEditor::cutSelection()
+{
+    if (_selectedNoteIds.empty())
+    {
+        return;
+    }
+
+    copySelection();
+
+    saveUndoState();
+
+    bool removedAny = false;
+
+    for (const uint64_t noteId : _selectedNoteIds)
+    {
+        if (_document.removeNote(noteId))
+        {
+            removedAny = true;
+        }
+    }
+
+    if (!removedAny)
+    {
+        if (!_undoHistory.empty())
+        {
+            _undoHistory.pop_back();
+        }
+
+        return;
+    }
+
+    _selectedNoteIds.clear();
+
+    _activeNoteId = 0;
+
+    _document.sortNotes();
+
+    _document.dirty = true;
+
+    notifyDocumentChanged();
+}
+
+void MIDIEditor::pasteSelection()
+{
+    if (_clipboardNotes.empty())
+    {
+        return;
+    }
+
+    if (_document.tracks.empty())
+    {
+        _document.tracks.push_back(
+            MIDIEditorTrack{}
+        );
+    }
+
+    const uint64_t PasteCollisionOffsetTicks =
+        _document.ticksPerQuarterNote / 8;
+
+    // ------------------------------------------------------------
+    // Calculate the initial paste positions.
+    // ------------------------------------------------------------
+
+    std::vector<uint64_t> pasteStartTicks;
+
+    pasteStartTicks.reserve(
+        _clipboardNotes.size()
+    );
+
+    for (const ClipboardNote& clipboardNote :
+        _clipboardNotes)
+    {
+        double tickOffset =
+            static_cast<double>(
+                clipboardNote.xOffsetPixels
+                ) /
+            static_cast<double>(
+                _pixelsPerTick
+                );
+
+        double startTick =
+            static_cast<double>(
+                _viewStartTick
+                ) +
+            tickOffset;
+
+        if (startTick < 0.0)
+        {
+            startTick = 0.0;
+        }
+
+        uint64_t newStartTick =
+            static_cast<uint64_t>(
+                std::llround(
+                    startTick
+                )
+                );
+
+        if (_snapEnabled)
+        {
+            const uint64_t snapTicks =
+                gridTicks();
+
+            if (snapTicks > 0)
+            {
+                newStartTick =
+                    static_cast<uint64_t>(
+                        std::llround(
+                            static_cast<double>(
+                                newStartTick
+                                ) /
+                            static_cast<double>(
+                                snapTicks
+                                )
+                        )
+                        ) *
+                    snapTicks;
+            }
+        }
+
+        pasteStartTicks.push_back(
+            newStartTick
+        );
+    }
+
+    // ------------------------------------------------------------
+    // Find a collision-free offset.
+    //
+    // The whole pasted group moves together.
+    // ------------------------------------------------------------
+
+    uint64_t collisionOffset = 0;
+
+    while (true)
+    {
+        bool collision = false;
+
+        for (size_t i = 0;
+            i < _clipboardNotes.size();
+            ++i)
+        {
+            const uint64_t testStartTick =
+                pasteStartTicks[i] +
+                collisionOffset;
+
+            const ClipboardNote& clipboardNote =
+                _clipboardNotes[i];
+
+            if (noteExistsAt(
+                0,
+                clipboardNote.pitch,
+                clipboardNote.channel,
+                testStartTick
+            ))
+            {
+                collision = true;
+                break;
+            }
+        }
+
+        if (!collision)
+        {
+            break;
+        }
+
+        collisionOffset +=
+            PasteCollisionOffsetTicks;
+    }
+
+    // ------------------------------------------------------------
+    // Create the pasted notes.
+    // ------------------------------------------------------------
+
+    saveUndoState();
+
+    std::vector<uint64_t> pastedNoteIds;
+
+    pastedNoteIds.reserve(
+        _clipboardNotes.size()
+    );
+
+    for (size_t i = 0;
+        i < _clipboardNotes.size();
+        ++i)
+    {
+        const ClipboardNote& clipboardNote =
+            _clipboardNotes[i];
+
+        const uint64_t newStartTick =
+            pasteStartTicks[i] +
+            collisionOffset;
+
+        MIDIEditorNote* newNote =
+            _document.addNote(
+                0,
+                clipboardNote.pitch,
+                clipboardNote.velocity,
+                clipboardNote.channel,
+                newStartTick,
+                clipboardNote.durationTick
+            );
+
+        if (newNote)
+        {
+            pastedNoteIds.push_back(
+                newNote->id
+            );
+        }
+    }
+
+    if (pastedNoteIds.empty())
+    {
+        if (!_undoHistory.empty())
+        {
+            _undoHistory.pop_back();
+        }
+
+        return;
+    }
+
+    // ------------------------------------------------------------
+    // Replace the previous selection with
+    // the newly pasted notes.
+    // ------------------------------------------------------------
+
+    _selectedNoteIds =
+        std::move(
+            pastedNoteIds
+        );
+
+    _activeNoteId =
+        _selectedNoteIds.empty()
+        ? 0
+        : _selectedNoteIds.front();
+
+    _document.sortNotes();
+
+    _document.dirty = true;
+
+    _followPlayback = false;
+
+    notifyDocumentChanged();
+}
+
+size_t MIDIEditor::findNoteTrackIndex(
+    uint64_t noteId
+) const
+{
+    for (
+        size_t trackIndex = 0;
+        trackIndex < _document.tracks.size();
+        ++trackIndex
+        )
+    {
+        const auto& track =
+            _document.tracks[trackIndex];
+
+        for (const auto& note : track.notes)
+        {
+            if (note.id == noteId)
+            {
+                return trackIndex;
+            }
+        }
+    }
+
+    return static_cast<size_t>(-1);
+}
+
+
+bool MIDIEditor::noteExistsIgnoringSelection(
+    size_t trackIndex,
+    int pitch,
+    int channel,
+    uint64_t startTick
+) const
+{
+    if (trackIndex >= _document.tracks.size())
+    {
+        return false;
+    }
+
+    const auto& track =
+        _document.tracks[trackIndex];
+
+    for (const auto& note : track.notes)
+    {
+        if (
+            note.pitch != pitch ||
+            note.channel != channel ||
+            note.startTick != startTick
+            )
+        {
+            continue;
+        }
+
+        if (isNoteSelected(note.id))
+        {
+            continue;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+
 void MIDIEditor::startAudition(
     int pitch,
     int channel,
@@ -176,6 +646,9 @@ void MIDIEditor::stopAudition()
 
     _auditioning =
         false;
+
+    _auditionFromKeyboard =
+        false;
 }
 
 // ============================================================
@@ -245,6 +718,8 @@ bool MIDIEditor::openFile(
     _editUndoSaved = false;
 
     stopAudition();
+
+    clearSelection();
 
     // ------------------------------------------------------------
     // Clear edit history
@@ -371,7 +846,7 @@ void MIDIEditor::close()
     _gridSubdivision =
         MIDIEditorGridSubdivision::Sixteenth;
 
-    _snapEnabled = true;
+    _snapEnabled = false;
 
     // ------------------------------------------------------------
     // Reset note editing state
@@ -396,6 +871,8 @@ void MIDIEditor::close()
     _editUndoSaved = false;
 
     stopAudition();
+
+    clearSelection();
 
     // ------------------------------------------------------------
     // Clear history
@@ -459,6 +936,8 @@ void MIDIEditor::undo()
 
     _document.sortNotes();
 
+    clearSelection();
+
     _document.dirty = true;
 
     notifyDocumentChanged();
@@ -493,6 +972,8 @@ void MIDIEditor::redo()
     _redoHistory.pop_back();
 
     _document.sortNotes();
+
+    clearSelection();
 
     _document.dirty = true;
 
@@ -729,6 +1210,39 @@ bool MIDIEditor::draw(
             )
         {
             redo();
+        }
+
+        if (
+            io.KeyCtrl &&
+            ImGui::IsKeyPressed(
+                ImGuiKey_C,
+                false
+            )
+            )
+        {
+            copySelection();
+        }
+
+        if (
+            io.KeyCtrl &&
+            ImGui::IsKeyPressed(
+                ImGuiKey_X,
+                false
+            )
+            )
+        {
+            cutSelection();
+        }
+
+        if (
+            io.KeyCtrl &&
+            ImGui::IsKeyPressed(
+                ImGuiKey_V,
+                false
+            )
+            )
+        {
+            pasteSelection();
         }
     }
 
@@ -1008,6 +1522,112 @@ bool MIDIEditor::draw(
         "Snap",
         &_snapEnabled
     );
+
+    ImGui::SameLine();
+
+    if (!_followPlayback)
+    {
+        if (ImGui::Button(
+            "Sync View"
+        ))
+        {
+            _followPlayback = true;
+        }
+    }
+
+    // ============================================================
+    // Selected note velocity
+    // ============================================================
+
+    if (!_selectedNoteIds.empty())
+    {
+        ImGui::SameLine();
+
+        ImGui::Text(
+            "Selected: %zu",
+            _selectedNoteIds.size()
+        );
+
+        ImGui::SameLine();
+
+        ImGui::Text(
+            "Velocity"
+        );
+
+        ImGui::SameLine();
+
+        ImGui::SetNextItemWidth(
+            180.0f
+        );
+
+        int velocity =
+            _velocityEditorValue;
+
+        if (ImGui::SliderInt(
+            "##SelectedVelocity",
+            &velocity,
+            1,
+            127,
+            "%d"
+        ))
+        {
+            velocity =
+                (std::clamp)(
+                    velocity,
+                    1,
+                    127
+                    );
+
+            _velocityEditorValue =
+                velocity;
+
+            if (!_velocityUndoSaved)
+            {
+                saveUndoState();
+
+                _velocityUndoSaved =
+                    true;
+            }
+
+            bool changed = false;
+
+            for (const uint64_t noteId :
+            _selectedNoteIds)
+            {
+                MIDIEditorNote* note =
+                    _document.findNote(
+                        noteId
+                    );
+
+                if (!note)
+                {
+                    continue;
+                }
+
+                if (note->velocity != velocity)
+                {
+                    note->velocity =
+                        velocity;
+
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                _document.dirty =
+                    true;
+
+                notifyDocumentChanged();
+            }
+        }
+
+        if (ImGui::IsItemDeactivatedAfterEdit())
+        {
+            _velocityUndoSaved =
+                false;
+        }
+    }
 
     // ============================================================
     // MIDI timeline
@@ -1467,6 +2087,98 @@ void MIDIEditor::drawPianoRoll(
             origin.y
         );
 
+    // ------------------------------------------------------------
+    // Middle-mouse manual panning
+    // ------------------------------------------------------------
+
+    if (
+        ImGui::IsWindowHovered() &&
+        ImGui::IsMouseDown(
+            ImGuiMouseButton_Middle
+        )
+        )
+    {
+        const ImVec2 mouseDelta =
+            ImGui::GetIO().MouseDelta;
+
+        if (
+            mouseDelta.x != 0.0f ||
+            mouseDelta.y != 0.0f
+            )
+        {
+            _followPlayback = false;
+
+            if (pixelsPerTick > 0.0f)
+            {
+                const double tickDelta =
+                    static_cast<double>(
+                        mouseDelta.x
+                        ) /
+                    static_cast<double>(
+                        pixelsPerTick
+                        );
+
+                double newViewStart =
+                    static_cast<double>(
+                        _viewStartTick
+                        ) -
+                    tickDelta;
+
+                if (newViewStart < 0.0)
+                {
+                    newViewStart = 0.0;
+                }
+
+                if (durationTicks > visibleTicks)
+                {
+                    const double maxViewStart =
+                        static_cast<double>(
+                            durationTicks -
+                            visibleTicks
+                            );
+
+                    newViewStart =
+                        (std::min)(
+                            newViewStart,
+                            maxViewStart
+                            );
+                }
+                else
+                {
+                    newViewStart = 0.0;
+                }
+
+                _viewStartTick =
+                    static_cast<uint64_t>(
+                        std::llround(
+                            newViewStart
+                        )
+                        );
+
+                viewStartTick =
+                    _viewStartTick;
+            }
+
+            const float scrollMaxY =
+                ImGui::GetScrollMaxY();
+
+            float newScrollY =
+                ImGui::GetScrollY() -
+                mouseDelta.y;
+
+            newScrollY =
+                (std::clamp)(
+                    newScrollY,
+                    0.0f,
+                    scrollMaxY
+                    );
+
+            ImGui::SetScrollY(
+                newScrollY
+            );
+        }
+    }
+
     ImDrawList* drawList =
         ImGui::GetWindowDrawList();
 
@@ -1519,6 +2231,10 @@ void MIDIEditor::drawPianoRoll(
         mousePos.y <
         childWindowPos.y +
         childWindowSize.y;
+
+    const float gridX =
+        drawOrigin.x +
+        keyWidth;
 
     // ============================================================
     // Horizontal Zoom
@@ -1668,7 +2384,7 @@ void MIDIEditor::drawPianoRoll(
     // ------------------------------------------------------------
 
     auto mouseXToTick =
-        [&]()
+        [&](float x)
         {
             const double tick =
                 static_cast<double>(
@@ -1676,7 +2392,7 @@ void MIDIEditor::drawPianoRoll(
                     ) +
                 (
                     static_cast<double>(
-                        mousePos.x
+                        x
                         ) -
                     static_cast<double>(
                         drawOrigin.x +
@@ -1690,6 +2406,227 @@ void MIDIEditor::drawPianoRoll(
             return tick < 0.0
                 ? 0.0
                 : tick;
+        };
+
+    // ------------------------------------------------------------
+    // Create a new note from a screen-space position.
+    // ------------------------------------------------------------
+
+    auto createNoteAt =
+        [&](float x, float y)
+        {
+            double tickValue =
+                mouseXToTick(x);
+
+            if (tickValue < 0.0)
+            {
+                tickValue = 0.0;
+            }
+
+            uint64_t startTick =
+                static_cast<uint64_t>(
+                    std::llround(
+                        tickValue
+                    )
+                    );
+
+            // Snap to the start of the grid cell.
+            if (_snapEnabled)
+            {
+                const uint64_t snapTicks =
+                    gridTicks();
+
+                if (snapTicks > 0)
+                {
+                    startTick =
+                        (
+                            startTick /
+                            snapTicks
+                            ) *
+                        snapTicks;
+                }
+            }
+
+            const float noteY =
+                y -
+                drawOrigin.y;
+
+            int pitch =
+                maxPitch -
+                static_cast<int>(
+                    noteY /
+                    rowHeight
+                    );
+
+            pitch =
+                (std::clamp)(
+                    pitch,
+                    minPitch,
+                    maxPitch
+                    );
+
+            const uint64_t noteDuration =
+                gridTicks() * 2;
+
+            if (noteDuration == 0)
+            {
+                return;
+            }
+
+            if (_document.tracks.empty())
+            {
+                _document.tracks.push_back(
+                    MIDIEditorTrack{}
+                );
+            }
+
+            constexpr size_t editTrack = 0;
+
+            const bool duplicate =
+                noteExistsAt(
+                    editTrack,
+                    pitch,
+                    0,
+                    startTick
+                );
+
+            if (duplicate)
+            {
+                return;
+            }
+
+            saveUndoState();
+
+            _document.addNote(
+                editTrack,
+                pitch,
+                100,
+                0,
+                startTick,
+                noteDuration
+            );
+
+            _document.sortNotes();
+
+            _document.dirty =
+                true;
+
+            notifyDocumentChanged();
+        };
+
+    // ============================================================
+    // Selection rectangle helpers
+    // ============================================================
+
+    auto updateSelectionFromRectangle =
+        [&](float x0, float y0, float x1, float y1)
+        {
+            const float selectionMinX =
+                (std::min)(x0, x1);
+
+            const float selectionMaxX =
+                (std::max)(x0, x1);
+
+            const float selectionMinY =
+                (std::min)(y0, y1);
+
+            const float selectionMaxY =
+                (std::max)(y0, y1);
+
+            _selectedNoteIds.clear();
+
+            for (
+                size_t trackIndex = 0;
+                trackIndex < _document.tracks.size();
+                ++trackIndex
+                )
+            {
+                const auto& track =
+                    _document.tracks[trackIndex];
+
+                for (const auto& note : track.notes)
+                {
+                    if (
+                        note.pitch < minPitch ||
+                        note.pitch > maxPitch
+                        )
+                    {
+                        continue;
+                    }
+
+                    const float noteX =
+                        gridX +
+                        static_cast<float>(
+                            static_cast<double>(
+                                note.startTick
+                                ) -
+                            static_cast<double>(
+                                viewStartTick
+                                )
+                            ) *
+                        pixelsPerTick;
+
+                    const float noteWidth =
+                        (std::max)(
+                            0.0f,
+                            static_cast<float>(
+                                note.durationTick
+                                ) *
+                            pixelsPerTick
+                            );
+
+                    const float noteY =
+                        drawOrigin.y +
+                        static_cast<float>(
+                            maxPitch -
+                            note.pitch
+                            ) *
+                        rowHeight;
+
+                    const float noteRight =
+                        noteX +
+                        noteWidth;
+
+                    const float noteBottom =
+                        noteY +
+                        rowHeight;
+
+                    const bool touchesSelection =
+                        noteRight >= selectionMinX &&
+                        noteX <= selectionMaxX &&
+                        noteBottom >= selectionMinY &&
+                        noteY <= selectionMaxY;
+
+                    if (!touchesSelection)
+                    {
+                        continue;
+                    }
+
+                    if (!isNoteSelected(note.id))
+                    {
+                        _selectedNoteIds.push_back(
+                            note.id
+                        );
+                    }
+                }
+            }
+
+            if (!_selectedNoteIds.empty())
+            {
+                _activeNoteId =
+                    _selectedNoteIds.back();
+
+                refreshSelectionVelocity();
+            }
+            else
+            {
+                _activeNoteId = 0;
+
+                _velocityEditorValue = 100;
+            }
+
+            _editOriginalSelectionNotes.clear();
+            _velocityUndoSaved = false;
         };
 
     // ============================================================
@@ -1712,131 +2649,389 @@ void MIDIEditor::drawPianoRoll(
             _isResizingNote = false;
             _activeNoteId = 0;
             _editUndoSaved = false;
+            _editOriginalSelectionNotes.clear();
+            stopAudition();
         }
         else
         {
             // ----------------------------------------------------
-            // Move note
+            // Move selected notes together
             // ----------------------------------------------------
 
             if (_isDraggingNote)
             {
-                const double mouseTick =
-                    mouseXToTick();
+                const MIDIEditorNote* originalActiveNote =
+                    nullptr;
 
-                double candidateStart =
-                    mouseTick -
-                    _dragMouseOffsetTicks;
-
-                if (candidateStart < 0.0)
+                for (const auto& snapshot :
+                    _editOriginalSelectionNotes)
                 {
-                    candidateStart = 0.0;
+                    if (snapshot.id == _activeNoteId)
+                    {
+                        originalActiveNote =
+                            &snapshot.note;
+
+                        break;
+                    }
                 }
 
-                uint64_t newStartTick =
-                    static_cast<uint64_t>(
-                        std::llround(
-                            candidateStart
-                        )
-                        );
-
-                if (_snapEnabled)
+                if (originalActiveNote)
                 {
-                    const uint64_t snapTicks =
-                        gridTicks();
+                    const double mouseTick =
+                        mouseXToTick(mousePos.x);
 
-                    if (snapTicks > 0)
+                    double candidateStart =
+                        mouseTick -
+                        _dragMouseOffsetTicks;
+
+                    if (candidateStart < 0.0)
                     {
-                        newStartTick =
+                        candidateStart = 0.0;
+                    }
+
+                    uint64_t candidateStartTick =
+                        static_cast<uint64_t>(
+                            std::llround(
+                                candidateStart
+                            )
+                            );
+
+                    if (_snapEnabled)
+                    {
+                        const uint64_t snapTicks =
+                            gridTicks();
+
+                        if (snapTicks > 0)
+                        {
+                            candidateStartTick =
+                                static_cast<uint64_t>(
+                                    std::llround(
+                                        static_cast<double>(
+                                            candidateStartTick
+                                            ) /
+                                        static_cast<double>(
+                                            snapTicks
+                                            )
+                                    )
+                                    ) *
+                                snapTicks;
+                        }
+                    }
+
+                    int newPitch =
+                        maxPitch -
+                        static_cast<int>(
+                            (
+                                mousePos.y -
+                                drawOrigin.y -
+                                _dragMouseOffsetY
+                                ) /
+                            rowHeight
+                            );
+
+                    newPitch =
+                        (std::clamp)(
+                            newPitch,
+                            minPitch,
+                            maxPitch
+                            );
+
+                    int pitchDelta =
+                        newPitch -
+                        originalActiveNote->pitch;
+
+                    int minOriginalPitch =
+                        maxPitch;
+
+                    int maxOriginalPitch =
+                        minPitch;
+
+                    uint64_t minOriginalStartTick =
+                        UINT64_MAX;
+
+                    for (const auto& snapshot :
+                        _editOriginalSelectionNotes)
+                    {
+                        minOriginalPitch =
+                            (std::min)(
+                                minOriginalPitch,
+                                snapshot.note.pitch
+                                );
+
+                        maxOriginalPitch =
+                            (std::max)(
+                                maxOriginalPitch,
+                                snapshot.note.pitch
+                                );
+
+                        minOriginalStartTick =
+                            (std::min)(
+                                minOriginalStartTick,
+                                snapshot.note.startTick
+                                );
+                    }
+
+                    pitchDelta =
+                        (std::max)(
+                            pitchDelta,
+                            minPitch -
+                            minOriginalPitch
+                            );
+
+                    pitchDelta =
+                        (std::min)(
+                            pitchDelta,
+                            maxPitch -
+                            maxOriginalPitch
+                            );
+
+                    int64_t requestedTickDelta =
+                        static_cast<int64_t>(
+                            candidateStartTick
+                            ) -
+                        static_cast<int64_t>(
+                            originalActiveNote->startTick
+                            );
+
+                    const int64_t minimumTickDelta =
+                        minOriginalStartTick == UINT64_MAX
+                        ? 0
+                        : -static_cast<int64_t>(
+                            minOriginalStartTick
+                            );
+
+                    requestedTickDelta =
+                        (std::max)(
+                            requestedTickDelta,
+                            minimumTickDelta
+                            );
+
+                    bool duplicate = false;
+
+                    for (const auto& snapshot :
+                        _editOriginalSelectionNotes)
+                    {
+                        int targetPitch =
+                            snapshot.note.pitch +
+                            pitchDelta;
+
+                        targetPitch =
+                            (std::clamp)(
+                                targetPitch,
+                                minPitch,
+                                maxPitch
+                                );
+
+                        int64_t targetStartSigned =
+                            static_cast<int64_t>(
+                                snapshot.note.startTick
+                                ) +
+                            requestedTickDelta;
+
+                        if (targetStartSigned < 0)
+                        {
+                            targetStartSigned = 0;
+                        }
+
+                        const uint64_t targetStartTick =
                             static_cast<uint64_t>(
-                                std::llround(
-                                    static_cast<double>(
-                                        newStartTick
-                                        ) /
+                                targetStartSigned
+                                );
+
+                        if (
+                            noteExistsIgnoringSelection(
+                                snapshot.trackIndex,
+                                targetPitch,
+                                snapshot.note.channel,
+                                targetStartTick
+                            )
+                            )
+                        {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+
+                    const int auditionPitch =
+                        (std::clamp)(
+                            originalActiveNote->pitch +
+                            pitchDelta,
+                            minPitch,
+                            maxPitch
+                            );
+
+                    _auditionFromKeyboard =
+                        false;
+
+                    startAudition(
+                        auditionPitch,
+                        activeNote->channel,
+                        static_cast<float>(
+                            activeNote->velocity
+                            ) / 127.0f
+                    );
+
+                    if (!duplicate)
+                    {
+                        const bool moved =
+                            pitchDelta != 0 ||
+                            requestedTickDelta != 0;
+
+                        if (moved)
+                        {
+                            if (!_editUndoSaved)
+                            {
+                                saveUndoState();
+
+                                _editUndoSaved =
+                                    true;
+                            }
+
+                            for (const auto& snapshot :
+                                _editOriginalSelectionNotes)
+                            {
+                                MIDIEditorNote* note =
+                                    _document.findNote(
+                                        snapshot.id
+                                    );
+
+                                if (!note)
+                                {
+                                    continue;
+                                }
+
+                                int targetPitch =
+                                    snapshot.note.pitch +
+                                    pitchDelta;
+
+                                targetPitch =
+                                    (std::clamp)(
+                                        targetPitch,
+                                        minPitch,
+                                        maxPitch
+                                        );
+
+                                int64_t targetStartSigned =
+                                    static_cast<int64_t>(
+                                        snapshot.note.startTick
+                                        ) +
+                                    requestedTickDelta;
+
+                                if (targetStartSigned < 0)
+                                {
+                                    targetStartSigned = 0;
+                                }
+
+                                note->pitch =
+                                    targetPitch;
+
+                                note->startTick =
+                                    static_cast<uint64_t>(
+                                        targetStartSigned
+                                        );
+                            }
+
+                            _document.dirty =
+                                true;
+
+                            notifyDocumentChanged();
+                        }
+                    }
+                }
+            }
+
+            // ----------------------------------------------------
+            // Resize selected notes together
+            // ----------------------------------------------------
+
+            if (_isResizingNote)
+            {
+                const MIDIEditorNote* originalNote = nullptr;
+
+                for (const auto& snapshot :
+                    _editOriginalSelectionNotes)
+                {
+                    if (snapshot.id == _activeNoteId)
+                    {
+                        originalNote =
+                            &snapshot.note;
+
+                        break;
+                    }
+                }
+
+                if (originalNote)
+                {
+                    const double mouseTick =
+                        mouseXToTick(mousePos.x);
+
+                    // The right edge follows the mouse.
+                    double newEndTick =
+                        mouseTick -
+                        _dragMouseOffsetTicks;
+
+                    const double minimumEndTick =
+                        static_cast<double>(
+                            originalNote->startTick
+                            ) + 1.0;
+
+                    if (newEndTick < minimumEndTick)
+                    {
+                        newEndTick =
+                            minimumEndTick;
+                    }
+
+                    // Snap only when explicitly enabled.
+                    if (_snapEnabled)
+                    {
+                        const uint64_t snapTicks =
+                            gridTicks();
+
+                        if (snapTicks > 0)
+                        {
+                            newEndTick =
+                                std::round(
+                                    newEndTick /
                                     static_cast<double>(
                                         snapTicks
                                         )
-                                )
                                 ) *
-                            snapTicks;
-                    }
-                }
+                                static_cast<double>(
+                                    snapTicks
+                                    );
 
-                // ------------------------------------------------
-                // Vertical movement -> pitch
-                // ------------------------------------------------
-
-                const float noteTopY =
-                    mousePos.y -
-                    drawOrigin.y -
-                    _dragMouseOffsetY;
-
-                int newPitch =
-                    maxPitch -
-                    static_cast<int>(
-                        noteTopY /
-                        rowHeight
-                        );
-
-                if (newPitch < minPitch)
-                {
-                    newPitch = minPitch;
-                }
-
-                if (newPitch > maxPitch)
-                {
-                    newPitch = maxPitch;
-                }
-
-                startAudition(
-                    newPitch,
-                    activeNote->channel,
-                    static_cast<float>(
-                        activeNote->velocity
-                        ) / 127.0f
-                );
-
-                // ------------------------------------------------
-                // Prevent duplicate notes.
-                // ------------------------------------------------
-
-                const bool duplicate =
-                    noteExistsAt(
-                        0,
-                        newPitch,
-                        activeNote->channel,
-                        newStartTick,
-                        activeNote->id
-                    );
-
-                if (!duplicate)
-                {
-                    if (
-                        !_editUndoSaved &&
-                        (
-                            newPitch !=
-                            _editOriginalPitch ||
-                            newStartTick !=
-                            _editOriginalStartTick
-                            )
-                        )
-                    {
-                        saveUndoState();
-
-                        _editUndoSaved =
-                            true;
+                            newEndTick =
+                                (std::max)(
+                                    newEndTick,
+                                    minimumEndTick
+                                    );
+                        }
                     }
 
-                    activeNote->pitch =
-                        newPitch;
+                    const uint64_t newDuration =
+                        static_cast<uint64_t>(
+                            (std::max)(
+                                1.0,
+                                newEndTick -
+                                static_cast<double>(
+                                    originalNote->startTick
+                                    )
+                                )
+                            );
 
-                    activeNote->startTick =
-                        newStartTick;
-
-                    if (_editUndoSaved)
+                    if (newDuration !=
+                        originalNote->durationTick)
                     {
-                        _document.dirty =
-                            true;
+                        if (!_editUndoSaved)
+                        {
+                            saveUndoState();
+                            _editUndoSaved = true;
+                        }
+
+                        activeNote->durationTick =
+                            newDuration;
+
+                        _document.dirty = true;
 
                         notifyDocumentChanged();
                     }
@@ -1844,106 +3039,12 @@ void MIDIEditor::drawPianoRoll(
             }
 
             // ----------------------------------------------------
-            // Resize note
-            // ----------------------------------------------------
-
-            if (_isResizingNote)
-            {
-                const double mouseTick =
-                    mouseXToTick();
-
-                double endTick =
-                    mouseTick;
-
-                if (endTick < 1.0)
-                {
-                    endTick = 1.0;
-                }
-
-                uint64_t newEndTick =
-                    static_cast<uint64_t>(
-                        std::llround(
-                            endTick
-                        )
-                        );
-
-                if (_snapEnabled)
-                {
-                    const uint64_t snapTicks =
-                        gridTicks();
-
-                    if (snapTicks > 0)
-                    {
-                        newEndTick =
-                            static_cast<uint64_t>(
-                                std::llround(
-                                    static_cast<double>(
-                                        newEndTick
-                                        ) /
-                                    static_cast<double>(
-                                        snapTicks
-                                        )
-                                )
-                                ) *
-                            snapTicks;
-                    }
-                }
-
-                const uint64_t minimumDuration =
-                    _snapEnabled
-                    ? gridTicks()
-                    : 1;
-
-                uint64_t minimumEnd =
-                    activeNote->startTick +
-                    minimumDuration;
-
-                if (
-                    newEndTick <
-                    minimumEnd
-                    )
-                {
-                    newEndTick =
-                        minimumEnd;
-                }
-
-                const uint64_t newDuration =
-                    newEndTick -
-                    activeNote->startTick;
-
-                if (
-                    newDuration !=
-                    activeNote->durationTick
-                    )
-                {
-                    if (!_editUndoSaved)
-                    {
-                        saveUndoState();
-
-                        _editUndoSaved =
-                            true;
-                    }
-
-                    activeNote->durationTick =
-                        newDuration;
-
-                    _document.dirty =
-                        true;
-
-                    notifyDocumentChanged();
-                }
-            }
-
-            // ----------------------------------------------------
             // End drag / resize
             // ----------------------------------------------------
 
-            const ImGuiMouseButton button =
-                _isDraggingNote
-                ? ImGuiMouseButton_Left
-                : ImGuiMouseButton_Left;
-
-            if (!ImGui::IsMouseDown(button))
+            if (!ImGui::IsMouseDown(
+                ImGuiMouseButton_Left
+            ))
             {
                 stopAudition();
 
@@ -1960,6 +3061,8 @@ void MIDIEditor::drawPianoRoll(
 
                 _editUndoSaved = false;
 
+                _editOriginalSelectionNotes.clear();
+
                 _dragMouseOffsetTicks = 0.0;
 
                 _dragMouseOffsetY = 0.0f;
@@ -1968,18 +3071,22 @@ void MIDIEditor::drawPianoRoll(
     }
 
     // ============================================================
-    // Start a new note edit
+    // Start a new note edit or selection gesture
     // ============================================================
 
     if (
         !_isDraggingNote &&
         !_isResizingNote &&
+        !_isSelectingNotes &&
         mouseInPianoRoll &&
         ImGui::IsMouseClicked(
             ImGuiMouseButton_Left
         )
         )
     {
+        const bool ctrlDown =
+            ImGui::GetIO().KeyCtrl;
+
         if (hoveredNoteId != 0)
         {
             MIDIEditorNote* note =
@@ -1989,198 +3096,272 @@ void MIDIEditor::drawPianoRoll(
 
             if (note)
             {
+                _followPlayback = false;
+
+                _auditionFromKeyboard =
+                    false;
+
                 startAudition(
                     note->pitch,
                     note->channel,
-                    note->velocity
+                    static_cast<float>(
+                        note->velocity
+                        ) / 127.0f
                 );
 
-                _activeNoteId =
-                    note->id;
-
-                _editOriginalPitch =
-                    note->pitch;
-
-                _editOriginalStartTick =
-                    note->startTick;
-
-                _editOriginalDurationTick =
-                    note->durationTick;
-
-                _editUndoSaved = false;
-
-                // ------------------------------------------------
-                // Determine if this is resizing.
-                // ------------------------------------------------
-
-                if (hoveredResizeHandle)
+                if (ctrlDown)
                 {
-                    _isResizingNote =
-                        true;
+                    appendSelection(
+                        note->id
+                    );
 
-                    _isDraggingNote =
-                        false;
+                    // Ctrl-click is selection-only.
+                    _activeNoteId =
+                        note->id;
                 }
                 else
                 {
-                    _isDraggingNote =
-                        true;
+                    // Clicking an already-selected note keeps the
+                    // current multi-selection so it can be moved
+                    // or resized as a group. Clicking an unselected
+                    // note starts a new single-note selection.
+                    if (!isNoteSelected(note->id))
+                    {
+                        setSingleSelection(
+                            note->id
+                        );
+                    }
+                    else
+                    {
+                        _activeNoteId =
+                            note->id;
+                    }
 
-                    _isResizingNote =
+                    _editOriginalPitch =
+                        note->pitch;
+
+                    _editOriginalStartTick =
+                        note->startTick;
+
+                    _editOriginalDurationTick =
+                        note->durationTick;
+
+                    _editUndoSaved =
                         false;
 
-                    // Keep the mouse's position inside the
-                    // note so that the note doesn't jump when
-                    // dragging begins.
+                    _editOriginalSelectionNotes.clear();
 
-                    const double mouseTick =
-                        mouseXToTick();
-
-                    _dragMouseOffsetTicks =
-                        mouseTick -
-                        static_cast<double>(
-                            note->startTick
+                    for (const uint64_t selectedId :
+                    _selectedNoteIds)
+                    {
+                        const size_t trackIndex =
+                            findNoteTrackIndex(
+                                selectedId
                             );
 
-                    _dragMouseOffsetY =
-                        mousePos.y -
-                        (
-                            drawOrigin.y +
-                            static_cast<float>(
-                                maxPitch -
-                                note->pitch
-                                ) *
-                            rowHeight
+                        const MIDIEditorNote* selectedNote =
+                            _document.findNote(
+                                selectedId
                             );
+
+                        if (
+                            selectedNote &&
+                            trackIndex != static_cast<size_t>(-1)
+                            )
+                        {
+                            NoteEditSnapshot snapshot;
+
+                            snapshot.id =
+                                selectedId;
+
+                            snapshot.trackIndex =
+                                trackIndex;
+
+                            snapshot.note =
+                                *selectedNote;
+
+                            _editOriginalSelectionNotes.push_back(
+                                snapshot
+                            );
+                        }
+                    }
+
+                    if (hoveredResizeHandle)
+                    {
+                        const double mouseTick =
+                            mouseXToTick(
+                                mousePos.x
+                            );
+
+                        _dragMouseOffsetTicks =
+                            mouseTick -
+                            (
+                                static_cast<double>(
+                                    note->startTick
+                                    ) +
+                                static_cast<double>(
+                                    note->durationTick
+                                    )
+                                );
+
+                        _isResizingNote =
+                            true;
+
+                        _isDraggingNote =
+                            false;
+                    }
+                    else
+                    {
+                        _isDraggingNote =
+                            true;
+
+                        _isResizingNote =
+                            false;
+
+                        const double mouseTick =
+                            mouseXToTick(
+                                mousePos.x
+                            );
+
+                        _dragMouseOffsetTicks =
+                            mouseTick -
+                            static_cast<double>(
+                                note->startTick
+                                );
+
+                        _dragMouseOffsetY =
+                            mousePos.y -
+                            (
+                                drawOrigin.y +
+                                static_cast<float>(
+                                    maxPitch -
+                                    note->pitch
+                                    ) *
+                                rowHeight
+                                );
+                    }
                 }
             }
         }
         else
         {
-            // ====================================================
-            // Add new note
-            // ====================================================
+            // Empty-space clicks start either a deselection click,
+            // a selection rectangle, or (when nothing was selected
+            // beforehand) a new note. Keep the existing selection
+            // until we know whether the gesture is a click or drag.
+            stopAudition();
 
-            double tickValue =
-                mouseXToTick();
+            _followPlayback = false;
 
-            if (tickValue < 0.0)
+            _isSelectingNotes =
+                true;
+
+            _selectionHasMoved =
+                false;
+
+            _selectionStartX =
+                mousePos.x;
+
+            _selectionStartY =
+                mousePos.y;
+
+            _selectionCurrentX =
+                mousePos.x;
+
+            _selectionCurrentY =
+                mousePos.y;
+        }
+    }
+
+    // ============================================================
+    // Selection gesture update / completion
+    // ============================================================
+
+    if (_isSelectingNotes)
+    {
+        _selectionCurrentX =
+            mousePos.x;
+
+        _selectionCurrentY =
+            mousePos.y;
+
+        const float dx =
+            mousePos.x -
+            _selectionStartX;
+
+        const float dy =
+            mousePos.y -
+            _selectionStartY;
+
+        const float distanceSquared =
+            dx * dx +
+            dy * dy;
+
+        if (
+            !_selectionHasMoved &&
+            distanceSquared >=
+            SelectionDragThreshold *
+            SelectionDragThreshold
+            )
+        {
+            _selectionHasMoved =
+                true;
+        }
+
+        if (
+            _selectionHasMoved &&
+            ImGui::IsMouseDown(
+                ImGuiMouseButton_Left
+            )
+            )
+        {
+            updateSelectionFromRectangle(
+                _selectionStartX,
+                _selectionStartY,
+                _selectionCurrentX,
+                _selectionCurrentY
+            );
+        }
+
+        if (!ImGui::IsMouseDown(
+            ImGuiMouseButton_Left
+        ))
+        {
+            if (!_selectionHasMoved)
             {
-                tickValue = 0.0;
-            }
-
-            uint64_t startTick =
-                static_cast<uint64_t>(
-                    std::llround(
-                        tickValue
-                    )
-                    );
-
-            // ----------------------------------------------------
-            // Snap to the START of the grid cell.
-            //
-            // This deliberately uses integer division rather
-            // than rounding, so clicking anywhere inside a grid
-            // cell always places the note in that same cell.
-            // ----------------------------------------------------
-
-            if (_snapEnabled)
-            {
-                const uint64_t snapTicks =
-                    gridTicks();
-
-                if (snapTicks > 0)
+                if (_selectedNoteIds.empty())
                 {
-                    startTick =
-                        (
-                            startTick /
-                            snapTicks
-                            ) *
-                        snapTicks;
+                    createNoteAt(
+                        _selectionStartX,
+                        _selectionStartY
+                    );
+                }
+                else
+                {
+                    // A plain click in empty space while notes are
+                    // selected is a deselection action, not note
+                    // creation.
+                    clearSelection();
                 }
             }
 
-            // ----------------------------------------------------
-            // Mouse Y -> pitch
-            // ----------------------------------------------------
+            _isSelectingNotes =
+                false;
 
-            const float noteY =
-                mousePos.y -
-                drawOrigin.y;
+            _selectionHasMoved =
+                false;
 
-            int pitch =
-                maxPitch -
-                static_cast<int>(
-                    noteY /
-                    rowHeight
-                    );
+            _selectionStartX =
+                0.0f;
 
-            if (pitch < minPitch)
-            {
-                pitch = minPitch;
-            }
+            _selectionStartY =
+                0.0f;
 
-            if (pitch > maxPitch)
-            {
-                pitch = maxPitch;
-            }
+            _selectionCurrentX =
+                0.0f;
 
-            // Two grid intervals long.
-            const uint64_t noteDuration =
-                gridTicks() * 2;
-
-            if (noteDuration == 0)
-            {
-                ImGui::EndChild();
-
-                return;
-            }
-
-            // ----------------------------------------------------
-            // For now all newly added notes go to track 0.
-            // ----------------------------------------------------
-
-            if (_document.tracks.empty())
-            {
-                _document.tracks.push_back(
-                    MIDIEditorTrack{}
-                );
-            }
-
-            constexpr size_t editTrack = 0;
-
-            // ----------------------------------------------------
-            // Prevent duplicate notes.
-            // ----------------------------------------------------
-
-            const bool duplicate =
-                noteExistsAt(
-                    editTrack,
-                    pitch,
-                    0,
-                    startTick
-                );
-
-            if (!duplicate)
-            {
-                saveUndoState();
-
-                _document.addNote(
-                    editTrack,
-                    pitch,
-                    100,
-                    0,
-                    startTick,
-                    noteDuration
-                );
-
-                _document.sortNotes();
-
-                _document.dirty =
-                    true;
-
-                notifyDocumentChanged();
-            }
+            _selectionCurrentY =
+                0.0f;
         }
     }
 
@@ -2209,6 +3390,27 @@ void MIDIEditor::drawPianoRoll(
         }
         else
         {
+            _selectedNoteIds.erase(
+                std::remove(
+                    _selectedNoteIds.begin(),
+                    _selectedNoteIds.end(),
+                    hoveredNoteId
+                ),
+                _selectedNoteIds.end()
+            );
+
+            if (_selectedNoteIds.empty())
+            {
+                _activeNoteId = 0;
+            }
+            else if (_activeNoteId == hoveredNoteId)
+            {
+                _activeNoteId =
+                    _selectedNoteIds.back();
+            }
+
+            refreshSelectionVelocity();
+
             _document.dirty =
                 true;
 
@@ -2219,10 +3421,6 @@ void MIDIEditor::drawPianoRoll(
     // ============================================================
     // Piano keyboard
     // ============================================================
-
-    // ============================================================
-// Piano keyboard
-// ============================================================
 
     for (
         int pitch = minPitch;
@@ -2364,6 +3562,9 @@ void MIDIEditor::drawPianoRoll(
                 maxPitch
                 );
 
+        _auditionFromKeyboard =
+            true;
+
         startAudition(
             keyboardPitch,
             0,
@@ -2371,8 +3572,7 @@ void MIDIEditor::drawPianoRoll(
         );
     }
     else if (
-        !_isDraggingNote &&
-        !_isResizingNote &&
+        _auditionFromKeyboard &&
         ImGui::IsMouseDown(
             ImGuiMouseButton_Left
         )
@@ -2386,10 +3586,6 @@ void MIDIEditor::drawPianoRoll(
     // ============================================================
     // Horizontal pitch grid
     // ============================================================
-
-    const float gridX =
-        drawOrigin.x +
-        keyWidth;
 
     for (
         int pitch = minPitch;
@@ -2563,6 +3759,62 @@ void MIDIEditor::drawPianoRoll(
     }
 
     // ============================================================
+    // Selection rectangle
+    // ============================================================
+
+    if (
+        _isSelectingNotes &&
+        _selectionHasMoved
+        )
+    {
+        const ImVec2 selectionMin =
+            ImVec2(
+                (std::min)(
+                    _selectionStartX,
+                    _selectionCurrentX
+                    ),
+                (std::min)(
+                    _selectionStartY,
+                    _selectionCurrentY
+                    )
+            );
+
+        const ImVec2 selectionMax =
+            ImVec2(
+                (std::max)(
+                    _selectionStartX,
+                    _selectionCurrentX
+                    ),
+                (std::max)(
+                    _selectionStartY,
+                    _selectionCurrentY
+                    )
+            );
+
+        drawList->AddRectFilled(
+            selectionMin,
+            selectionMax,
+            IM_COL32(
+                100,
+                180,
+                255,
+                45
+            )
+        );
+
+        drawList->AddRect(
+            selectionMin,
+            selectionMax,
+            IM_COL32(
+                140,
+                200,
+                255,
+                180
+            )
+        );
+    }
+
+    // ============================================================
     // Notes
     // ============================================================
 
@@ -2649,6 +3901,11 @@ void MIDIEditor::drawPianoRoll(
                 note.id ==
                 hoveredNoteId;
 
+            const bool selected =
+                isNoteSelected(
+                    note.id
+                );
+
             const bool active =
                 note.id ==
                 _activeNoteId;
@@ -2692,13 +3949,24 @@ void MIDIEditor::drawPianoRoll(
                     );
             }
 
-            if (active)
+            if (selected)
             {
                 borderColor =
                     IM_COL32(
                         255,
                         220,
                         120,
+                        255
+                    );
+            }
+
+            if (active)
+            {
+                borderColor =
+                    IM_COL32(
+                        255,
+                        245,
+                        170,
                         255
                     );
             }
