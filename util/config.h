@@ -300,13 +300,7 @@ namespace Config {
         int scene,
 
         // Perspective Scene
-        float horizontalFovDegrees,
-        float planeWidth,
-        float planeDepth,
         float planePivot,
-        float surfaceXOffset,
-        float surfaceYOffset,
-        float surfaceZOffset,
 
         // PianoRoll Scene
         float pianoRollVisualizerHeight,
@@ -357,26 +351,8 @@ namespace Config {
         config["settings"]["scene"] =
             scene;
 
-        config["settings"]["horizontalFovDegrees"] =
-            horizontalFovDegrees;
-
-        config["settings"]["planeWidth"] =
-            planeWidth;
-
-        config["settings"]["planeDepth"] =
-            planeDepth;
-
         config["settings"]["planePivot"] =
             planePivot;
-
-        config["settings"]["surfaceXOffset"] =
-            surfaceXOffset;
-
-        config["settings"]["surfaceYOffset"] =
-            surfaceYOffset;
-
-        config["settings"]["surfaceZOffset"] =
-            surfaceZOffset;
 
         config["settings"]["pianoRollVisualizerHeight"] =
             pianoRollVisualizerHeight;
@@ -403,13 +379,7 @@ namespace Config {
         int scene,
 
         // Perspective Scene
-        float horizontalFovDegrees,
-        float planeWidth,
-        float planeDepth,
         float planePivot,
-        float surfaceXOffset,
-        float surfaceYOffset,
-        float surfaceZOffset,
 
         // PianoRoll Scene
         float pianoRollVisualizerHeight,
@@ -422,13 +392,7 @@ namespace Config {
             scene,
 
             // Perspective Scene
-            horizontalFovDegrees,
-            planeWidth,
-            planeDepth,
             planePivot,
-            surfaceXOffset,
-            surfaceYOffset,
-            surfaceZOffset,
 
             pianoRollVisualizerHeight,
             pianoRollCameraSourceScale);
@@ -444,13 +408,7 @@ namespace Config {
         int& scene,
 
         // Perspective Scene
-        float& horizontalFovDegrees,
-        float& planeWidth,
-        float& planeDepth,
         float& planePivot,
-        float& surfaceXOffset,
-        float& surfaceYOffset,
-        float& surfaceZOffset,
 
         // PianoRoll Scene
         float& pianoRollVisualizerHeight,
@@ -522,53 +480,10 @@ namespace Config {
                         settings["scene"].get<int>();
                 }
 
-                if (settings.contains(
-                    "horizontalFovDegrees"))
-                {
-                    horizontalFovDegrees =
-                        settings["horizontalFovDegrees"]
-                        .get<float>();
-                }
-
-                if (settings.contains("planeWidth"))
-                {
-                    planeWidth =
-                        settings["planeWidth"]
-                        .get<float>();
-                }
-
-                if (settings.contains("planeDepth"))
-                {
-                    planeDepth =
-                        settings["planeDepth"]
-                        .get<float>();
-                }
-
                 if (settings.contains("planePivot"))
                 {
                     planePivot =
                         settings["planePivot"]
-                        .get<float>();
-                }
-
-                if (settings.contains("surfaceXOffset"))
-                {
-                    surfaceXOffset =
-                        settings["surfaceXOffset"]
-                        .get<float>();
-                }
-
-                if (settings.contains("surfaceYOffset"))
-                {
-                    surfaceYOffset =
-                        settings["surfaceYOffset"]
-                        .get<float>();
-                }
-
-                if (settings.contains("surfaceZOffset"))
-                {
-                    surfaceZOffset =
-                        settings["surfaceZOffset"]
                         .get<float>();
                 }
 
@@ -604,13 +519,7 @@ namespace Config {
         int& scene,
 
         // Perspective Scene
-        float& horizontalFovDegrees,
-        float& planeWidth,
-        float& planeDepth,
         float& planePivot,
-        float& surfaceXOffset,
-        float& surfaceYOffset,
-        float& surfaceZOffset,
 
         // PianoRoll Scene
         float& pianoRollVisualizerHeight,
@@ -623,13 +532,7 @@ namespace Config {
             scene,
 
             // Perspective Scene
-            horizontalFovDegrees,
-            planeWidth,
-            planeDepth,
             planePivot,
-            surfaceXOffset,
-            surfaceYOffset,
-            surfaceZOffset,
 
             pianoRollVisualizerHeight,
             pianoRollCameraSourceScale);

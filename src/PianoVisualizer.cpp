@@ -658,13 +658,7 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                     m_viewer->selectedRecordingDirectory() / "recordingPreset.json",
                     m_polygonPoints,
                     scene,
-                    m_horizontalFovDegrees,
-                    m_planeWidth,
-                    m_planeHeight,
                     m_planePivot,
-                    m_surfaceXOffset,
-                    m_surfaceYOffset,
-                    m_surfaceZOffset,
                     m_pianoRollVisualizerHeight,
                     m_pianoRollCameraSourceScale
                 );
@@ -701,13 +695,7 @@ bool PianoVisualizer::InitializeMidiVisualizer()
             Config::LoadPianoConfig(
                 m_polygonPoints,
                 scene,
-                m_horizontalFovDegrees,
-                m_planeWidth,
-                m_planeHeight,
                 m_planePivot,
-                m_surfaceXOffset,
-                m_surfaceYOffset,
-                m_surfaceZOffset,
                 m_pianoRollVisualizerHeight,
                 m_pianoRollCameraSourceScale
             );
@@ -747,13 +735,7 @@ void PianoVisualizer::LoadPianoConfiguration()
             if (!Config::LoadPianoConfig(
                 m_polygonPoints,
                 scene,
-                m_horizontalFovDegrees,
-                m_planeWidth,
-                m_planeHeight,
                 m_planePivot,
-                m_surfaceXOffset,
-                m_surfaceYOffset,
-                m_surfaceZOffset,
                 m_pianoRollVisualizerHeight,
                 m_pianoRollCameraSourceScale
             ))
@@ -767,13 +749,7 @@ void PianoVisualizer::LoadPianoConfiguration()
                 Config::SavePianoConfig(
                     m_polygonPoints,
                     scene,
-                    m_horizontalFovDegrees,
-                    m_planeWidth,
-                    m_planeHeight,
                     m_planePivot,
-                    m_surfaceXOffset,
-                    m_surfaceYOffset,
-                    m_surfaceZOffset,
                     m_pianoRollVisualizerHeight,
                     m_pianoRollCameraSourceScale
                 );
@@ -791,13 +767,7 @@ void PianoVisualizer::SavePianoConfiguration()
     if (Config::SavePianoConfig(
         m_polygonPoints,
         static_cast<int>(m_pianoScene),
-        m_horizontalFovDegrees,
-        m_planeWidth,
-        m_planeHeight,
         m_planePivot,
-        m_surfaceXOffset,
-        m_surfaceYOffset,
-        m_surfaceZOffset,
         m_pianoRollVisualizerHeight,
         m_pianoRollCameraSourceScale
     ))
@@ -903,14 +873,7 @@ void PianoVisualizer::Update()
             m_camera.Update(time);
         }
 
-        auto scene = m_viewer->scene();
-
-        if (scene)
-        {
-            scene->setAudioEngine(
-                m_audioEngine
-            );
-        }
+        m_viewer->setAudioEngine(m_audioEngine);
     }
 
     // ---------------------------------------------------------
@@ -1036,13 +999,7 @@ void PianoVisualizer::onStopRecording()
         m_viewer->recordingDirectory() / "recordingPreset.json",
         m_polygonPoints,
         static_cast<int>(m_pianoScene),
-        m_horizontalFovDegrees,
-        m_planeWidth,
-        m_planeHeight,
         m_planePivot,
-        m_surfaceXOffset,
-        m_surfaceYOffset,
-        m_surfaceZOffset,
         m_pianoRollVisualizerHeight,
         m_pianoRollCameraSourceScale
     );
@@ -2557,8 +2514,7 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
             P3,
             P4,
             cameraWidth,
-            cameraHeight,
-            m_horizontalFovDegrees
+            cameraHeight
         );
 
     if (!pose.valid)
@@ -2567,9 +2523,16 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
         return;
     }
 
-    float surfaceHeight =
-        m_planeHeight *
-        m_heightScale;
+    float surfaceHeight = 0.0f;
+
+    if (!CalculateSurfaceHeightToTop(
+        pose,
+        m_planePivot,
+        surfaceHeight
+    ))
+    {
+        return;
+    }
 
     float angleRadians =
         m_planePivot *
@@ -2598,12 +2561,14 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
     float x3, y3;
     float x4, y4;
 
+    float w = 16.0f / 9.0f;
+
     bool valid1 =
         ProjectPianoPoint(
             pose,
-            m_surfaceXOffset,
-            m_surfaceYOffset,
-            m_surfaceZOffset,
+            0.f,
+            0.f,
+            0.f,
             x1,
             y1
         );
@@ -2611,10 +2576,9 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
     bool valid2 =
         ProjectPianoPoint(
             pose,
-            m_planeWidth +
-            m_surfaceXOffset,
-            m_surfaceYOffset,
-            m_surfaceZOffset,
+            w,
+            0.f,
+            0.f,
             x2,
             y2
         );
@@ -2622,11 +2586,8 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
     bool valid3 =
         ProjectPianoPoint(
             pose,
-            m_planeWidth +
-            m_surfaceXOffset,
-            m_surfaceYOffset +
+            w,
             rotatedY,
-            m_surfaceZOffset +
             rotatedZ,
             x3,
             y3
@@ -2635,10 +2596,8 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
     bool valid4 =
         ProjectPianoPoint(
             pose,
-            m_surfaceXOffset,
-            m_surfaceYOffset +
+            0.f,
             rotatedY,
-            m_surfaceZOffset +
             rotatedZ,
             x4,
             y4
@@ -3034,16 +2993,22 @@ void PianoVisualizer::RenderPianoOverlay()
             P3,
             P4,
             cameraWidth,
-            cameraHeight,
-            m_horizontalFovDegrees
+            cameraHeight
         );
 
     if (!pose.valid)
         return;
 
-    float surfaceHeight =
-        m_planeHeight *
-        m_heightScale;
+    float surfaceHeight = 0.0f;
+
+    if (!CalculateSurfaceHeightToTop(
+        pose,
+        m_planePivot,
+        surfaceHeight
+    ))
+    {
+        return;
+    }
 
     float angleRadians =
         m_planePivot *
@@ -3072,12 +3037,14 @@ void PianoVisualizer::RenderPianoOverlay()
     float x3, y3;
     float x4, y4;
 
+    float w = 16.0f / 9.0f;
+
     bool valid1 =
         ProjectPianoPoint(
             pose,
-            m_surfaceXOffset,
-            m_surfaceYOffset,
-            m_surfaceZOffset,
+            0.f,
+            0.f,
+            0.f,
             x1,
             y1
         );
@@ -3085,10 +3052,9 @@ void PianoVisualizer::RenderPianoOverlay()
     bool valid2 =
         ProjectPianoPoint(
             pose,
-            m_planeWidth +
-            m_surfaceXOffset,
-            m_surfaceYOffset,
-            m_surfaceZOffset,
+            w,
+            0.f,
+            0.f,
             x2,
             y2
         );
@@ -3096,11 +3062,8 @@ void PianoVisualizer::RenderPianoOverlay()
     bool valid3 =
         ProjectPianoPoint(
             pose,
-            m_planeWidth +
-            m_surfaceXOffset,
-            m_surfaceYOffset +
+            w,
             rotatedY,
-            m_surfaceZOffset +
             rotatedZ,
             x3,
             y3
@@ -3109,10 +3072,8 @@ void PianoVisualizer::RenderPianoOverlay()
     bool valid4 =
         ProjectPianoPoint(
             pose,
-            m_surfaceXOffset,
-            m_surfaceYOffset +
+            0.f,
             rotatedY,
-            m_surfaceZOffset +
             rotatedZ,
             x4,
             y4
@@ -4039,42 +4000,7 @@ void PianoVisualizer::RenderDisplayTab()
             ImGui::PopStyleColor();
         }
 
-
-        // =================================================
-        // Projection & Transform
-        // =================================================
-
         ImGui::Spacing();
-
-        ImGui::TextDisabled(
-            "Projection & Transform"
-        );
-
-        ImGui::Spacing();
-
-        ImGui::SliderFloat(
-            "FOV",
-            &m_horizontalFovDegrees,
-            0.1f,
-            90.0f,
-            "%.3f"
-        );
-
-        ImGui::SliderFloat(
-            "Plane Width",
-            &m_planeWidth,
-            0.1f,
-            2.0f,
-            "%.3f"
-        );
-
-        ImGui::SliderFloat(
-            "Plane Height",
-            &m_planeHeight,
-            0.1f,
-            5.0f,
-            "%.3f"
-        );
 
         ImGui::SliderFloat(
             "Plane Pivot",
@@ -4082,36 +4008,6 @@ void PianoVisualizer::RenderDisplayTab()
             0.0f,
             180.0f,
             "%.1f°"
-        );
-
-        ImGui::Spacing();
-
-        ImGui::TextDisabled(
-            "Surface Offset"
-        );
-
-        ImGui::SliderFloat(
-            "X##SurfaceOffset",
-            &m_surfaceXOffset,
-            -1.0f,
-            1.0f,
-            "%.3f"
-        );
-
-        ImGui::SliderFloat(
-            "Y##SurfaceOffset",
-            &m_surfaceYOffset,
-            -1.0f,
-            1.0f,
-            "%.3f"
-        );
-
-        ImGui::SliderFloat(
-            "Z##SurfaceOffset",
-            &m_surfaceZOffset,
-            -1.0f,
-            1.0f,
-            "%.3f"
         );
     }
 
@@ -5394,44 +5290,6 @@ void PianoVisualizer::RenderAudioTab()
         output->sampleRate()
     );
 
-
-    // =========================================================
-    // MODE
-    // =========================================================
-
-    ImGui::SeparatorText("Mode");
-
-    const char* modeNames[] =
-    {
-        "Shared",
-        "Exclusive"
-    };
-
-    int mode =
-        configuration.mode ==
-        audio::AudioOutput::Mode::Exclusive
-        ? 1
-        : 0;
-
-    if (ImGui::Combo(
-        "Mode",
-        &mode,
-        modeNames,
-        IM_ARRAYSIZE(modeNames)))
-    {
-        const auto newMode =
-            mode == 0
-            ? audio::AudioOutput::Mode::Shared
-            : audio::AudioOutput::Mode::Exclusive;
-
-        if (newMode != configuration.mode)
-        {
-            m_audioEngine->setOutputMode(
-                newMode
-            );
-        }
-    }
-
     // =========================================================
     // SAMPLE RATE
     // =========================================================
@@ -5882,13 +5740,7 @@ void PianoVisualizer::RenderConfigurationTab()
             Config::LoadPianoConfig(
                 m_polygonPoints,
                 _scene,
-                m_horizontalFovDegrees,
-                m_planeWidth,
-                m_planeHeight,
                 m_planePivot,
-                m_surfaceXOffset,
-                m_surfaceYOffset,
-                m_surfaceZOffset,
                 m_pianoRollVisualizerHeight,
                 m_pianoRollCameraSourceScale
             )

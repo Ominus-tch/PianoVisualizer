@@ -72,7 +72,7 @@ public:
 
 	int getEffectiveNotesCount() const { return _effectiveNotesCount; }
 
-	bool dirtyNotes(glm::ivec2& range) { range = _dirtyNotesRange; return _dirtyNotes; }
+	bool dirtyNotes(glm::ivec2& range) const { range = _dirtyNotesRange; return _dirtyNotes; }
 
 	void setUpToDate() { _dirtyNotes = false; _dirtyNotesRange = {0, 0}; }
 

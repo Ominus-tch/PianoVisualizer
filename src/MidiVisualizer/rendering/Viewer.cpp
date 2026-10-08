@@ -295,6 +295,115 @@ Viewer::Viewer(
 		_selectedPort = 0;
 		connectDevice(_selectedPort);
 	}
+
+
+	_midiEditor = MIDIEditor();
+
+	_midiEditor.setCallbacks(
+		MIDIEditorCallbacks{
+			.playPause = [this]()
+			{
+				pausePlayback();
+			},
+
+			.stop = [this]()
+			{
+				stopPlayback();
+			},
+
+			.restart = [this]()
+			{
+				restartPlayback();
+			},
+
+			.seek = [this](double time)
+			{
+				_shouldPlay = false;
+
+				_timer = time;
+
+				const double currentTimeNow =
+					getCurrentTime();
+
+				_timerStart =
+					currentTimeNow -
+					static_cast<double>(time);
+
+				if (_scene)
+				{
+					if (auto* midiScene =
+						dynamic_cast<MIDISceneFile*>(_scene.get()))
+					{
+						midiScene->resetPlaybackState(
+							static_cast<float>(time)
+						);
+
+						_renderer.clearFlashes();
+					}
+				}
+
+				if (_onSeekChanged)
+					_onSeekChanged(_timer);
+			},
+
+			.isPlaying = [this]()
+			{
+				return _shouldPlay;
+			},
+
+			.setPlaying = [this](bool playing)
+			{
+				_shouldPlay = playing;
+
+				if (playing)
+				{
+					_timerStart =
+						getCurrentTime() -
+						static_cast<double>(_timer);
+				}
+			},
+
+			.noteOn =
+				[this](
+					int channel,
+					int pitch,
+					float velocity
+				)
+			{
+				if (_audioEngine)
+				{
+					_audioEngine->noteOn(
+						static_cast<int16_t>(channel),
+						static_cast<int16_t>(pitch),
+						velocity
+					);
+				}
+			},
+
+			.noteOff =
+				[this](
+					int channel,
+					int pitch
+				)
+			{
+				if (_audioEngine)
+				{
+					_audioEngine->noteOff(
+						static_cast<int16_t>(channel),
+						static_cast<int16_t>(pitch),
+						0.0f
+					);
+				}
+			}
+				}
+			);
+
+	_midiEditor.setDocumentChangedCallback(
+		[this]()
+		{
+			syncMIDIEditorToPlayback();
+		}
+	);
 }
 
 Viewer::~Viewer() {
@@ -319,6 +428,19 @@ bool Viewer::loadFile(const std::string& midiFilePath) {
 	// Init objects.
 	_scene = scene;
 	applyAllSettings();
+
+	if (!_midiEditor.openFile(midiFilePath))
+	{
+		Logger::Log(
+			"[MIDI Editor] Failed to load '%s': %s\n",
+			midiFilePath.c_str(),
+			_midiEditor.lastError().c_str()
+		);
+
+		// For now, don't fail the normal visualizer load.
+		// The editor is an additional feature.
+	}
+
 	return true;
 }
 
@@ -4388,31 +4510,36 @@ bool Viewer::hasRecordings() const
 void Viewer::pausePlayback()
 {
 	if (!_playbackLoaded)
-	{
 		return;
-	}
 
-	_playbackPaused = !_playbackPaused;
-	_shouldPlay = !_playbackPaused;
+	const double currentTime = getCurrentTime();
 
-	double currentTime = getCurrentTime();
+	const bool currentlyPlaying =
+		_shouldPlay &&
+		!_playbackPaused;
 
-
-	if (_shouldPlay)
+	if (currentlyPlaying)
 	{
-		_timerStart += (
+		// Freeze the timer at the exact moment we pause.
+		_timer = static_cast<float>(
 			currentTime -
-			_playbackPauseStart
+			_timerStart
 			);
+
+		_playbackPaused = true;
+		_shouldPlay = false;
 	}
 	else
 	{
-		_playbackPauseStart = currentTime;
+		// Resume from whatever value _timer currently contains.
+		// This works correctly even if the user seeked while paused.
+		_timerStart =
+			currentTime -
+			static_cast<double>(_timer);
+
+		_playbackPaused = false;
+		_shouldPlay = true;
 	}
-	
-	Logger::Log(
-		"[Playback] Paused.\n"
-	);
 }
 
 void Viewer::stopPlayback()
@@ -4450,8 +4577,66 @@ void Viewer::stopPlayback()
 	);
 }
 
+void Viewer::restartPlayback()
+{
+	_timerStart =
+		getCurrentTime();
+
+	_timer =
+		0.0f;
+
+	_playbackSeekTime =
+		0.0f;
+
+	if (_scene)
+	{
+		if (auto* midiScene =
+			dynamic_cast<MIDISceneFile*>(_scene.get()))
+		{
+			midiScene->resetPlaybackState();
+			_renderer.clearFlashes();
+		}
+	}
+
+	if (_playbackPlaying)
+	{
+		_playbackPaused =
+			false;
+
+		_shouldPlay =
+			true;
+	}
+}
+
+void Viewer::syncMIDIEditorToPlayback()
+{
+	if (!_scene)
+		return;
+
+	auto* midiScene =
+		dynamic_cast<MIDISceneFile*>(
+			_scene.get()
+			);
+
+	if (!midiScene)
+		return;
+
+	midiScene->syncFromEditor(
+		_midiEditor.document(),
+		_state.filter,
+		_timer
+	);
+}
+
 void Viewer::drawPlaybackSettings()
 {
+	if (_midiEditorOpen)
+	{
+		if (!_midiEditor.draw(_timer))
+			_midiEditorOpen = false;
+	}
+
+
 	ImVec2 mousePos = ImGui::GetMousePos();
 
 	ImGui::SetNextWindowPos(
@@ -4473,7 +4658,7 @@ void Viewer::drawPlaybackSettings()
 	// Helpers
 	// =========================================================
 
-	auto formatTime =
+	static auto formatTime =
 		[](double time)
 		{
 			time =
@@ -4655,6 +4840,15 @@ void Viewer::drawPlaybackSettings()
 						catch (...) {
 							Logger::Log("[Error] Failed to create recording scene!\n");
 							return;
+						}
+
+						if (!_midiEditor.openFile(_playbackMidiPath))
+						{
+							Logger::Log(
+								"[MIDI Editor] Failed to load '%s': %s\n",
+								_playbackMidiPath.c_str(),
+								_midiEditor.lastError().c_str()
+							);
 						}
 
 						_scene = scene;
@@ -5095,34 +5289,7 @@ void Viewer::drawPlaybackSettings()
 		ImVec2(1.0f, 0.0f)
 	))
 	{
-
-		_timerStart =
-			getCurrentTime();
-
-		_timer =
-			0.0f;
-
-		_playbackSeekTime =
-			0.0f;
-
-		if (_scene)
-		{
-			if (auto* midiScene =
-				dynamic_cast<MIDISceneFile*>(_scene.get()))
-			{
-				midiScene->resetPlaybackState();
-				_renderer.clearFlashes();
-			}
-		}
-
-		if (_playbackPlaying)
-		{
-			_playbackPaused =
-				false;
-
-			_shouldPlay =
-				true;
-		}
+		restartPlayback();
 	}
 
 	if (ImGui::IsItemHovered())
@@ -5138,6 +5305,13 @@ void Viewer::drawPlaybackSettings()
 
 	ImGui::Spacing();
 	ImGui::Separator();
+	ImGui::Spacing();
+
+	if (ImGui::Button("MIDI Editor..."))
+	{
+		_midiEditorOpen = true;
+	}
+
 	ImGui::Spacing();
 
 	bool reverseScroll =

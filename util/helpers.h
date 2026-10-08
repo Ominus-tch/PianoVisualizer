@@ -170,8 +170,6 @@ static Vec3 Mat3Multiply(
 
 struct PianoCameraPose
 {
-    bool valid = false;
-
     float K[3][3]{};
 
     Vec3 r1{};
@@ -179,8 +177,190 @@ struct PianoCameraPose
     Vec3 r3{};
 
     Vec3 translation{};
+
+    // Automatically calculated camera parameters.
+    float focalLength = 0.0f;
+    float horizontalFovDegrees = 0.0f;
+
+    bool valid = false;
 };
 
+static bool IntersectLines(
+    const ImVec2& p1,
+    const ImVec2& p2,
+    const ImVec2& p3,
+    const ImVec2& p4,
+    ImVec2& out
+)
+{
+    const double A1 =
+        static_cast<double>(p2.y) -
+        static_cast<double>(p1.y);
+
+    const double B1 =
+        static_cast<double>(p1.x) -
+        static_cast<double>(p2.x);
+
+    const double C1 =
+        static_cast<double>(p2.x) *
+        static_cast<double>(p1.y) -
+        static_cast<double>(p1.x) *
+        static_cast<double>(p2.y);
+
+
+    const double A2 =
+        static_cast<double>(p4.y) -
+        static_cast<double>(p3.y);
+
+    const double B2 =
+        static_cast<double>(p3.x) -
+        static_cast<double>(p4.x);
+
+    const double C2 =
+        static_cast<double>(p4.x) *
+        static_cast<double>(p3.y) -
+        static_cast<double>(p3.x) *
+        static_cast<double>(p4.y);
+
+
+    const double denominator =
+        A1 * B2 - A2 * B1;
+
+    // Lines are parallel or almost parallel.
+    if (std::abs(denominator) < 1e-10)
+        return false;
+
+
+    out.x =
+        static_cast<float>(
+            (B1 * C2 - B2 * C1) /
+            denominator
+            );
+
+    out.y =
+        static_cast<float>(
+            (C1 * A2 - C2 * A1) /
+            denominator
+            );
+
+    return
+        std::isfinite(out.x) &&
+        std::isfinite(out.y);
+}
+
+static bool EstimateFocalLength(
+    const ImVec2& P1,
+    const ImVec2& P2,
+    const ImVec2& P3,
+    const ImVec2& P4,
+    float imageWidth,
+    float imageHeight,
+    float& outFocalLength
+)
+{
+    const double cx =
+        static_cast<double>(imageWidth) * 0.5;
+
+    const double cy =
+        static_cast<double>(imageHeight) * 0.5;
+
+
+    // ---------------------------------------------------------
+    // Find the two vanishing points.
+    //
+    // P1 -> P2 and P4 -> P3 are parallel in 3D.
+    //
+    // P1 -> P4 and P2 -> P3 are the other parallel pair.
+    // ---------------------------------------------------------
+
+    ImVec2 vanishingPoint1;
+
+    if (!IntersectLines(
+        P1,
+        P2,
+        P4,
+        P3,
+        vanishingPoint1
+    ))
+    {
+        return false;
+    }
+
+
+    ImVec2 vanishingPoint2;
+
+    if (!IntersectLines(
+        P1,
+        P4,
+        P2,
+        P3,
+        vanishingPoint2
+    ))
+    {
+        return false;
+    }
+
+
+    // ---------------------------------------------------------
+    // Shift vanishing points so the principal point becomes
+    // the origin.
+    // ---------------------------------------------------------
+
+    const double vx =
+        static_cast<double>(vanishingPoint1.x) -
+        cx;
+
+    const double vy =
+        static_cast<double>(vanishingPoint1.y) -
+        cy;
+
+
+    const double wx =
+        static_cast<double>(vanishingPoint2.x) -
+        cx;
+
+    const double wy =
+        static_cast<double>(vanishingPoint2.y) -
+        cy;
+
+
+    // ---------------------------------------------------------
+    // For two perpendicular world directions:
+    //
+    //   (v - c)^T (w - c) = -f^2
+    //
+    // Therefore:
+    //
+    //   f^2 = -(vx * wx + vy * wy)
+    // ---------------------------------------------------------
+
+    const double focalSquared =
+        -(vx * wx + vy * wy);
+
+
+    if (!std::isfinite(focalSquared) ||
+        focalSquared <= 0.0)
+    {
+        return false;
+    }
+
+
+    const double focalLength =
+        std::sqrt(focalSquared);
+
+
+    if (!std::isfinite(focalLength) ||
+        focalLength <= 1.0)
+    {
+        return false;
+    }
+
+
+    outFocalLength =
+        static_cast<float>(focalLength);
+
+    return true;
+}
 
 // ============================================================
 // Calculate camera pose
@@ -192,35 +372,18 @@ static PianoCameraPose CalculatePianoCameraPose(
     const ImVec2& P3,
     const ImVec2& P4,
     float imageWidth,
-    float imageHeight,
-    float horizontalFovDegrees
+    float imageHeight
 )
 {
     PianoCameraPose pose{};
 
-    // --------------------------------------------------------
-    // Camera intrinsics
+
+    // ---------------------------------------------------------
+    // Camera principal point.
     //
-    // We assume the optical center is the center of the image.
-    //
-    // horizontal FOV is the only camera parameter we need
-    // to provide manually.
-    // --------------------------------------------------------
-
-    const float pi =
-        3.14159265358979323846f;
-
-    const float fovRadians =
-        horizontalFovDegrees *
-        pi /
-        180.0f;
-
-    const float fx =
-        (imageWidth * 0.5f) /
-        std::tan(fovRadians * 0.5f);
-
-    const float fy =
-        fx;
+    // We assume the optical center is at the center of the
+    // image.
+    // ---------------------------------------------------------
 
     const float cx =
         imageWidth * 0.5f;
@@ -228,6 +391,42 @@ static PianoCameraPose CalculatePianoCameraPose(
     const float cy =
         imageHeight * 0.5f;
 
+
+    // ---------------------------------------------------------
+    // Automatically estimate focal length from the four
+    // keyboard corners.
+    // ---------------------------------------------------------
+
+    float focalLength = 0.0f;
+
+    if (!EstimateFocalLength(
+        P1,
+        P2,
+        P3,
+        P4,
+        imageWidth,
+        imageHeight,
+        focalLength
+    ))
+    {
+        return pose;
+    }
+
+
+    const float fx =
+        focalLength;
+
+    const float fy =
+        focalLength;
+
+
+    // ---------------------------------------------------------
+    // Camera intrinsic matrix:
+    //
+    // [ fx  0  cx ]
+    // [  0 fy  cy ]
+    // [  0  0   1 ]
+    // ---------------------------------------------------------
 
     pose.K[0][0] = fx;
     pose.K[0][1] = 0.0f;
@@ -242,14 +441,37 @@ static PianoCameraPose CalculatePianoCameraPose(
     pose.K[2][2] = 1.0f;
 
 
-    // --------------------------------------------------------
-    // Plane coordinates
+    pose.focalLength =
+        focalLength;
+
+
+    // ---------------------------------------------------------
+    // Calculate horizontal FOV from the estimated focal length.
+    //
+    // This is now derived information, not a user input.
+    // ---------------------------------------------------------
+
+    const float fovRadians =
+        2.0f *
+        std::atan(
+            imageWidth /
+            (2.0f * focalLength)
+        );
+
+    pose.horizontalFovDegrees =
+        fovRadians *
+        180.0f /
+        3.14159265358979323846f;
+
+
+    // ---------------------------------------------------------
+    // Plane coordinates.
     //
     // P1 = (0,0)
     // P2 = (0,1)
     // P3 = (1,1)
     // P4 = (1,0)
-    // --------------------------------------------------------
+    // ---------------------------------------------------------
 
     const ImVec2 src[4] =
     {
@@ -258,6 +480,7 @@ static PianoCameraPose CalculatePianoCameraPose(
         ImVec2(1.0f, 1.0f), // P3
         ImVec2(1.0f, 0.0f)  // P4
     };
+
 
     const ImVec2 dst[4] =
     {
@@ -281,25 +504,12 @@ static PianoCameraPose CalculatePianoCameraPose(
     }
 
 
-    // --------------------------------------------------------
-    // K^-1 H
-    //
-    // Since K is:
-    //
-    // [ fx  0 cx ]
-    // [  0 fy cy ]
-    // [  0  0  1 ]
-    //
-    // K^-1 can be applied directly.
-    // --------------------------------------------------------
+    // ---------------------------------------------------------
+    // K^-1 * H
+    // ---------------------------------------------------------
 
     double B[3][3]{};
 
-    // H =
-    //
-    // [ h11 h12 h13 ]
-    // [ h21 h22 h23 ]
-    // [ h31 h32  1  ]
 
     B[0][0] =
         (H.h11 - cx * H.h31) /
@@ -337,9 +547,9 @@ static PianoCameraPose CalculatePianoCameraPose(
         1.0;
 
 
-    // --------------------------------------------------------
-    // Extract homography columns
-    // --------------------------------------------------------
+    // ---------------------------------------------------------
+    // Extract homography columns.
+    // ---------------------------------------------------------
 
     Vec3 b1 =
     {
@@ -348,12 +558,14 @@ static PianoCameraPose CalculatePianoCameraPose(
         static_cast<float>(B[2][0])
     };
 
+
     Vec3 b2 =
     {
         static_cast<float>(B[0][1]),
         static_cast<float>(B[1][1]),
         static_cast<float>(B[2][1])
     };
+
 
     Vec3 b3 =
     {
@@ -363,9 +575,9 @@ static PianoCameraPose CalculatePianoCameraPose(
     };
 
 
-    // --------------------------------------------------------
-    // Both r1 and r2 should have the same scale.
-    // --------------------------------------------------------
+    // ---------------------------------------------------------
+    // Recover the common scale.
+    // ---------------------------------------------------------
 
     const float norm1 =
         Vec3Length(b1);
@@ -373,10 +585,9 @@ static PianoCameraPose CalculatePianoCameraPose(
     const float norm2 =
         Vec3Length(b2);
 
-    if (
-        norm1 < 0.000001f ||
-        norm2 < 0.000001f
-        )
+
+    if (norm1 < 0.000001f ||
+        norm2 < 0.000001f)
     {
         return pose;
     }
@@ -387,15 +598,16 @@ static PianoCameraPose CalculatePianoCameraPose(
         (norm1 + norm2);
 
 
-    // --------------------------------------------------------
-    // Recover rotation axes
-    // --------------------------------------------------------
+    // ---------------------------------------------------------
+    // Recover rotation axes.
+    // ---------------------------------------------------------
 
     Vec3 r1 =
         Vec3Multiply(
             b1,
             lambda
         );
+
 
     Vec3 r2 =
         Vec3Multiply(
@@ -404,17 +616,16 @@ static PianoCameraPose CalculatePianoCameraPose(
         );
 
 
-    // --------------------------------------------------------
+    // ---------------------------------------------------------
     // Orthonormalize r2 against r1.
-    //
-    // This removes small numerical errors.
-    // --------------------------------------------------------
+    // ---------------------------------------------------------
 
     const float projection =
         Vec3Dot(
             r1,
             r2
         );
+
 
     r2 =
         Vec3Subtract(
@@ -425,18 +636,17 @@ static PianoCameraPose CalculatePianoCameraPose(
             )
         );
 
-    r2 =
-        Vec3Normalize(r2);
 
     r1 =
         Vec3Normalize(r1);
 
+    r2 =
+        Vec3Normalize(r2);
 
-    // --------------------------------------------------------
-    // Third rotation axis
-    //
-    // This is the normal of the piano plane.
-    // --------------------------------------------------------
+
+    // ---------------------------------------------------------
+    // Third rotation axis = plane normal.
+    // ---------------------------------------------------------
 
     Vec3 r3 =
         Vec3Cross(
@@ -448,9 +658,9 @@ static PianoCameraPose CalculatePianoCameraPose(
         Vec3Normalize(r3);
 
 
-    // --------------------------------------------------------
-    // Translation
-    // --------------------------------------------------------
+    // ---------------------------------------------------------
+    // Translation.
+    // ---------------------------------------------------------
 
     Vec3 translation =
         Vec3Multiply(
@@ -458,6 +668,10 @@ static PianoCameraPose CalculatePianoCameraPose(
             lambda
         );
 
+
+    // ---------------------------------------------------------
+    // Store result.
+    // ---------------------------------------------------------
 
     pose.r1 =
         r1;
@@ -473,6 +687,7 @@ static PianoCameraPose CalculatePianoCameraPose(
 
     pose.valid =
         true;
+
 
     return pose;
 }
@@ -503,12 +718,11 @@ static bool ProjectPianoPoint(
         return false;
 
 
-    // --------------------------------------------------------
+    // ---------------------------------------------------------
     // Camera-space point
     //
-    //     camera = R * world + t
-    //
-    // --------------------------------------------------------
+    // camera = R * world + t
+    // ---------------------------------------------------------
 
     Vec3 cameraPoint =
     {
@@ -529,30 +743,27 @@ static bool ProjectPianoPoint(
     };
 
 
-    // --------------------------------------------------------
-    // Behind camera
-    // --------------------------------------------------------
+    // ---------------------------------------------------------
+    // Point must be in front of the camera.
+    // ---------------------------------------------------------
 
-    //if (cameraPoint.z <= 0.000001f)
-    //{
-    //    Logger::Log(
-    //        "Point behind camera: %.3f %.3f %.3f\n",
-    //        cameraPoint.x,
-    //        cameraPoint.y,
-    //        cameraPoint.z
-    //    );
+    if (!std::isfinite(cameraPoint.x) ||
+        !std::isfinite(cameraPoint.y) ||
+        !std::isfinite(cameraPoint.z))
+    {
+        return false;
+    }
 
-    //    return false;
-    //}
 
-    if (cameraPoint.z == 0.0f)
-        cameraPoint.z = 0.000001f;
+    if (cameraPoint.z <= 0.000001f)
+    {
+        return false;
+    }
 
-    cameraPoint.z = std::abs(cameraPoint.z);
 
-    // --------------------------------------------------------
-    // Perspective projection
-    // --------------------------------------------------------
+    // ---------------------------------------------------------
+    // Perspective projection.
+    // ---------------------------------------------------------
 
     outX =
         pose.K[0][0] *
@@ -571,6 +782,208 @@ static bool ProjectPianoPoint(
             ) +
         pose.K[1][2];
 
+
+    return
+        std::isfinite(outX) &&
+        std::isfinite(outY);
+}
+
+static bool CalculateSurfaceHeightToTop(
+    const PianoCameraPose& pose,
+    float planePivot,
+    float& outSurfaceHeight
+)
+{
+    if (!pose.valid)
+        return false;
+
+    const float pi =
+        3.14159265358979323846f;
+
+    const float angle =
+        planePivot * pi / 180.0f;
+
+    const float c =
+        std::cos(angle);
+
+    const float s =
+        std::sin(angle);
+
+    const float q =
+        pose.K[1][2] /
+        pose.K[1][1];
+
+    float planeWidth = 16.0f / 9.0f;
+
+    // ---------------------------------------------------------
+    // Solve the surface height for one top corner.
+    //
+    // Camera-space:
+    //
+    // Y = A + hB
+    // Z = C + hD
+    //
+    // We want projected Y = 0:
+    //
+    //     fy * Y / Z + cy = 0
+    //
+    // ---------------------------------------------------------
+
+    auto SolveCorner =
+        [&](float x, float& height) -> bool
+        {
+            const float A =
+                pose.r1.y * x +
+                pose.translation.y;
+
+            const float C =
+                pose.r1.z * x +
+                pose.translation.z;
+
+            const float B =
+                pose.r2.y * c -
+                pose.r3.y * s;
+
+            const float D =
+                pose.r2.z * c -
+                pose.r3.z * s;
+
+            const float denominator =
+                B + q * D;
+
+            if (std::abs(denominator) < 0.000001f)
+                return false;
+
+            height =
+                (-q * C - A) /
+                denominator;
+
+            return std::isfinite(height) &&
+                height > 0.0f;
+        };
+
+
+    float leftHeight = 0.0f;
+    float rightHeight = 0.0f;
+
+    const bool leftValid =
+        SolveCorner(
+            0.0f,
+            leftHeight
+        );
+
+    const bool rightValid =
+        SolveCorner(
+            planeWidth,
+            rightHeight
+        );
+
+
+    if (!leftValid && !rightValid)
+        return false;
+
+
+    // ---------------------------------------------------------
+    // Determine which candidate actually makes the LOWER
+    // top corner touch the top of the image.
+    // ---------------------------------------------------------
+
+    auto ProjectTopY =
+        [&](float x, float height) -> float
+        {
+            const float worldY =
+                height * c;
+
+            const float worldZ =
+                -height * s;
+
+
+            const float cameraY =
+                pose.r1.y * x +
+                pose.r2.y * worldY +
+                pose.r3.y * worldZ +
+                pose.translation.y;
+
+            const float cameraZ =
+                pose.r1.z * x +
+                pose.r2.z * worldY +
+                pose.r3.z * worldZ +
+                pose.translation.z;
+
+
+            if (cameraZ <= 0.000001f)
+            {
+                return std::numeric_limits<float>::infinity();
+            }
+
+
+            return
+                pose.K[1][1] *
+                (cameraY / cameraZ) +
+                pose.K[1][2];
+        };
+
+
+    float bestHeight = 0.0f;
+    float bestError = 1e30f;
+
+
+    auto TestCandidate =
+        [&](float height)
+        {
+            const float leftY =
+                ProjectTopY(
+                    0.0f,
+                    height
+                );
+
+            const float rightY =
+                ProjectTopY(
+                    planeWidth,
+                    height
+                );
+
+            if (!std::isfinite(leftY) ||
+                !std::isfinite(rightY))
+            {
+                return;
+            }
+
+            // The lower of the two top corners is the one with
+            // the larger screen-space Y.
+            const float lowerY =
+                max(
+                    leftY,
+                    rightY
+                );
+
+            const float error =
+                std::abs(lowerY);
+
+            if (error < bestError)
+            {
+                bestError = error;
+                bestHeight = height;
+            }
+        };
+
+
+    if (leftValid)
+        TestCandidate(leftHeight);
+
+    if (rightValid)
+        TestCandidate(rightHeight);
+
+
+    if (!std::isfinite(bestHeight) ||
+        bestHeight <= 0.0f)
+    {
+        return false;
+    }
+
+
+    outSurfaceHeight =
+        bestHeight;
 
     return true;
 }

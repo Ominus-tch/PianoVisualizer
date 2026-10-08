@@ -92,9 +92,6 @@ namespace audio
         bool setOutputDevice(
             const std::wstring& deviceId);
 
-        bool setOutputMode(
-            AudioOutput::Mode mode);
-
         bool setOutputSampleRate(
             double sampleRate);
 
