@@ -162,6 +162,11 @@ public:
 		return _playbackPaused;
 	}
 
+	bool isOnlyFilePlayback() const
+	{
+		return _filePlayback;
+	}
+
 	double getTime() const
 	{
 		return _timer;
@@ -351,6 +356,7 @@ private:
 	bool _playbackLoaded = false;
 	bool _playbackPlaying = false;
 	bool _playbackPaused = false;
+	bool _filePlayback = false;
 
 	double _playbackPauseStart = 0.0;
 

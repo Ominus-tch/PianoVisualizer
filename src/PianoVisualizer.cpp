@@ -651,30 +651,37 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 m_camera.CloseCamera();
             }
 
-            bool success = m_cameraVideoPlayer.Open(path);
+            if (m_cameraVideoPlayer.Open(path)) {
+                int scene = (int)m_pianoScene;
 
-            int scene = (int)m_pianoScene;
+                bool success = Config::LoadPianoConfigFromPath(
+                    m_viewer->selectedRecordingDirectory() / "recordingPreset.json",
+                    m_polygonPoints,
+                    scene,
+                    m_horizontalFovDegrees,
+                    m_planeWidth,
+                    m_planeHeight,
+                    m_planePivot,
+                    m_surfaceXOffset,
+                    m_surfaceYOffset,
+                    m_surfaceZOffset,
+                    m_pianoRollVisualizerHeight,
+                    m_pianoRollCameraSourceScale
+                );
 
-            Config::LoadPianoConfigFromPath(
-                m_viewer->selectedRecordingDirectory() / "recordingPreset.json",
-                m_polygonPoints,
-                scene,
-                m_horizontalFovDegrees,
-                m_planeWidth,
-                m_planeHeight,
-                m_planePivot,
-                m_surfaceXOffset,
-                m_surfaceYOffset,
-                m_surfaceZOffset,
-                m_pianoRollVisualizerHeight,
-                m_pianoRollCameraSourceScale
-            );
+                m_pianoScene = static_cast<PianoScene>(scene);
 
-            m_pianoScene = static_cast<PianoScene>(scene);
+                m_savedConfiguration = GetCurrentConfiguration();
 
-            m_savedConfiguration = GetCurrentConfiguration();
+                return success;
+            }
+            else
+            {
+                m_pianoScene = PianoScene::PianoRoll;
+                m_pianoRollVisualizerHeight = 1.f;
 
-            return success;
+                return true;
+            }
         }
     );
 
@@ -689,7 +696,7 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 m_camera.OpenCamera(m_cameraSelectedIndex);
             }
 
-            int scene;
+            int scene = (int)m_pianoScene;
 
             Config::LoadPianoConfig(
                 m_polygonPoints,
@@ -882,7 +889,7 @@ void PianoVisualizer::Update()
 
     if (m_viewer) 
     {
-        if (m_viewer->isPlaybackLoaded())
+        if (m_viewer->isPlaybackLoaded() && m_cameraVideoPlayer.IsOpen())
         {
             double time = m_viewer->getTime();
             float bufferAhead = m_viewer->getBufferAhead();
@@ -890,7 +897,7 @@ void PianoVisualizer::Update()
             m_cameraVideoPlayer.Update(time);
             m_cameraVideoPlayer.SetBufferAhead(bufferAhead);
         }
-        else
+        else if (m_camera.IsOpen())
         {
             double time = m_viewer->getElapsedRecordingTime();
             m_camera.Update(time);
@@ -1501,7 +1508,7 @@ void PianoVisualizer::RenderCameraOutput()
 
     if (playback)
     {
-        if (!m_cameraVideoPlayer.IsOpen())
+        if (!m_cameraVideoPlayer.IsOpen() && !m_viewer->isPlaybackLoaded())
             return;
 
         cameraTexture =
@@ -1670,6 +1677,9 @@ void PianoVisualizer::RenderPianoRoll()
         false
     );
 
+    const bool onlyFilePlayback =
+        m_viewer->isOnlyFilePlayback();
+
     // ---------------------------------------------------------
     // Restore main render target / viewport
     // ---------------------------------------------------------
@@ -1702,6 +1712,12 @@ void PianoVisualizer::RenderPianoRoll()
         1,
         &d3dviewport
     );
+
+    if (onlyFilePlayback)
+    {
+        RenderPianoRollVisualizer();
+        return;
+    }
 
     // ---------------------------------------------------------
     // Camera

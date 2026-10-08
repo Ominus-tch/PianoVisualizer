@@ -4421,6 +4421,7 @@ void Viewer::stopPlayback()
 	_playbackPlaying = false;
 	_playbackPaused = false;
 	_playbackWindowOpen = false;
+	_filePlayback = false;
 
 	_playbackRecordingDirectory.clear();
 	_playbackVideoPath.clear();
@@ -4645,6 +4646,7 @@ void Viewer::drawPlaybackSettings()
 
 						_playbackDuration = GetVideoDuration(videoPath);
 
+
 						std::shared_ptr<MIDIScene> scene(nullptr);
 
 						try {
@@ -4664,6 +4666,17 @@ void Viewer::drawPlaybackSettings()
 						midiScene->resetPlaybackState(
 							_playbackSeekTime
 						);
+
+						if (_playbackDuration == 0.0f)
+						{
+							_playbackDuration = midiScene->duration();
+							_timer = -1.f;
+							_filePlayback = true;
+						}
+						else
+						{
+							_filePlayback = false;
+						}
 
 						_renderer.clearFlashes();
 
