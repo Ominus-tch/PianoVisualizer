@@ -209,6 +209,12 @@ private:
 
 	void blurPrepass();
 
+	void drawBlurPass(
+		ID3D11ShaderResourceView* texture,
+		float time,
+		const glm::vec2& inverseScreenSize
+	);
+
 	void drawBlur(const glm::vec2 & invSize);
 
 	void drawParticles(const glm::vec2 & invSize);
@@ -324,7 +330,7 @@ private:
 	std::shared_ptr<Framebuffer> _finalFramebuffer;
 
 	std::shared_ptr<MIDIScene> _scene;
-	ScreenQuad _blurringScreen;
+	ShaderProgram _blurProgram;
 	ShaderProgram _background;
 	ScreenQuad _passthrough;
 	ScreenQuad _fxaa;

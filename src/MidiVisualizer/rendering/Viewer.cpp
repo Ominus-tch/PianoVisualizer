@@ -156,7 +156,14 @@ Viewer::Viewer(
 
 	_background.init(_device, "background_vert", "background_frag");
 
-	_blurringScreen.init(_device, _particlesFramebuffer->textureId(), "particlesblur_frag", "particlesblur_vert", true);
+	_blurProgram.init(
+		_device,
+		"particlesblur_vert",
+		"particlesblur_frag",
+		ShaderProgram::InputLayoutType::None,
+		true
+	);
+
 	_fxaa.init(_device, "fxaa_frag", "screenquad_vert", false, ShaderProgram::InputLayoutType::None);
 	_passthrough.init(_device, "screenquad_frag", "screenquad_vert", false, ShaderProgram::InputLayoutType::None);
 
@@ -684,6 +691,65 @@ void Viewer::drawScene(bool transparentBG)
 	_finalFramebuffer->unbind(_context);
 }
 
+void Viewer::drawBlurPass(
+	ID3D11ShaderResourceView* texture,
+	float time,
+	const glm::vec2& inverseScreenSize
+)
+{
+	if (!_context || !texture)
+		return;
+
+	_blurProgram.use(_context);
+
+	_blurProgram.uniform(
+		"inverseScreenSize",
+		inverseScreenSize
+	);
+
+	_blurProgram.uniform(
+		"time",
+		time
+	);
+
+	_blurProgram.uniform(
+		"attenuationFactor",
+		_state.attenuation
+	);
+
+	_blurProgram.uniform(
+		"backgroundColor",
+		_state.background.color
+	);
+
+	_blurProgram.texture(
+		_context,
+		"screenTexture",
+		texture
+	);
+
+	// The vertex shader generates the triangle itself.
+	_context->IASetInputLayout(nullptr);
+
+	_context->IASetPrimitiveTopology(
+		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
+	);
+
+	// No vertex buffer or index buffer required.
+	_context->Draw(3, 0);
+
+	// Avoid leaving the blur texture bound as an SRV
+	// when its framebuffer is reused as a render target.
+	ID3D11ShaderResourceView* nullSRV = nullptr;
+
+	_context->PSSetShaderResources(
+		0,
+		1,
+		&nullSRV
+	);
+}
+
+
 void Viewer::blurPrepass()
 {
 	// ------------------------------------------------------------
@@ -766,8 +832,7 @@ void Viewer::blurPrepass()
 
 	_context->RSSetViewports(1, &blur0Viewport);
 
-	_blurringScreen.draw(
-		_context,
+	drawBlurPass(
 		_particlesFramebuffer->textureId(),
 		0.0f,
 		invBlurSize0
@@ -797,8 +862,7 @@ void Viewer::blurPrepass()
 
 	_context->RSSetViewports(1, &blur1Viewport);
 
-	_blurringScreen.draw(
-		_context,
+	drawBlurPass(
 		_blurFramebuffer0->textureId(),
 		1.0f,
 		invBlurSize1
@@ -2287,8 +2351,8 @@ void Viewer::showBlurOptions()
 		_state.attenuation =
 			glm::clamp(_state.attenuation, 0.0f, 1.0f);
 
-		_blurringScreen.program().use(_context);
-		_blurringScreen.program().uniform(
+		_blurProgram.use(_context);
+		_blurProgram.uniform(
 			"attenuationFactor",
 			_state.attenuation
 		);
@@ -3923,14 +3987,6 @@ void Viewer::applyBackgroundColor()
 		clearColor
 	);
 	_blurFramebuffer1->unbind(_context);
-
-	// Update blur shader background color.
-	_blurringScreen.program().use(_context);
-
-	_blurringScreen.program().uniform(
-		"backgroundColor",
-		_state.background.color
-	);
 }
 
 void Viewer::applyAllSettings()
@@ -3988,11 +4044,16 @@ void Viewer::applyAllSettings()
 
 	applyBackgroundColor();
 
-	_blurringScreen.program().use(_context);
+	_blurProgram.use(_context);
 
-	_blurringScreen.program().uniform(
+	_blurProgram.uniform(
 		"attenuationFactor",
 		_state.attenuation
+	);
+
+	_blurProgram.uniform(
+		"backgroundColor",
+		_state.background.color
 	);
 
 
@@ -4013,7 +4074,7 @@ void Viewer::clean() {
 
 	// Clean objects.
 	_renderer.clean();
-	_blurringScreen.clean();
+	_blurProgram.clean();
 	_passthrough.clean();
 	_fxaa.clean();
 	_particlesFramebuffer->clean();

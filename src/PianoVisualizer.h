@@ -69,15 +69,7 @@ public:
         std::vector<ImVec2> polygonPoints;
 
         PianoScene pianoScene;
-
-        float horizontalFovDegrees;
-        float planeWidth;
-        float planeHeight;
         float planePivot;
-
-        float surfaceXOffset;
-        float surfaceYOffset;
-        float surfaceZOffset;
 
         float pianoRollVisualizerHeight;
         float pianoRollCameraSourceScale;
@@ -86,13 +78,7 @@ public:
         {
             return
                 pianoScene == other.pianoScene &&
-                horizontalFovDegrees == other.horizontalFovDegrees &&
-                planeWidth == other.planeWidth &&
-                planeHeight == other.planeHeight &&
                 planePivot == other.planePivot &&
-                surfaceXOffset == other.surfaceXOffset &&
-                surfaceYOffset == other.surfaceYOffset &&
-                surfaceZOffset == other.surfaceZOffset &&
                 pianoRollVisualizerHeight == other.pianoRollVisualizerHeight &&
                 pianoRollCameraSourceScale == other.pianoRollCameraSourceScale &&
                 polygonPoints.size() == other.polygonPoints.size() &&
