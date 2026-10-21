@@ -521,6 +521,31 @@ namespace audio
     }
 
 
+    bool AudioEngine::setOutputFallbackToDefaultDevice(
+        bool enabled)
+    {
+        if (!_output)
+        {
+            Logger::Log(
+                "[Audio] Cannot change fallback behavior: "
+                "AudioOutput is null\n");
+
+            return false;
+        }
+
+        AudioOutput::Configuration configuration =
+            _output->configuration();
+
+        configuration.fallbackToDefaultDevice = enabled;
+
+        Logger::Log(
+            "[Audio] %s fallback to the default output device\n",
+            enabled ? "Enabled" : "Disabled");
+
+        return reconfigureOutput(configuration);
+    }
+
+
     // =========================================================
     // LIVE VOLUME / MUTE
     // =========================================================

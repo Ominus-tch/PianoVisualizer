@@ -9,6 +9,7 @@
 
 #include <fstream>
 #include <filesystem>
+#include <cmath>
 #include <vector>
 #include <string>
 
@@ -21,6 +22,54 @@ using json = nlohmann::json;
 // ============================================================
 
 namespace Config {
+
+    inline constexpr int APPLICATION_CONFIG_VERSION = 1;
+
+    inline bool WriteJsonAtomically(
+        const std::filesystem::path& configPath,
+        const json& config)
+    {
+        if (configPath.empty())
+            return false;
+
+        std::filesystem::path temporaryPath = configPath;
+        temporaryPath += ".tmp";
+
+        {
+            std::ofstream file(temporaryPath, std::ios::trunc);
+
+            if (!file.is_open())
+                return false;
+
+            file << config.dump(4);
+
+            if (!file.good())
+                return false;
+        }
+
+        std::error_code error;
+        std::filesystem::rename(temporaryPath, configPath, error);
+
+        if (!error)
+            return true;
+
+        // Windows does not replace an existing file with rename(). Use the
+        // native replace operation so a valid previous configuration remains
+        // intact until the new file has been written successfully.
+        if (MoveFileExW(
+            temporaryPath.c_str(),
+            configPath.c_str(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        {
+            return true;
+        }
+
+        Logger::Log(
+            "Failed to replace configuration file: %s\n",
+            configPath.string().c_str());
+
+        return false;
+    }
 
     // ============================================================
     // CONFIG DIRECTORY
@@ -201,6 +250,8 @@ namespace Config {
 
         json config;
 
+        config["version"] = APPLICATION_CONFIG_VERSION;
+
         config["currentPluginPath"] =
             currentPluginPath.string();
 
@@ -220,14 +271,7 @@ namespace Config {
             }
         }
 
-        std::ofstream file(configPath);
-
-        if (!file.is_open())
-            return false;
-
-        file << config.dump(4);
-
-        return true;
+        return WriteJsonAtomically(configPath, config);
     }
 
     inline bool LoadVSTConfig(
@@ -312,6 +356,8 @@ namespace Config {
 
         json config;
 
+        config["version"] = APPLICATION_CONFIG_VERSION;
+
         // --------------------------------------------------------
         // Selected polygon points
         // --------------------------------------------------------
@@ -364,14 +410,7 @@ namespace Config {
         // Save
         // --------------------------------------------------------
 
-        std::ofstream file(configPath);
-
-        if (!file.is_open())
-            return false;
-
-        file << config.dump(4);
-
-        return file.good();
+        return WriteJsonAtomically(configPath, config);
     }
 
     inline bool SavePianoConfig(
@@ -478,6 +517,12 @@ namespace Config {
                 {
                     scene =
                         settings["scene"].get<int>();
+
+                    if (scene < 0 || scene > 1)
+                    {
+                        Logger::Log("Invalid piano scene in configuration.\n");
+                        return false;
+                    }
                 }
 
                 if (settings.contains("planePivot"))
@@ -485,18 +530,27 @@ namespace Config {
                     planePivot =
                         settings["planePivot"]
                         .get<float>();
+
+                    if (!std::isfinite(planePivot))
+                        return false;
                 }
 
                 if (settings.contains("pianoRollVisualizerHeight"))
                 {
                     pianoRollVisualizerHeight =
                         settings["pianoRollVisualizerHeight"].get<float>();
+
+                    if (!std::isfinite(pianoRollVisualizerHeight))
+                        return false;
                 }
 
                 if (settings.contains("pianoRollCameraSourceScale"))
                 {
                     pianoRollCameraSourceScale =
                         settings["pianoRollCameraSourceScale"].get<float>();
+
+                    if (!std::isfinite(pianoRollCameraSourceScale))
+                        return false;
                 }
             }
             else { return false; }

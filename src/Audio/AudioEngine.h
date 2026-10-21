@@ -98,6 +98,9 @@ namespace audio
         bool setOutputBufferDuration(
             double milliseconds);
 
+        bool setOutputFallbackToDefaultDevice(
+            bool enabled);
+
         void setOutputVolume(
             float volume);
 

@@ -253,6 +253,10 @@ private:
 
     void RenderConfigurationTab();
 
+    void RenderStatusTab();
+
+    void RenderHelpTab();
+
     // STATS
 
     void RenderStatistics();
@@ -512,7 +516,13 @@ private:
 
     bool m_initialized = false;
 
+    // Tracks ownership from the beginning of Initialize(), allowing a failed
+    // initialization to release resources without making Shutdown non-idempotent.
+    bool m_initializationStarted = false;
+
     std::string m_configSaveMessage;
+
+    std::string m_recordingStatusMessage;
 
     // =========================================================
     // Timing

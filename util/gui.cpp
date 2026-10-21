@@ -121,4 +121,54 @@ namespace gui
 
         return result;
     }
+
+    std::filesystem::path OpenFolderDialog()
+    {
+        IFileOpenDialog* dialog = nullptr;
+
+        HRESULT hr = CoCreateInstance(
+            CLSID_FileOpenDialog,
+            nullptr,
+            CLSCTX_ALL,
+            IID_PPV_ARGS(&dialog)
+        );
+
+        if (FAILED(hr))
+            return {};
+
+        DWORD options = 0;
+        if (SUCCEEDED(dialog->GetOptions(&options)))
+        {
+            dialog->SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM);
+        }
+
+        hr = dialog->Show(nullptr);
+        if (FAILED(hr))
+        {
+            dialog->Release();
+            return {};
+        }
+
+        IShellItem* item = nullptr;
+        hr = dialog->GetResult(&item);
+        if (FAILED(hr))
+        {
+            dialog->Release();
+            return {};
+        }
+
+        PWSTR folderPath = nullptr;
+        hr = item->GetDisplayName(SIGDN_FILESYSPATH, &folderPath);
+
+        std::filesystem::path result;
+        if (SUCCEEDED(hr) && folderPath)
+        {
+            result = folderPath;
+            CoTaskMemFree(folderPath);
+        }
+
+        item->Release();
+        dialog->Release();
+        return result;
+    }
 }

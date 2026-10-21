@@ -177,6 +177,7 @@ bool PianoVisualizer::Initialize(
     m_context = context;
     m_swapChain = swapChain;
     m_renderTargetView = renderTargetView;
+    m_initializationStarted = true;
 
     Logger::Log(
         "Initializing Piano Visualizer...\n"
@@ -982,17 +983,35 @@ void PianoVisualizer::StartWindowCapture(
 
 void PianoVisualizer::onStartRecording()
 {
-    if (!m_camera.StartRecording((m_viewer->recordingDirectory() / "cameraRecording.mp4").string()))
+    if (!m_viewer)
+        return;
+
+    const auto recordingPath =
+        m_viewer->recordingDirectory() / "cameraRecording.mp4";
+
+    if (!m_camera.StartRecording(recordingPath.string()))
     {
         Logger::Log("[Recording] Failed to start!\n");
+        m_recordingStatusMessage =
+            "MIDI recording started, but camera recording could not start.";
+    }
+    else
+    {
+        m_recordingStatusMessage =
+            "Recording camera and MIDI to " +
+            m_viewer->recordingDirectory().filename().string() + ".";
     }
 }
 
 void PianoVisualizer::onStopRecording()
 {
-    if (!m_camera.StopRecording())
+    const bool cameraStopped = m_camera.StopRecording();
+
+    if (!cameraStopped)
     {
         Logger::Log("[Recording] Failed to stop!\n");
+        m_recordingStatusMessage =
+            "Recording stopped, but the camera file may be incomplete.";
     }
 
     Config::SavePianoConfigToPath(
@@ -1005,6 +1024,13 @@ void PianoVisualizer::onStopRecording()
     );
 
     m_savedConfiguration = GetCurrentConfiguration();
+
+    if (cameraStopped && m_viewer)
+    {
+        m_recordingStatusMessage =
+            "Recording saved to " +
+            m_viewer->recordingDirectory().filename().string() + ".";
+    }
 }
 
 // =========================================================
@@ -1424,6 +1450,18 @@ void PianoVisualizer::Render()
                 if (ImGui::BeginTabItem("Configuration"))
                 {
                     RenderConfigurationTab();
+                    ImGui::EndTabItem();
+                }
+
+                if (ImGui::BeginTabItem("Status"))
+                {
+                    RenderStatusTab();
+                    ImGui::EndTabItem();
+                }
+
+                if (ImGui::BeginTabItem("Help"))
+                {
+                    RenderHelpTab();
                     ImGui::EndTabItem();
                 }
 
@@ -2531,6 +2569,7 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
         surfaceHeight
     ))
     {
+        m_virtualCamera.ReleaseFrame();
         return;
     }
 
@@ -5469,21 +5508,10 @@ void PianoVisualizer::RenderAudioTab()
         "Fallback to default device",
         &fallback))
     {
-        // This currently requires updating the whole
-        // configuration because AudioOutput exposes the
-        // setting through Configuration.
-        //
-        // We don't currently have a dedicated setter for it.
-        auto newConfiguration =
-            m_audioEngine->outputConfiguration();
-
-        newConfiguration.fallbackToDefaultDevice =
-            fallback;
-
-        // The current AudioEngine API doesn't expose a generic
-        // configuration setter, so this cannot be applied yet.
-        //
-        // Keep the UI here disabled until that setter exists.
+        if (!m_audioEngine->setOutputFallbackToDefaultDevice(fallback))
+        {
+            Logger::Log("[Audio] Failed to update fallback behavior.\n");
+        }
     }
 
     ImGui::TextDisabled(
@@ -5696,7 +5724,7 @@ void PianoVisualizer::RenderPluginsTab()
         ))
         {
             auto fldr =
-                gui::OpenFileDialog();
+                gui::OpenFolderDialog();
 
             if (!fldr.empty())
             {
@@ -5788,6 +5816,115 @@ void PianoVisualizer::RenderConfigurationTab()
             m_configSaveMessage.c_str()
         );
     }
+}
+
+void PianoVisualizer::RenderStatusTab()
+{
+    auto Status = [](const char* label, bool ready, const char* readyText, const char* missingText)
+        {
+            ImGui::TextUnformatted(label);
+            ImGui::SameLine(180.0f);
+            ImGui::TextColored(
+                ready ? ImVec4(0.35f, 0.85f, 0.45f, 1.0f) : ImVec4(0.95f, 0.55f, 0.25f, 1.0f),
+                "%s",
+                ready ? readyText : missingText);
+        };
+
+    ImGui::TextDisabled("Readiness for a live session");
+    ImGui::Separator();
+
+    Status("MIDI visualizer", m_viewer != nullptr, "Ready", "Unavailable");
+    Status("Camera", m_camera.IsOpen(), "Connected", "No camera selected");
+    Status("Piano calibration", m_polygonPoints.size() == 4, "Four corners selected", "Choose four piano corners");
+
+    const bool audioReady =
+        m_audioEngine &&
+        m_audioEngine->output() &&
+        m_audioEngine->output()->isRunning();
+    Status("Audio output", audioReady, "Running", "Unavailable or stopped");
+
+    const bool pluginLoaded =
+        m_audioEngine &&
+        m_audioEngine->plugin();
+    Status("VST instrument", pluginLoaded, "Loaded", "No plugin loaded");
+
+    Status(
+        "Virtual camera",
+        m_virtualCamera.IsActive(),
+        "Streaming",
+        m_virtualCamera.IsAvailable() ? "Stopped" : "Extension unavailable");
+
+    ImGui::Spacing();
+    ImGui::SeparatorText("Recording");
+
+    const bool recording = m_viewer && m_viewer->isRecording();
+    Status("Current state", recording, "Recording", "Idle");
+
+    if (m_viewer && recording)
+    {
+        ImGui::TextDisabled(
+            "Take folder: %s",
+            m_viewer->recordingDirectory().string().c_str());
+    }
+
+    if (!m_recordingStatusMessage.empty())
+    {
+        ImGui::TextWrapped("%s", m_recordingStatusMessage.c_str());
+    }
+
+    if (m_polygonPoints.size() != 4)
+    {
+        ImGui::Spacing();
+        ImGui::TextDisabled(
+            "Use Display > Choose Piano Corners before using perspective projection.");
+    }
+}
+
+void PianoVisualizer::RenderHelpTab()
+{
+    ImGui::TextDisabled("Keyboard shortcuts");
+    ImGui::Separator();
+
+    const auto Row = [](const char* shortcut, const char* action)
+        {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(shortcut);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(action);
+        };
+
+    if (ImGui::BeginTable("Keybinds", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg))
+    {
+        ImGui::TableSetupColumn("Shortcut", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+        ImGui::TableSetupColumn("Action");
+        ImGui::TableHeadersRow();
+
+        Row("I", "Show or hide the settings window");
+        Row("S", "Show or hide performance statistics");
+        Row("F", "Toggle fullscreen");
+        Row("Esc", "Cancel choosing piano corners and restore the previous selection");
+
+        ImGui::TableNextRow();
+        ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(55, 55, 55, 255));
+
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextDisabled("MIDI Editor");
+        ImGui::TableSetColumnIndex(1);
+
+        Row("Ctrl+S", "Save MIDI changes");
+        Row("Ctrl+Z", "Undo previous change");
+        Row("Ctrl+Y", "Redo previous change");
+        Row("Ctrl+C", "Copy selected notes");
+        Row("Ctrl+V", "Paste copied notes");
+        Row("Ctrl+X", "Delete selected notes");
+
+        ImGui::EndTable();
+    }
+
+    ImGui::Spacing();
+    ImGui::TextDisabled("Shortcuts are ignored while entering text in the visualizer.");
+    ImGui::TextDisabled("Playback and recording controls are shown in the Visualizer tab.");
 }
 
 // =========================================================
@@ -6859,7 +6996,7 @@ void PianoVisualizer::RenderStatistics()
 
 void PianoVisualizer::Shutdown()
 {
-    if (!m_initialized)
+    if (!m_initializationStarted)
         return;
 
     Logger::Log(
@@ -6882,6 +7019,8 @@ void PianoVisualizer::Shutdown()
 
     m_initialized =
         false;
+
+    m_initializationStarted = false;
 
     Logger::Log(
         "Piano Visualizer shut down.\n"

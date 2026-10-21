@@ -94,6 +94,11 @@ namespace gui
     // =========================================================
 
     std::filesystem::path OpenFileDialog();
+
+    // Opens the Windows folder picker. Kept separate from OpenFileDialog so
+    // callers cannot accidentally persist a file path where a directory is
+    // required.
+    std::filesystem::path OpenFolderDialog();
 }
 
 #endif

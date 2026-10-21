@@ -159,9 +159,7 @@ Viewer::Viewer(
 	_blurProgram.init(
 		_device,
 		"particlesblur_vert",
-		"particlesblur_frag",
-		ShaderProgram::InputLayoutType::None,
-		true
+		"particlesblur_frag"
 	);
 
 	_fxaa.init(_device, "fxaa_frag", "screenquad_vert", false, ShaderProgram::InputLayoutType::None);
@@ -4605,6 +4603,16 @@ void Viewer::pausePlayback()
 
 void Viewer::stopPlayback()
 {
+	// Clear controller and note state before stopping playback.
+	if (_scene)
+	{
+		if (auto* midiScene =
+			dynamic_cast<MIDISceneFile*>(_scene.get()))
+		{
+			midiScene->resetPlaybackState(0.0);
+		}
+	}
+
 	_playbackLoaded = false;
 	_playbackPlaying = false;
 	_playbackPaused = false;

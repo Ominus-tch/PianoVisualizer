@@ -238,7 +238,7 @@ void MIDIFile::populatePlaybackEvents()
 		}
 	}
 
-	std::sort(
+	std::stable_sort(
 		_playbackEvents.begin(),
 		_playbackEvents.end(),
 		[](const MIDIPlaybackEvent& a,

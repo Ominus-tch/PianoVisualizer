@@ -326,6 +326,35 @@ INT APIENTRY WinMain(
         );
 
 
+    // The debug runtime is useful during development but is optional on
+    // end-user machines. Fall back to a normal hardware device when it is
+    // not installed instead of preventing the application from starting.
+    if (FAILED(hr))
+    {
+        Logger::Log(
+            "[main] D3D11 debug device unavailable; retrying without debug layer.\n"
+        );
+
+        deviceFlags &= ~D3D11_CREATE_DEVICE_DEBUG;
+
+        hr =
+            D3D11CreateDeviceAndSwapChain(
+                nullptr,
+                D3D_DRIVER_TYPE_HARDWARE,
+                nullptr,
+                deviceFlags,
+                featureLevels,
+                2U,
+                D3D11_SDK_VERSION,
+                &swapChainDesc,
+                &swapChain,
+                &device,
+                &featureLevel,
+                &context
+            );
+    }
+
+
     if (FAILED(hr))
     {
         Logger::Log(
@@ -485,7 +514,8 @@ INT APIENTRY WinMain(
 
         ImGui::DestroyContext();
 
-        renderTargetView->Release();
+        // PianoVisualizer owns and releases the render target after it has
+        // accepted initialization, including partial initialization failures.
         swapChain->Release();
         context->Release();
         device->Release();
