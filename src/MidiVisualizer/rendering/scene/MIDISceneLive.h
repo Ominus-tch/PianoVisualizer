@@ -31,6 +31,7 @@ public:
 		float delaySeconds = 0.20f;
 		float velocityDropoff = 0.70f;
 		bool recordInRecording = false;
+		int transposeSemitones = 0;
 	};
 
 	MIDISceneLive(int port, bool verbose);
@@ -84,6 +85,8 @@ public:
 	static void setDeviceCallback(DeviceCallback callback);
 
 	void setEchoSettings(const EchoSettings& settings);
+	using KeybindHandler = std::function<bool(short note, bool pressed)>;
+	void setKeybindHandler(KeybindHandler handler);
 
 private:
 
@@ -132,6 +135,7 @@ private:
 		int noteIndex;
 		short channel;
 		short note;
+		short audioNote;
 	};
 
 	void scheduleEchoes(short channel, short note, short velocity, double time);
@@ -142,11 +146,13 @@ private:
 	void clearEchoes();
 	bool hasActiveEchoForNote(short note) const;
 	void recordEchoEvent(const ScheduledEchoEvent& event);
+	short audioNote(short note) const;
 
 	std::vector<NoteInfos> _notesInfos;
 
 	std::array<int, 128> _activeIds;
 	std::array<bool, 128> _activeRecording;
+	std::array<std::array<short, 128>, 16> _audioNotes;
 
 	std::map<float, Pedals> _pedalInfos;
 	std::vector<MIDIFrame> _allMessages;
@@ -162,6 +168,7 @@ private:
 
 	bool _recording = false;
 	EchoSettings _echoSettings;
+	KeybindHandler _keybindHandler;
 	uint64_t _nextEchoVoiceId = 1;
 	std::vector<ScheduledEchoEvent> _scheduledEchoEvents;
 	std::array<std::array<std::vector<EchoVoice>, 128>, 16> _echoVoices;

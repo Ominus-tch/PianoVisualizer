@@ -34,15 +34,32 @@ void MIDISceneLive::setEchoSettings(const EchoSettings& settings)
 	const bool wasEnabled = _echoSettings.enabled;
 
 	_echoSettings.enabled = settings.enabled;
-	_echoSettings.repetitions = clamp<int>(settings.repetitions, 1, 8);
-	_echoSettings.delaySeconds = clamp<float>(settings.delaySeconds, 0.02f, 2.0f);
+	_echoSettings.repetitions = clamp<int>(settings.repetitions, 1, 64);
+	_echoSettings.delaySeconds = clamp<float>(settings.delaySeconds, 0.02f, 30.0f);
 	_echoSettings.velocityDropoff = clamp<float>(settings.velocityDropoff, 0.0f, 1.0f);
 	_echoSettings.recordInRecording = settings.recordInRecording;
+	_echoSettings.transposeSemitones = clamp<int>(settings.transposeSemitones, -48, 48);
 
 	if (wasEnabled && !_echoSettings.enabled)
 	{
 		clearEchoes();
 	}
+}
+
+
+short MIDISceneLive::audioNote(short note) const
+{
+	return clamp<short>(
+		static_cast<short>(note + _echoSettings.transposeSemitones),
+		0,
+		127);
+}
+
+
+void MIDISceneLive::setKeybindHandler(
+	KeybindHandler handler)
+{
+	_keybindHandler = std::move(handler);
 }
 
 
@@ -159,7 +176,8 @@ void MIDISceneLive::startEchoNote(
 	newNote.isMinor = noteIsMinor[event.note % 12] ? 1.0f : 0.0f;
 	newNote.note = float((event.note / 12) * 7 + noteShift[event.note % 12]);
 
-	_activeEchoNotes[event.voiceId] = { index, event.channel, event.note };
+	const short transposedNote = audioNote(event.note);
+	_activeEchoNotes[event.voiceId] = { index, event.channel, event.note, transposedNote };
 	_actives[event.note] = int(newNote.set);
 
 	for (auto& particle : _particles)
@@ -179,7 +197,7 @@ void MIDISceneLive::startEchoNote(
 	{
 		_audioEngine->noteOn(
 			event.channel,
-			event.note,
+			transposedNote,
 			float(event.velocity) / 127.0f,
 			static_cast<int32_t>(event.voiceId & 0x7fffffff));
 	}
@@ -209,7 +227,7 @@ void MIDISceneLive::stopEchoNote(
 	{
 		_audioEngine->noteOff(
 			echo.channel,
-			echo.note,
+			echo.audioNote,
 			float(event.velocity) / 127.0f,
 			static_cast<int32_t>(event.voiceId & 0x7fffffff));
 	}
@@ -277,7 +295,7 @@ void MIDISceneLive::clearEchoes()
 		{
 			_audioEngine->noteOff(
 				echo.channel,
-				echo.note,
+				echo.audioNote,
 				0.0f,
 				static_cast<int32_t>(voiceId & 0x7fffffff));
 		}
@@ -421,6 +439,8 @@ MIDISceneLive::MIDISceneLive(int port, bool verbose)
 
 	_activeIds.fill(-1);
 	_activeRecording.fill(false);
+	for (auto& channel : _audioNotes)
+		channel.fill(-1);
 
 	_notes.resize(MAX_NOTES_IN_FLIGHT);
 	_notesInfos.resize(MAX_NOTES_IN_FLIGHT);
@@ -702,6 +722,19 @@ void MIDISceneLive::updatesActiveNotes(
 					127
 				);
 
+			const bool pressed =
+				type == libremidi::message_type::NOTE_ON &&
+				velocity > 0;
+
+			// A MIDI note used as a macro key is intentionally consumed before
+			// it reaches recording, visualization, echo, or VST audio.
+			if (_keybindHandler &&
+				_keybindHandler(note, pressed))
+			{
+				frame.messages.pop_back();
+				continue;
+			}
+
 
 			if (_verbose)
 			{
@@ -748,9 +781,11 @@ void MIDISceneLive::updatesActiveNotes(
 
 				if (_audioEngine)
 				{
+					const short transposedNote = audioNote(note);
+					_audioNotes[message.get_channel()][note] = transposedNote;
 					_audioEngine->noteOn(
 						message.get_channel(),
-						note,
+						transposedNote,
 						float(velocity) / 127.0f
 					);
 				}
@@ -863,9 +898,13 @@ void MIDISceneLive::updatesActiveNotes(
 
 				if (_audioEngine)
 				{
+					const short transposedNote = _audioNotes[message.get_channel()][note] >= 0
+						? _audioNotes[message.get_channel()][note]
+						: audioNote(note);
+					_audioNotes[message.get_channel()][note] = -1;
 					_audioEngine->noteOff(
 						message.get_channel(),
-						note,
+						transposedNote,
 						float(velocity) / 127.0f
 					);
 				}
@@ -1477,7 +1516,7 @@ void MIDISceneLive::handleMIDIDisconnect(
 			{
 				_audioEngine->noteOff(
 					_notesInfos[noteId].channel,
-					note,
+					audioNote(note),
 					0.0f
 				);
 			}

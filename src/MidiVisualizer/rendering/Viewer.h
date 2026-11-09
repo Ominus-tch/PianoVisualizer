@@ -11,6 +11,7 @@
 #include <optional>
 
 #include "../helpers/System.h"
+#include "../../../util/config.h"
 
 
 #include "camera/MidiCamera.h"
@@ -42,7 +43,14 @@ public:
 		float delaySeconds = 0.20f;
 		float velocityDropoff = 0.70f;
 		bool recordInRecording = false;
+		int transposeSemitones = 0;
 	};
+
+	using LiveKeybind = Config::FunKeybind;
+	using LiveEchoSettingsChangedCallback =
+		std::function<void(const LiveEchoSettings&)>;
+	using LiveKeybindsChangedCallback =
+		std::function<void(const std::vector<LiveKeybind>&)>;
 
 	Viewer(
 		D3D11Interface d3dInterface,
@@ -59,6 +67,13 @@ public:
 
 	void setState(const State & state);
 	void setLiveEchoSettings(const LiveEchoSettings& settings);
+	void setLiveKeybinds(const std::vector<LiveKeybind>& keybinds);
+	const std::vector<LiveKeybind>& liveKeybinds() const { return _liveKeybinds; }
+	void beginLiveKeybindCapture(size_t index);
+	void cancelLiveKeybindCapture();
+	bool isCapturingLiveKeybind(size_t index) const;
+	void setOnLiveEchoSettingsChanged(LiveEchoSettingsChangedCallback callback);
+	void setOnLiveKeybindsChanged(LiveKeybindsChangedCallback callback);
 	bool isLivePlay() const { return _liveplay; }
 	bool isInputting() const { return _inputting; }
 
@@ -356,6 +371,10 @@ private:
 	bool _exitAfterRecording = false;
 	bool _liveplay = false;
 	LiveEchoSettings _liveEchoSettings;
+	std::vector<LiveKeybind> _liveKeybinds;
+	int _capturingLiveKeybind = -1;
+	LiveEchoSettingsChangedCallback _onLiveEchoSettingsChanged;
+	LiveKeybindsChangedCallback _onLiveKeybindsChanged;
 
 	RecordingCallback _onStartRecording;
 	RecordingCallback _onStopRecording;
@@ -423,4 +442,10 @@ private:
 
 	MIDIEditor _midiEditor;
 	bool _midiEditorOpen = false;
+
+	bool handleLiveMidiKeybind(short note, bool pressed);
+	bool handleLiveKeyboardKeybind(int key);
+	void executeLiveKeybind(int action);
+	int keyboardModifiers() const;
+	void notifyLiveKeybindsChanged();
 };

@@ -628,6 +628,39 @@ bool PianoVisualizer::InitializeMidiVisualizer()
         );
 
     m_viewer->setLiveEchoSettings(m_liveEchoSettings);
+    m_viewer->setLiveKeybinds(m_funKeybinds);
+
+    m_viewer->setOnLiveEchoSettingsChanged(
+        [this](const Viewer::LiveEchoSettings& settings)
+        {
+            m_liveEchoSettings = settings;
+            Config::SaveFunConfig(
+                m_liveEchoSettings.enabled,
+                m_liveEchoSettings.repetitions,
+                m_liveEchoSettings.delaySeconds,
+                m_liveEchoSettings.velocityDropoff,
+                m_liveEchoSettings.recordInRecording,
+                m_liveEchoSettings.transposeSemitones,
+                m_funKeybinds
+            );
+        }
+    );
+
+    m_viewer->setOnLiveKeybindsChanged(
+        [this](const std::vector<Viewer::LiveKeybind>& keybinds)
+        {
+            m_funKeybinds = keybinds;
+            Config::SaveFunConfig(
+                m_liveEchoSettings.enabled,
+                m_liveEchoSettings.repetitions,
+                m_liveEchoSettings.delaySeconds,
+                m_liveEchoSettings.velocityDropoff,
+                m_liveEchoSettings.recordInRecording,
+                m_liveEchoSettings.transposeSemitones,
+                m_funKeybinds
+            );
+        }
+    );
 
     m_viewer->setOnStartRecording(
         [this]()
@@ -710,8 +743,16 @@ bool PianoVisualizer::InitializeMidiVisualizer()
                 m_liveEchoSettings.repetitions,
                 m_liveEchoSettings.delaySeconds,
                 m_liveEchoSettings.velocityDropoff,
-                m_liveEchoSettings.recordInRecording
+                m_liveEchoSettings.recordInRecording,
+                m_liveEchoSettings.transposeSemitones,
+                &m_funKeybinds
             );
+
+            if (m_viewer)
+            {
+                m_viewer->setLiveEchoSettings(m_liveEchoSettings);
+                m_viewer->setLiveKeybinds(m_funKeybinds);
+            }
 
             m_savedConfiguration = GetCurrentConfiguration();
         }
@@ -5913,6 +5954,26 @@ void PianoVisualizer::RenderPluginsTab()
 
 void PianoVisualizer::RenderFunTab()
 {
+    const auto saveFunSettings =
+        [this]()
+        {
+            if (m_viewer)
+            {
+                m_viewer->setLiveEchoSettings(m_liveEchoSettings);
+                m_viewer->setLiveKeybinds(m_funKeybinds);
+            }
+
+            Config::SaveFunConfig(
+                m_liveEchoSettings.enabled,
+                m_liveEchoSettings.repetitions,
+                m_liveEchoSettings.delaySeconds,
+                m_liveEchoSettings.velocityDropoff,
+                m_liveEchoSettings.recordInRecording,
+                m_liveEchoSettings.transposeSemitones,
+                m_funKeybinds
+            );
+        };
+
     ImGui::TextWrapped(
         "Live performance effects are applied only to MIDI input. "
         "They do not alter recording playback or the MIDI saved to a recording."
@@ -5931,15 +5992,16 @@ void PianoVisualizer::RenderFunTab()
         "Repetitions",
         &m_liveEchoSettings.repetitions,
         1,
-        8
+        64
     );
 
     changed |= ImGui::SliderFloat(
         "Delay",
         &m_liveEchoSettings.delaySeconds,
         0.02f,
-        2.0f,
-        "%.2f s"
+        30.0f,
+        "%.2f s",
+        ImGuiSliderFlags_Logarithmic
     );
 
     changed |= ImGui::Checkbox(
@@ -5957,25 +6019,150 @@ void PianoVisualizer::RenderFunTab()
 
     ImGui::EndDisabled();
 
-    ImGui::TextDisabled(
-        "Echo %d repeats every %.2f s at %.0f%% of the previous velocity.",
-        (std::max)(0, m_liveEchoSettings.repetitions - 1),
-        m_liveEchoSettings.delaySeconds,
-        m_liveEchoSettings.velocityDropoff * 100.0f
-    );
+    ImGui::Spacing();
+    ImGui::Text("Keyboard transpose");
+    if (ImGui::Button("-##transpose"))
+    {
+        m_liveEchoSettings.transposeSemitones =
+            (std::max)(-48, m_liveEchoSettings.transposeSemitones - 1);
+        changed = true;
+    }
+    ImGui::SameLine();
+    ImGui::Text("%+d semitones", m_liveEchoSettings.transposeSemitones);
+    ImGui::SameLine();
+    if (ImGui::Button("+##transpose"))
+    {
+        m_liveEchoSettings.transposeSemitones =
+            (std::min)(48, m_liveEchoSettings.transposeSemitones + 1);
+        changed = true;
+    }
 
     if (changed)
     {
-        if (m_viewer)
-            m_viewer->setLiveEchoSettings(m_liveEchoSettings);
+        saveFunSettings();
+    }
 
-        Config::SaveFunConfig(
-            m_liveEchoSettings.enabled,
-            m_liveEchoSettings.repetitions,
-            m_liveEchoSettings.delaySeconds,
-            m_liveEchoSettings.velocityDropoff,
-            m_liveEchoSettings.recordInRecording
-        );
+    ImGui::Spacing();
+    ImGui::SeparatorText("Keybinds");
+    ImGui::TextDisabled(
+        "Bind keyboard shortcuts or piano notes. MIDI keys used here are not played or recorded."
+    );
+
+    if (ImGui::Button("+ Add keybind"))
+    {
+        m_funKeybinds.push_back({});
+        saveFunSettings();
+    }
+
+    static constexpr const char* actionNames[] = {
+        "Toggle note echo",
+        "Increase repetitions",
+        "Decrease repetitions",
+        "Transpose up",
+        "Transpose down"
+    };
+
+    const auto keyName = [](int key)
+    {
+        if (key >= 'A' && key <= 'Z')
+            return std::string(1, static_cast<char>(key));
+        if (key >= '0' && key <= '9')
+            return std::string(1, static_cast<char>(key));
+        if (key >= VK_NUMPAD0 && key <= VK_NUMPAD9)
+            return std::string("NUMPAD ") + std::to_string(key - VK_NUMPAD0);
+
+        char name[64]{};
+        const LONG scanCode = static_cast<LONG>(
+            MapVirtualKeyW(static_cast<UINT>(key), MAPVK_VK_TO_VSC) << 16);
+        if (GetKeyNameTextA(scanCode, name, static_cast<int>(sizeof(name))) > 0)
+            return std::string(name);
+        return std::string("Key ") + std::to_string(key);
+    };
+
+    const auto bindingName = [&keyName](const Config::FunKeybind& binding)
+    {
+        if (binding.key == 0)
+            return std::string("Unbound");
+        if (binding.source == 1)
+            return std::string("PIANO NOTE ") + std::to_string(binding.key);
+
+        std::string name;
+        if ((binding.modifiers & 1) != 0) name += "CTRL + ";
+        if ((binding.modifiers & 2) != 0) name += "SHIFT + ";
+        if ((binding.modifiers & 4) != 0) name += "ALT + ";
+        return name + keyName(binding.key);
+    };
+
+    for (size_t index = 0; index < m_funKeybinds.size();)
+    {
+        auto& binding = m_funKeybinds[index];
+        ImGui::PushID(static_cast<int>(index));
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        bool keybindChanged = false;
+        ImGui::SetNextItemWidth(210.0f);
+        if (ImGui::BeginCombo(
+            "##action",
+            actionNames[static_cast<int>(binding.action)]))
+        {
+            for (int action = 0; action < 5; ++action)
+            {
+                const bool selected =
+                    static_cast<int>(binding.action) == action;
+                if (ImGui::Selectable(actionNames[action], selected))
+                {
+                    binding.action =
+                        static_cast<Config::FunKeybindAction>(action);
+                    keybindChanged = true;
+                }
+                if (selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::SameLine();
+        const bool capturing = m_viewer && m_viewer->isCapturingLiveKeybind(index);
+        const std::string bindLabel = capturing
+            ? "Listening...##bind"
+            : bindingName(binding) + "##bind";
+        if (ImGui::Button(bindLabel.c_str(), ImVec2(175.0f, 0.0f)) && m_viewer)
+        {
+            m_viewer->beginLiveKeybindCapture(index);
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button(capturing ? "Cancel" : "Edit", ImVec2(64.0f, 0.0f)) && m_viewer)
+        {
+            if (capturing)
+                m_viewer->cancelLiveKeybindCapture();
+            else
+                m_viewer->beginLiveKeybindCapture(index);
+        }
+
+        ImGui::SameLine();
+        keybindChanged |= ImGui::Checkbox("Enabled", &binding.enabled);
+
+        ImGui::SameLine();
+        const bool remove = ImGui::SmallButton("Remove");
+
+        if (capturing)
+            ImGui::TextDisabled("Press a keyboard shortcut or a piano key to bind this action.");
+
+        ImGui::PopID();
+
+        if (remove)
+        {
+            m_funKeybinds.erase(m_funKeybinds.begin() + static_cast<std::ptrdiff_t>(index));
+            saveFunSettings();
+            continue;
+        }
+
+        if (keybindChanged)
+            saveFunSettings();
+
+        ++index;
     }
 }
 

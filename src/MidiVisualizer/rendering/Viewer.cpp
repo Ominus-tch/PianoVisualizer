@@ -1,5 +1,7 @@
 #include "Viewer.h"
 
+#include <Windows.h>
+
 #include "../helpers/ProgramUtilities.h"
 #include "../helpers/ResourcesManager.h"
 #include "../helpers/ImGuiStyle.h"
@@ -427,9 +429,166 @@ void Viewer::setLiveEchoSettings(const LiveEchoSettings& settings)
 			_liveEchoSettings.repetitions,
 			_liveEchoSettings.delaySeconds,
 			_liveEchoSettings.velocityDropoff,
-			_liveEchoSettings.recordInRecording
+			_liveEchoSettings.recordInRecording,
+			_liveEchoSettings.transposeSemitones
 		});
+
+		liveScene->setKeybindHandler(
+			[this](short note, bool pressed)
+			{
+				return handleLiveMidiKeybind(note, pressed);
+			}
+		);
 	}
+}
+
+
+void Viewer::setLiveKeybinds(const std::vector<LiveKeybind>& keybinds)
+{
+	_liveKeybinds = keybinds;
+	if (_capturingLiveKeybind >= static_cast<int>(_liveKeybinds.size()))
+		_capturingLiveKeybind = -1;
+}
+
+
+void Viewer::beginLiveKeybindCapture(size_t index)
+{
+	if (index < _liveKeybinds.size())
+		_capturingLiveKeybind = static_cast<int>(index);
+}
+
+
+void Viewer::cancelLiveKeybindCapture()
+{
+	_capturingLiveKeybind = -1;
+}
+
+
+bool Viewer::isCapturingLiveKeybind(size_t index) const
+{
+	return _capturingLiveKeybind == static_cast<int>(index);
+}
+
+
+void Viewer::setOnLiveEchoSettingsChanged(
+	LiveEchoSettingsChangedCallback callback)
+{
+	_onLiveEchoSettingsChanged = std::move(callback);
+}
+
+
+void Viewer::setOnLiveKeybindsChanged(
+	LiveKeybindsChangedCallback callback)
+{
+	_onLiveKeybindsChanged = std::move(callback);
+}
+
+
+int Viewer::keyboardModifiers() const
+{
+	int modifiers = 0;
+	if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0)
+		modifiers |= 1;
+	if ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0)
+		modifiers |= 2;
+	if ((GetAsyncKeyState(VK_MENU) & 0x8000) != 0)
+		modifiers |= 4;
+	return modifiers;
+}
+
+
+void Viewer::notifyLiveKeybindsChanged()
+{
+	if (_onLiveKeybindsChanged)
+		_onLiveKeybindsChanged(_liveKeybinds);
+}
+
+
+void Viewer::executeLiveKeybind(int action)
+{
+	switch (action)
+	{
+	case 0:
+		_liveEchoSettings.enabled = !_liveEchoSettings.enabled;
+		break;
+	case 1:
+		_liveEchoSettings.repetitions = (std::min)(64, _liveEchoSettings.repetitions + 1);
+		break;
+	case 2:
+		_liveEchoSettings.repetitions = (std::max)(1, _liveEchoSettings.repetitions - 1);
+		break;
+	case 3:
+		_liveEchoSettings.transposeSemitones = (std::min)(48, _liveEchoSettings.transposeSemitones + 1);
+		break;
+	case 4:
+		_liveEchoSettings.transposeSemitones = (std::max)(-48, _liveEchoSettings.transposeSemitones - 1);
+		break;
+	default:
+		return;
+	}
+
+	setLiveEchoSettings(_liveEchoSettings);
+	if (_onLiveEchoSettingsChanged)
+		_onLiveEchoSettingsChanged(_liveEchoSettings);
+}
+
+
+bool Viewer::handleLiveKeyboardKeybind(int key)
+{
+	const int modifiers = keyboardModifiers();
+
+	if (_capturingLiveKeybind >= 0)
+	{
+		if (key == VK_CONTROL || key == VK_SHIFT || key == VK_MENU)
+			return true;
+
+		auto& keybind = _liveKeybinds[_capturingLiveKeybind];
+		keybind.source = 0;
+		keybind.key = key;
+		keybind.modifiers = modifiers;
+		_capturingLiveKeybind = -1;
+		notifyLiveKeybindsChanged();
+		return true;
+	}
+
+	for (const auto& keybind : _liveKeybinds)
+	{
+		if (keybind.enabled && keybind.source == 0 &&
+			keybind.key == key && keybind.modifiers == modifiers)
+		{
+			executeLiveKeybind(static_cast<int>(keybind.action));
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+bool Viewer::handleLiveMidiKeybind(short note, bool pressed)
+{
+	if (_capturingLiveKeybind >= 0 && pressed)
+	{
+		auto& keybind = _liveKeybinds[_capturingLiveKeybind];
+		keybind.source = 1;
+		keybind.key = note;
+		keybind.modifiers = 0;
+		_capturingLiveKeybind = -1;
+		notifyLiveKeybindsChanged();
+		return true;
+	}
+
+	for (const auto& keybind : _liveKeybinds)
+	{
+		if (keybind.enabled && keybind.source == 1 && keybind.key == note)
+		{
+			if (pressed)
+				executeLiveKeybind(static_cast<int>(keybind.action));
+			return true;
+		}
+	}
+
+	return false;
 }
 
 bool Viewer::loadFile(const std::string& midiFilePath) {
@@ -4139,7 +4298,18 @@ void Viewer::keyPressed(int key, int action)
 	if (action != 1) // 1 = key pressed
 		return;
 
+	// Capture must work even while the keybind editor itself has keyboard
+	// focus.  Normal shortcuts remain disabled while other text input is open.
+	if (_capturingLiveKeybind >= 0)
+	{
+		handleLiveKeyboardKeybind(key);
+		return;
+	}
+
 	if (_inputting)
+		return;
+
+	if (handleLiveKeyboardKeybind(key))
 		return;
 
 	switch (key)

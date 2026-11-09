@@ -455,6 +455,7 @@ private:
     Viewer* m_viewer = nullptr;
 
     Viewer::LiveEchoSettings m_liveEchoSettings;
+    std::vector<Config::FunKeybind> m_funKeybinds;
 
     SettingsSection m_activeSettingsSection =
         SettingsSection::Display;

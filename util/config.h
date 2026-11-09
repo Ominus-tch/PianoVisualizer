@@ -199,12 +199,33 @@ namespace Config {
         return directory.empty() ? std::filesystem::path{} : directory / "fun_config.json";
     }
 
+    enum class FunKeybindAction
+    {
+        ToggleEcho,
+        IncreaseRepetitions,
+        DecreaseRepetitions,
+        TransposeUp,
+        TransposeDown
+    };
+
+    struct FunKeybind
+    {
+        FunKeybindAction action = FunKeybindAction::ToggleEcho;
+        // 0 = keyboard shortcut, 1 = MIDI note.
+        int source = 0;
+        int key = 0;
+        int modifiers = 0;
+        bool enabled = true;
+    };
+
     inline bool SaveFunConfig(
         bool echoEnabled,
         int echoRepetitions,
         float echoDelaySeconds,
         float echoVelocityDropoff,
-        bool echoRecordInRecording)
+        bool echoRecordInRecording,
+        int echoTransposeSemitones,
+        const std::vector<FunKeybind>& keybinds = {})
     {
         const auto configPath = GetFunConfigPath();
         if (configPath.empty())
@@ -217,8 +238,20 @@ namespace Config {
             { "repetitions", echoRepetitions },
             { "delaySeconds", echoDelaySeconds },
             { "velocityDropoff", echoVelocityDropoff },
-            { "recordInRecording", echoRecordInRecording }
+            { "recordInRecording", echoRecordInRecording },
+            { "transposeSemitones", echoTransposeSemitones }
         };
+        config["keybinds"] = json::array();
+        for (const auto& keybind : keybinds)
+        {
+            config["keybinds"].push_back({
+                { "action", static_cast<int>(keybind.action) },
+                { "source", keybind.source },
+                { "key", keybind.key },
+                { "modifiers", keybind.modifiers },
+                { "enabled", keybind.enabled }
+            });
+        }
         return WriteJsonAtomically(configPath, config);
     }
 
@@ -227,7 +260,9 @@ namespace Config {
         int& echoRepetitions,
         float& echoDelaySeconds,
         float& echoVelocityDropoff,
-        bool& echoRecordInRecording)
+        bool& echoRecordInRecording,
+        int& echoTransposeSemitones,
+        std::vector<FunKeybind>* keybinds = nullptr)
     {
         std::ifstream file(GetFunConfigPath());
         if (!file.is_open())
@@ -245,10 +280,36 @@ namespace Config {
 
             if (echo.contains("recordInRecording"))
                 echoRecordInRecording = echo["recordInRecording"].get<bool>();
+            echoTransposeSemitones = echo.value("transposeSemitones", 0);
 
-            return echoRepetitions >= 1 && echoRepetitions <= 8 &&
-                std::isfinite(echoDelaySeconds) && echoDelaySeconds >= 0.02f && echoDelaySeconds <= 2.0f &&
-                std::isfinite(echoVelocityDropoff) && echoVelocityDropoff >= 0.0f && echoVelocityDropoff <= 1.0f;
+            if (keybinds)
+            {
+                keybinds->clear();
+                if (config.contains("keybinds") && config["keybinds"].is_array())
+                {
+                    for (const auto& item : config["keybinds"])
+                    {
+                        FunKeybind keybind;
+                        const int action = item.value("action", 0);
+                        keybind.source = item.value("source", 0);
+                        keybind.key = item.value("key", 0);
+                        keybind.modifiers = item.value("modifiers", 0);
+                        keybind.enabled = item.value("enabled", true);
+                        if (action >= 0 && action <= 4 &&
+                            keybind.source >= 0 && keybind.source <= 1 &&
+                            keybind.key >= 0)
+                        {
+                            keybind.action = static_cast<FunKeybindAction>(action);
+                            keybinds->push_back(keybind);
+                        }
+                    }
+                }
+            }
+
+            return echoRepetitions >= 1 && echoRepetitions <= 64 &&
+                std::isfinite(echoDelaySeconds) && echoDelaySeconds >= 0.02f && echoDelaySeconds <= 30.0f &&
+                std::isfinite(echoVelocityDropoff) && echoVelocityDropoff >= 0.0f && echoVelocityDropoff <= 1.0f &&
+                echoTransposeSemitones >= -48 && echoTransposeSemitones <= 48;
         }
         catch (const std::exception&)
         {
