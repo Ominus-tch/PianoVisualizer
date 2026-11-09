@@ -6,6 +6,7 @@
 
 #include "../../util/Logger.h"
 
+#include <algorithm>
 #include <avrt.h>
 
 #pragma comment(lib, "Avrt.lib")
@@ -57,19 +58,6 @@ namespace audio
         {
             Logger::Log(
                 "[Audio] Failed to initialize AudioOutput\n");
-
-            delete _output;
-            _output = nullptr;
-
-            return false;
-        }
-
-        if (!_output->start())
-        {
-            Logger::Log(
-                "[Audio] Failed to start AudioOutput\n");
-
-            _output->shutdown();
 
             delete _output;
             _output = nullptr;
@@ -157,7 +145,7 @@ namespace audio
         _vstAudio = new vst::VSTAudio(
             _vstPlugin->processor(),
             _output->sampleRate(),
-            512);
+            256);
 
         if (!_vstAudio)
         {
@@ -248,11 +236,12 @@ namespace audio
             return false;
         }
 
-        if (!_output->isRunning())
+        if (!_output->isRunning() &&
+            !_output->start())
         {
             Logger::Log(
                 "[Audio] Cannot start engine: "
-                "output is not running\n");
+                "failed to start output\n");
 
             return false;
         }
@@ -676,16 +665,6 @@ namespace audio
             return false;
         }
 
-        if (!_output->start())
-        {
-            Logger::Log(
-                "[Audio] Failed to restart AudioOutput\n");
-
-            _output->shutdown();
-
-            return false;
-        }
-
         Logger::Log(
             "[Audio] Audio output reconfigured successfully\n");
 
@@ -774,7 +753,10 @@ namespace audio
 
         while (!_stopRequested)
         {
-            if (!_output->waitForSpace(blockSize))
+            // Wait for an endpoint wake-up only while its render buffer is
+            // completely full.  Once awake, fill every available frame below
+            // rather than leaving a partial block as a fragile timing gap.
+            if (!_output->waitForSpace(1))
             {
                 Logger::Log(
                     "[Audio] Failed waiting for output space\n");
@@ -785,23 +767,57 @@ namespace audio
             if (_stopRequested)
                 break;
 
-            if (!_vstAudio->process())
+            int32_t availableFrames =
+                _output->availableFrames();
+
+            if (availableFrames < 0)
             {
                 Logger::Log(
-                    "[Audio] VST processing failed\n");
+                    "[Audio] Failed to query output space\n");
 
                 break;
             }
 
-            if (!_output->write(
-                _vstAudio->channels(),
-                _vstAudio->numChannels(),
-                _vstAudio->numSamples()))
+            while (availableFrames > 0 &&
+                !_stopRequested)
             {
-                Logger::Log(
-                    "[Audio] Failed writing VST audio\n");
+                const int32_t framesToProcess =
+                    (std::min)(
+                        blockSize,
+                        availableFrames);
 
-                break;
+                if (!_vstAudio->process(framesToProcess))
+                {
+                    Logger::Log(
+                        "[Audio] VST processing failed\n");
+
+                    _stopRequested = true;
+                    break;
+                }
+
+                if (!_output->write(
+                    _vstAudio->channels(),
+                    _vstAudio->numChannels(),
+                    _vstAudio->numSamples()))
+                {
+                    Logger::Log(
+                        "[Audio] Failed writing VST audio\n");
+
+                    _stopRequested = true;
+                    break;
+                }
+
+                availableFrames =
+                    _output->availableFrames();
+
+                if (availableFrames < 0)
+                {
+                    Logger::Log(
+                        "[Audio] Failed to query output space\n");
+
+                    _stopRequested = true;
+                    break;
+                }
             }
         }
 

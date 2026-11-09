@@ -104,4 +104,12 @@ namespace vst
         _data.clear();
     }
 
+
+    void VSTEventList::swap(
+        VSTEventList& other) noexcept
+    {
+        _events.swap(other._events);
+        _data.swap(other._data);
+    }
+
 }

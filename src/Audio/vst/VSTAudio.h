@@ -22,7 +22,8 @@ namespace vst
 
         ~VSTAudio();
 
-        bool process();
+        bool process(
+            int32_t numSamples = -1);
 
         bool noteOn(
             int16_t channel,
@@ -89,11 +90,15 @@ namespace vst
 
         Steinberg::Vst::AudioBusBuffers _outputBus;
 
+        // The UI and MIDI input threads append here.  The audio thread swaps
+        // it into _eventList only when it can acquire this mutex immediately;
+        // it must never block waiting for interface work.
+        VSTEventList _pendingEventList;
         VSTEventList _eventList;
 
         int32_t _numSamples;
 
-        std::mutex _processMutex;
+        std::mutex _eventMutex;
     };
 
 }

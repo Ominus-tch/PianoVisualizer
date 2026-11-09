@@ -141,11 +141,9 @@ namespace vst
     // PROCESS
     // =========================================================
 
-    bool VSTAudio::process()
+    bool VSTAudio::process(
+        int32_t numSamples)
     {
-        std::lock_guard<std::mutex> lock(
-            _processMutex);
-
         if (!_processor)
         {
             Logger::Log(
@@ -165,8 +163,22 @@ namespace vst
             return false;
         }
 
-        _numSamples =
-            _maxBlockSize;
+        if (numSamples < 0)
+        {
+            numSamples = _maxBlockSize;
+        }
+
+        if (numSamples <= 0 ||
+            numSamples > _maxBlockSize)
+        {
+            Logger::Log(
+                "[VST] Invalid process block size: %d\n",
+                numSamples);
+
+            return false;
+        }
+
+        _numSamples = numSamples;
 
         // -----------------------------------------------------
         // Clear all output channels
@@ -182,6 +194,20 @@ namespace vst
 
         _outputBus.silenceFlags =
             0;
+
+        // Do not let the real-time thread wait for an interface or MIDI input
+        // thread.  Events that arrive while the producer owns the mutex are
+        // simply picked up by the following block.
+        {
+            std::unique_lock<std::mutex> lock(
+                _eventMutex,
+                std::try_to_lock);
+
+            if (lock.owns_lock())
+            {
+                _eventList.swap(_pendingEventList);
+            }
+        }
 
         // -----------------------------------------------------
         // Process data
@@ -312,7 +338,7 @@ namespace vst
         int32_t noteId)
     {
         std::lock_guard<std::mutex> lock(
-            _processMutex);
+            _eventMutex);
 
         if (!_processor)
         {
@@ -385,7 +411,7 @@ namespace vst
         event.noteOn.noteId =
             noteId >= 0 ? noteId : pitch;
 
-        if (_eventList.addEvent(event) !=
+        if (_pendingEventList.addEvent(event) !=
             Steinberg::kResultTrue)
         {
             Logger::Log(
@@ -416,7 +442,7 @@ namespace vst
         int32_t noteId)
     {
         std::lock_guard<std::mutex> lock(
-            _processMutex);
+            _eventMutex);
 
         if (!_processor)
         {
@@ -486,7 +512,7 @@ namespace vst
         event.noteOff.noteId =
             noteId >= 0 ? noteId : pitch;
 
-        if (_eventList.addEvent(event) !=
+        if (_pendingEventList.addEvent(event) !=
             Steinberg::kResultTrue)
         {
             Logger::Log(
@@ -530,7 +556,7 @@ namespace vst
         }
 
         std::lock_guard<std::mutex> lock(
-            _processMutex);
+            _eventMutex);
 
         Steinberg::Vst::Event event{};
 
@@ -562,7 +588,7 @@ namespace vst
             static_cast<Steinberg::int8>(
                 value2);
 
-        if (_eventList.addEvent(event) !=
+        if (_pendingEventList.addEvent(event) !=
             Steinberg::kResultTrue)
         {
             Logger::Log(

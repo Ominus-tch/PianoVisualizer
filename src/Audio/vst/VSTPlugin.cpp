@@ -560,7 +560,7 @@ namespace vst
                 sampleRate;
 
             setup.maxSamplesPerBlock =
-                512;
+                256;
 
             result =
                 _processor->setupProcessing(

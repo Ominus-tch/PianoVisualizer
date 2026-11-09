@@ -16,10 +16,13 @@ namespace audio
         _format(nullptr),
         _bufferFrames(0),
         _sampleFormat(SampleFormat::Unknown),
+        _audioEvent(nullptr),
         _configuration(),
         _initialized(false),
         _running(false),
         _comInitialized(false),
+        _volume(1.0f),
+        _muted(false),
         _framesWritten(0),
         _writeCalls(0),
         _failedWrites(0),
@@ -282,6 +285,8 @@ namespace audio
          * Store configuration only after basic validation.
          */
         _configuration = configuration;
+        _volume.store(configuration.volume, std::memory_order_relaxed);
+        _muted.store(configuration.muted, std::memory_order_relaxed);
 
         /*
          * Initialize COM for this thread.
@@ -522,7 +527,7 @@ namespace audio
          */
         hr = _audioClient->Initialize(
             AUDCLNT_SHAREMODE_SHARED,
-            0,
+            AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
             bufferDuration,
             0,
             _format,
@@ -532,6 +537,30 @@ namespace audio
         {
             Logger::Log(
                 "[Audio] Shared IAudioClient::Initialize failed: 0x%08X\n",
+                static_cast<unsigned>(hr));
+
+            shutdown();
+            return false;
+        }
+
+        // Let WASAPI wake the render thread precisely when the endpoint needs
+        // data.  Polling with Sleep(1) is not real-time safe and was the main
+        // source of the intermittent buffer underruns/crackles.
+        _audioEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+
+        if (!_audioEvent)
+        {
+            Logger::Log("[Audio] Failed to create WASAPI render event\n");
+            shutdown();
+            return false;
+        }
+
+        hr = _audioClient->SetEventHandle(_audioEvent);
+
+        if (FAILED(hr))
+        {
+            Logger::Log(
+                "[Audio] SetEventHandle failed: 0x%08X\n",
                 static_cast<unsigned>(hr));
 
             shutdown();
@@ -754,6 +783,12 @@ namespace audio
             _format = nullptr;
         }
 
+        if (_audioEvent)
+        {
+            CloseHandle(_audioEvent);
+            _audioEvent = nullptr;
+        }
+
         _bufferFrames = 0;
 
         _sampleFormat =
@@ -873,8 +908,52 @@ namespace audio
                 return true;
             }
 
-            Sleep(1);
+            // WASAPI signals this auto-reset event when more render data is
+            // needed.  The timeout merely allows a prompt, bounded stop if a
+            // device stops signalling; it is not a polling interval.
+            const DWORD waitResult = WaitForSingleObject(
+                _audioEvent,
+                50);
+
+            if (waitResult == WAIT_FAILED)
+            {
+                Logger::Log(
+                    "[Audio] WaitForSingleObject failed: %lu\n",
+                    GetLastError());
+
+                return false;
+            }
         }
+    }
+
+
+    int32_t AudioOutput::availableFrames() const
+    {
+        if (!_initialized ||
+            !_running ||
+            !_audioClient)
+        {
+            return -1;
+        }
+
+        UINT32 padding = 0;
+
+        const HRESULT hr = _audioClient->GetCurrentPadding(
+            &padding);
+
+        if (FAILED(hr))
+        {
+            Logger::Log(
+                "[Audio] GetCurrentPadding failed: 0x%08X\n",
+                static_cast<unsigned>(hr));
+
+            return -1;
+        }
+
+        return static_cast<int32_t>(
+            _bufferFrames > padding
+            ? _bufferFrames - padding
+            : 0);
     }
 
 
@@ -959,9 +1038,9 @@ namespace audio
             static_cast<int32_t>(_format->nChannels);
 
         const float volume =
-            _configuration.muted
+            _muted.load(std::memory_order_relaxed)
             ? 0.0f
-            : _configuration.volume;
+            : _volume.load(std::memory_order_relaxed);
 
         // =========================================================
         // FLOAT32
@@ -1213,12 +1292,14 @@ namespace audio
 
         _configuration.volume =
             volume;
+
+        _volume.store(volume, std::memory_order_relaxed);
     }
 
 
     float AudioOutput::volume() const
     {
-        return _configuration.volume;
+        return _volume.load(std::memory_order_relaxed);
     }
 
 
@@ -1227,12 +1308,14 @@ namespace audio
     {
         _configuration.muted =
             muted;
+
+        _muted.store(muted, std::memory_order_relaxed);
     }
 
 
     bool AudioOutput::isMuted() const
     {
-        return _configuration.muted;
+        return _muted.load(std::memory_order_relaxed);
     }
 
 

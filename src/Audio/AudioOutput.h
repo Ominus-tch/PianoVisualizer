@@ -49,7 +49,7 @@ namespace audio
             double sampleRate = 0.0;
 
             // Requested WASAPI buffer duration.
-            double bufferDurationMs = 20.0;
+            double bufferDurationMs = 2.0;
 
             // Application output volume.
             //
@@ -129,6 +129,10 @@ namespace audio
 
         bool waitForSpace(
             int32_t frames);
+
+        // Returns the amount of the WASAPI buffer that can be written right
+        // now, or -1 when the padding query fails.
+        int32_t availableFrames() const;
 
         bool write(
             const float* const* channels,
@@ -226,6 +230,12 @@ namespace audio
         bool _initialized;
         bool _running;
         bool _comInitialized;
+
+        // These values are changed by the UI while write() runs on the
+        // real-time thread.  Keeping them separate from Configuration avoids
+        // a data race in the audio callback path.
+        std::atomic<float> _volume;
+        std::atomic<bool> _muted;
 
 
         // =====================================================

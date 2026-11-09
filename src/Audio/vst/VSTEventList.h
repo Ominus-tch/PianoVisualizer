@@ -31,6 +31,12 @@ namespace vst
 
         void clear();
 
+        // Exchanges backing storage in constant time.  This lets the audio
+        // thread take a completed batch of UI/MIDI events without copying or
+        // allocating in the real-time path.
+        void swap(
+            VSTEventList& other) noexcept;
+
     private:
         Steinberg::uint32 _refCount;
         std::vector<Steinberg::Vst::Event> _events;
