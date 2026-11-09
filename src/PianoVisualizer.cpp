@@ -627,6 +627,8 @@ bool PianoVisualizer::InitializeMidiVisualizer()
             1080
         );
 
+    m_viewer->setLiveEchoSettings(m_liveEchoSettings);
+
     m_viewer->setOnStartRecording(
         [this]()
         {
@@ -702,6 +704,14 @@ bool PianoVisualizer::InitializeMidiVisualizer()
             );
 
             m_pianoScene = static_cast<PianoScene>(scene);
+
+            Config::LoadFunConfig(
+                m_liveEchoSettings.enabled,
+                m_liveEchoSettings.repetitions,
+                m_liveEchoSettings.delaySeconds,
+                m_liveEchoSettings.velocityDropoff,
+                m_liveEchoSettings.recordInRecording
+            );
 
             m_savedConfiguration = GetCurrentConfiguration();
         }
@@ -795,6 +805,12 @@ void PianoVisualizer::Update()
     if (!m_initialized)
         return;
 
+    if (m_queueFullscreenCall)
+    {
+        m_queueFullscreenCall = false;
+        SetFullscreen(m_window, gui::fullscreen);
+    }
+
     if (m_exitRequested)
     {
         if (OnExit())
@@ -850,11 +866,7 @@ void PianoVisualizer::Update()
         {
             gui::fullscreen =
                 !gui::fullscreen;
-
-            SetFullscreen(
-                m_window,
-                gui::fullscreen
-            );
+            m_queueFullscreenCall = true;
         }
     }
 
@@ -1404,72 +1416,244 @@ void PianoVisualizer::Render()
     RenderCameraErrorDialog();
 
     ImGui::SetNextWindowSize(
-        ImVec2(520.0f, 0.0f),
+        ImVec2(980.0f, 700.0f),
         ImGuiCond_FirstUseEver
     );
 
-    if (gui::showSettings) {
+    if (gui::showSettings)
+    {
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
         if (ImGui::Begin(
-            "Piano Visualizer  •  Press I to hide",
+            "Piano Visualizer##Settings",
             &gui::showSettings,
-            ImGuiWindowFlags_NoCollapse
+            ImGuiWindowFlags_NoCollapse |
+            ImGuiWindowFlags_NoTitleBar
         ))
         {
-            if (ImGui::BeginTabBar("SettingsTabs"))
+            const ImVec4 accent(0.32f, 0.84f, 1.0f, 1.0f);
+            const ImVec4 muted(0.67f, 0.71f, 0.79f, 1.0f);
+            const bool liveInput = m_viewer && m_viewer->isLivePlay();
+
+            ImGui::BeginChild(
+                "SettingsCommandBar",
+                ImVec2(0.0f, 74.0f),
+                true,
+                ImGuiWindowFlags_NoScrollbar
+            );
+            ImGui::SetCursorPos(ImVec2(20.0f, 25.0f));
+            ImGui::SetWindowFontScale(1.38f);
+            ImGui::TextColored(accent, "PIANO VISUALIZER");
+            ImGui::SetWindowFontScale(1.0f);
+
+            ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - 306.0f, 21.0f));
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextColored(
+                liveInput ? ImVec4(0.31f, 0.84f, 0.49f, 1.0f) : muted,
+                liveInput ? "LIVE INPUT" : "PLAYBACK"
+            );
+            ImGui::SameLine();
+
+            if (ImGui::Button("Save", ImVec2(72.0f, 32.0f)))
+                SavePianoConfiguration();
+
+            const auto windowControl = [](const char* id, int icon, bool destructive)
             {
-                if (ImGui::BeginTabItem("Display"))
+                ImGui::SameLine();
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 16.0f);
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.19f, 0.25f, 1.0f));
+                ImGui::PushStyleColor(
+                    ImGuiCol_ButtonHovered,
+                    destructive
+                    ? ImVec4(0.68f, 0.24f, 0.28f, 1.0f)
+                    : ImVec4(0.18f, 0.35f, 0.47f, 1.0f)
+                );
+
+                const bool clicked = ImGui::Button(id, ImVec2(32.0f, 32.0f));
+                const ImVec2 min = ImGui::GetItemRectMin();
+                const ImVec2 max = ImGui::GetItemRectMax();
+                const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
+                const ImU32 iconColor = IM_COL32(228, 237, 247, 255);
+                ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+                if (icon == 0)
                 {
-                    RenderDisplayTab();
-                    ImGui::EndTabItem();
+                    drawList->AddLine(
+                        ImVec2(center.x - 6.0f, center.y + 4.0f),
+                        ImVec2(center.x + 6.0f, center.y + 4.0f),
+                        iconColor,
+                        1.6f
+                    );
+                }
+                else if (icon == 1)
+                {
+                    drawList->AddRect(
+                        ImVec2(center.x - 5.0f, center.y - 5.0f),
+                        ImVec2(center.x + 5.0f, center.y + 5.0f),
+                        iconColor,
+                        1.0f,
+                        0,
+                        1.5f
+                    );
+                }
+                else
+                {
+                    drawList->AddLine(
+                        ImVec2(center.x - 4.5f, center.y - 4.5f),
+                        ImVec2(center.x + 4.5f, center.y + 4.5f),
+                        iconColor,
+                        1.6f
+                    );
+                    drawList->AddLine(
+                        ImVec2(center.x + 4.5f, center.y - 4.5f),
+                        ImVec2(center.x - 4.5f, center.y + 4.5f),
+                        iconColor,
+                        1.6f
+                    );
                 }
 
-                if (ImGui::BeginTabItem("Visualizer"))
-                {
-                    RenderVisualizerTab();
-                    ImGui::EndTabItem();
-                }
+                ImGui::PopStyleColor(2);
+                ImGui::PopStyleVar();
+                return clicked;
+            };
 
-                if (ImGui::BeginTabItem("Camera"))
-                {
-                    RenderCameraTab();
-                    ImGui::EndTabItem();
-                }
+            if (windowControl("##HideSettings", 0, false))
+                gui::showSettings = false;
 
-                if (ImGui::BeginTabItem("Audio"))
-                {
-                    RenderAudioTab();
-                    ImGui::EndTabItem();
-                }
-
-                if (ImGui::BeginTabItem("Plugins"))
-                {
-                    RenderPluginsTab();
-                    ImGui::EndTabItem();
-                }
-
-                if (ImGui::BeginTabItem("Configuration"))
-                {
-                    RenderConfigurationTab();
-                    ImGui::EndTabItem();
-                }
-
-                if (ImGui::BeginTabItem("Status"))
-                {
-                    RenderStatusTab();
-                    ImGui::EndTabItem();
-                }
-
-                if (ImGui::BeginTabItem("Help"))
-                {
-                    RenderHelpTab();
-                    ImGui::EndTabItem();
-                }
-
-                ImGui::EndTabBar();
+            if (windowControl("##ToggleFullscreen", 1, false))
+            {
+                gui::fullscreen = !gui::fullscreen;
+                m_queueFullscreenCall = true;
             }
 
+            if (windowControl("##CloseSettings", 2, true))
+                gui::showSettings = false;
+
+            ImGui::EndChild();
+
+            const auto navButton =
+                [this](const char* label, SettingsSection section)
+                {
+                    const bool selected = m_activeSettingsSection == section;
+                    ImGui::PushStyleColor(
+                        ImGuiCol_Button,
+                        selected ? ImVec4(0.12f, 0.38f, 0.52f, 1.0f) : ImVec4(0, 0, 0, 0)
+                    );
+                    ImGui::PushStyleColor(
+                        ImGuiCol_ButtonHovered,
+                        ImVec4(0.13f, 0.22f, 0.31f, 1.0f)
+                    );
+                    ImGui::PushStyleColor(
+                        ImGuiCol_Text,
+                        selected ? ImVec4(0.95f, 0.98f, 1.0f, 1.0f) : ImVec4(0.70f, 0.75f, 0.84f, 1.0f)
+                    );
+                    const bool clicked = ImGui::Button(label, ImVec2(-1.0f, 34.0f));
+                    ImGui::PopStyleColor(3);
+
+                    if (clicked)
+                        m_activeSettingsSection = section;
+                };
+
+            ImGui::BeginChild("SettingsNavigation", ImVec2(188.0f, 0.0f), true);
+            ImGui::SetCursorPosX(12.0f);
+            ImGui::TextDisabled("WORKSPACE");
+            navButton("Display", SettingsSection::Display);
+            navButton("Visualizer", SettingsSection::Visualizer);
+            navButton("Camera", SettingsSection::Camera);
+
+            ImGui::Spacing();
+            ImGui::SetCursorPosX(12.0f);
+            ImGui::TextDisabled("SOUND");
+            navButton("Audio", SettingsSection::Audio);
+            navButton("Plugins", SettingsSection::Plugins);
+
+            ImGui::Spacing();
+            ImGui::SetCursorPosX(12.0f);
+            ImGui::TextDisabled("APPLICATION");
+            navButton("Configuration", SettingsSection::Configuration);
+            navButton("Fun", SettingsSection::Fun);
+            navButton("Status", SettingsSection::Status);
+            navButton("Help", SettingsSection::Help);
+            ImGui::EndChild();
+
+            ImGui::SameLine();
+            ImGui::BeginChild("SettingsContent", ImVec2(0.0f, 0.0f), false);
+
+            const char* title = "Visualizer";
+            const char* subtitle = "Shape the look and behavior of the built-in visualizer.";
+
+            switch (m_activeSettingsSection)
+            {
+            case SettingsSection::Display:
+                title = "Display";
+                subtitle = "Choose the scene, visualizer source, and piano surface.";
+                break;
+            case SettingsSection::Camera:
+                title = "Camera";
+                subtitle = "Connect, configure, and calibrate your camera source.";
+                break;
+            case SettingsSection::Audio:
+                title = "Audio";
+                subtitle = "Manage the output device, latency, and audio engine.";
+                break;
+            case SettingsSection::Plugins:
+                title = "Plugins";
+                subtitle = "Load and manage VST3 instruments.";
+                break;
+            case SettingsSection::Fun:
+                title = "Fun";
+                subtitle = "Live-only performance effects that keep playback untouched.";
+                break;
+            case SettingsSection::Configuration:
+                title = "Configuration";
+                subtitle = "Save or restore your application and camera setup.";
+                break;
+            case SettingsSection::Status:
+                title = "System status";
+                subtitle = "Review connected devices and application readiness.";
+                break;
+            case SettingsSection::Help:
+                title = "Help";
+                subtitle = "Keyboard shortcuts and practical workflow guidance.";
+                break;
+            case SettingsSection::Visualizer:
+            default:
+                break;
+            }
+
+            ImGui::SetCursorPos(ImVec2(24.0f, 20.0f));
+            ImGui::SetWindowFontScale(1.28f);
+            ImGui::TextColored(accent, "%s", title);
+            ImGui::SetWindowFontScale(1.0f);
+
+            ImGui::SetCursorPosX(24.0f);
+            ImGui::TextDisabled("%s", subtitle);
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 4.0f));
+            ImGui::BeginChild("SettingsPageScroll", ImVec2(-18.0f, -16.0f), false);
+
+            switch (m_activeSettingsSection)
+            {
+            case SettingsSection::Visualizer: RenderVisualizerTab(); break;
+            case SettingsSection::Display: RenderDisplayTab(); break;
+            case SettingsSection::Camera: RenderCameraTab(); break;
+            case SettingsSection::Audio: RenderAudioTab(); break;
+            case SettingsSection::Plugins: RenderPluginsTab(); break;
+            case SettingsSection::Fun: RenderFunTab(); break;
+            case SettingsSection::Configuration: RenderConfigurationTab(); break;
+            case SettingsSection::Status: RenderStatusTab(); break;
+            case SettingsSection::Help: RenderHelpTab(); break;
+            }
+
+            ImGui::EndChild();
+            ImGui::PopStyleVar();
+            ImGui::EndChild();
         }
         ImGui::End();
+        ImGui::PopStyleVar();
     }
 
     // ---------------------------------------------------------
@@ -3719,21 +3903,13 @@ void PianoVisualizer::RenderDisplayTab()
 
     if (ImGui::IsItemDeactivatedAfterEdit())
     {
-        SetFullscreen(
-            m_window,
-            gui::fullscreen
-        );
+        m_queueFullscreenCall = true;
     }
-
-    ImGui::Spacing();
 
     ImGui::Checkbox(
         "Show Selection",
         &gui::showDebugLines
     );
-
-    ImGui::Spacing();
-
 
     // =====================================================
     // Setup
@@ -5734,6 +5910,75 @@ void PianoVisualizer::RenderPluginsTab()
         }
     }
 }
+
+void PianoVisualizer::RenderFunTab()
+{
+    ImGui::TextWrapped(
+        "Live performance effects are applied only to MIDI input. "
+        "They do not alter recording playback or the MIDI saved to a recording."
+    );
+
+    ImGui::SeparatorText("Note Echo");
+
+    bool changed = ImGui::Checkbox(
+        "Enable note echo",
+        &m_liveEchoSettings.enabled
+    );
+
+    ImGui::BeginDisabled(!m_liveEchoSettings.enabled);
+
+    changed |= ImGui::SliderInt(
+        "Repetitions",
+        &m_liveEchoSettings.repetitions,
+        1,
+        8
+    );
+
+    changed |= ImGui::SliderFloat(
+        "Delay",
+        &m_liveEchoSettings.delaySeconds,
+        0.02f,
+        2.0f,
+        "%.2f s"
+    );
+
+    changed |= ImGui::Checkbox(
+        "Record echoed notes",
+        &m_liveEchoSettings.recordInRecording
+    );
+
+    changed |= ImGui::SliderFloat(
+        "Velocity drop-off",
+        &m_liveEchoSettings.velocityDropoff,
+        0.0f,
+        1.0f,
+        "%.2f"
+    );
+
+    ImGui::EndDisabled();
+
+    ImGui::TextDisabled(
+        "Echo %d repeats every %.2f s at %.0f%% of the previous velocity.",
+        (std::max)(0, m_liveEchoSettings.repetitions - 1),
+        m_liveEchoSettings.delaySeconds,
+        m_liveEchoSettings.velocityDropoff * 100.0f
+    );
+
+    if (changed)
+    {
+        if (m_viewer)
+            m_viewer->setLiveEchoSettings(m_liveEchoSettings);
+
+        Config::SaveFunConfig(
+            m_liveEchoSettings.enabled,
+            m_liveEchoSettings.repetitions,
+            m_liveEchoSettings.delaySeconds,
+            m_liveEchoSettings.velocityDropoff,
+            m_liveEchoSettings.recordInRecording
+        );
+    }
+}
+
 
 void PianoVisualizer::RenderConfigurationTab()
 {

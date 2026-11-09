@@ -25,6 +25,282 @@
 
 MIDISceneLive::~MIDISceneLive()
 {
+	clearEchoes();
+}
+
+
+void MIDISceneLive::setEchoSettings(const EchoSettings& settings)
+{
+	const bool wasEnabled = _echoSettings.enabled;
+
+	_echoSettings.enabled = settings.enabled;
+	_echoSettings.repetitions = clamp<int>(settings.repetitions, 1, 8);
+	_echoSettings.delaySeconds = clamp<float>(settings.delaySeconds, 0.02f, 2.0f);
+	_echoSettings.velocityDropoff = clamp<float>(settings.velocityDropoff, 0.0f, 1.0f);
+	_echoSettings.recordInRecording = settings.recordInRecording;
+
+	if (wasEnabled && !_echoSettings.enabled)
+	{
+		clearEchoes();
+	}
+}
+
+
+void MIDISceneLive::scheduleEchoes(
+	short channel,
+	short note,
+	short velocity,
+	double time)
+{
+	if (!_echoSettings.enabled || _echoSettings.repetitions < 2)
+		return;
+
+	auto& voices = _echoVoices[channel][note];
+
+	for (int repetition = 1; repetition < _echoSettings.repetitions; ++repetition)
+	{
+		const uint64_t voiceId = _nextEchoVoiceId++;
+		const float scaledVelocity =
+			float(velocity) * std::pow(_echoSettings.velocityDropoff, float(repetition));
+
+		if (scaledVelocity < 1.0f)
+			continue;
+
+		const bool record = _echoSettings.recordInRecording && _recording;
+		voices.push_back({ voiceId, repetition, record });
+		_scheduledEchoEvents.push_back({
+			ScheduledEchoEvent::Type::NoteOn,
+			time + double(_echoSettings.delaySeconds * repetition),
+			channel,
+			note,
+			static_cast<short>(scaledVelocity),
+			voiceId,
+			record
+		});
+	}
+
+	std::sort(
+		_scheduledEchoEvents.begin(),
+		_scheduledEchoEvents.end(),
+		[](const ScheduledEchoEvent& a, const ScheduledEchoEvent& b)
+		{
+			return a.dispatchTime < b.dispatchTime;
+		});
+}
+
+
+void MIDISceneLive::scheduleEchoReleases(
+	short channel,
+	short note,
+	short velocity,
+	double time)
+{
+	auto& voices = _echoVoices[channel][note];
+
+	for (const EchoVoice& voice : voices)
+	{
+		_scheduledEchoEvents.push_back({
+			ScheduledEchoEvent::Type::NoteOff,
+			time + double(_echoSettings.delaySeconds * voice.repetition),
+			channel,
+			note,
+			velocity,
+			voice.id,
+			voice.record
+		});
+	}
+
+	voices.clear();
+
+	std::sort(
+		_scheduledEchoEvents.begin(),
+		_scheduledEchoEvents.end(),
+		[](const ScheduledEchoEvent& a, const ScheduledEchoEvent& b)
+		{
+			return a.dispatchTime < b.dispatchTime;
+		});
+}
+
+
+void MIDISceneLive::dispatchDueEchoes(
+	double time,
+	int& minUpdated,
+	int& maxUpdated)
+{
+	while (!_scheduledEchoEvents.empty() &&
+		_scheduledEchoEvents.front().dispatchTime <= time)
+	{
+		const ScheduledEchoEvent event = _scheduledEchoEvents.front();
+		_scheduledEchoEvents.erase(_scheduledEchoEvents.begin());
+
+		if (event.type == ScheduledEchoEvent::Type::NoteOn)
+			startEchoNote(event, minUpdated, maxUpdated);
+		else
+			stopEchoNote(event, minUpdated, maxUpdated);
+	}
+}
+
+
+void MIDISceneLive::startEchoNote(
+	const ScheduledEchoEvent& event,
+	int& minUpdated,
+	int& maxUpdated)
+{
+	const int index = _notesCount % MAX_NOTES_IN_FLIGHT;
+	auto& newNote = _notes[index];
+
+	newNote.start = float(event.dispatchTime);
+	newNote.duration = 0.0f;
+	newNote.note = event.note;
+	_notesInfos[index].channel = event.channel;
+	_notesInfos[index].note = event.note;
+	newNote.set = float(_currentSetOption.apply(
+		int(event.note), event.channel, 0, newNote.start));
+	newNote.isMinor = noteIsMinor[event.note % 12] ? 1.0f : 0.0f;
+	newNote.note = float((event.note / 12) * 7 + noteShift[event.note % 12]);
+
+	_activeEchoNotes[event.voiceId] = { index, event.channel, event.note };
+	_actives[event.note] = int(newNote.set);
+
+	for (auto& particle : _particles)
+	{
+		if (particle.note >= 0)
+			continue;
+
+		particle.duration = 10.0f;
+		particle.start = newNote.start;
+		particle.note = event.note;
+		particle.set = int(newNote.set);
+		particle.elapsed = 0.0f;
+		break;
+	}
+
+	if (_audioEngine)
+	{
+		_audioEngine->noteOn(
+			event.channel,
+			event.note,
+			float(event.velocity) / 127.0f,
+			static_cast<int32_t>(event.voiceId & 0x7fffffff));
+	}
+
+	recordEchoEvent(event);
+
+	++_notesCount;
+	minUpdated = (std::min)(minUpdated, index);
+	maxUpdated = (std::max)(maxUpdated, index);
+}
+
+
+void MIDISceneLive::stopEchoNote(
+	const ScheduledEchoEvent& event,
+	int& minUpdated,
+	int& maxUpdated)
+{
+	const auto active = _activeEchoNotes.find(event.voiceId);
+	if (active == _activeEchoNotes.end())
+		return;
+
+	const ActiveEchoNote echo = active->second;
+	auto& note = _notes[echo.noteIndex];
+	note.duration = (std::max)(float(event.dispatchTime) - note.start, 0.0f);
+
+	if (_audioEngine)
+	{
+		_audioEngine->noteOff(
+			echo.channel,
+			echo.note,
+			float(event.velocity) / 127.0f,
+			static_cast<int32_t>(event.voiceId & 0x7fffffff));
+	}
+
+	recordEchoEvent(event);
+
+	_activeEchoNotes.erase(active);
+	if (!_activeRecording[echo.note] && !hasActiveEchoForNote(echo.note))
+		_actives[echo.note] = -1;
+
+	minUpdated = (std::min)(minUpdated, echo.noteIndex);
+	maxUpdated = (std::max)(maxUpdated, echo.noteIndex);
+}
+
+
+void MIDISceneLive::recordEchoEvent(const ScheduledEchoEvent& event)
+{
+	if (!event.record || !_recording)
+		return;
+
+	MIDIFrame frame;
+	frame.timestamp = event.dispatchTime - _recordingStartTime;
+	frame.messages.push_back(
+		event.type == ScheduledEchoEvent::Type::NoteOn
+		? libremidi::message::note_on(
+				static_cast<uint8_t>(event.channel),
+				static_cast<uint8_t>(event.note),
+				static_cast<uint8_t>(event.velocity))
+		: libremidi::message::note_off(
+				static_cast<uint8_t>(event.channel),
+				static_cast<uint8_t>(event.note),
+				static_cast<uint8_t>(event.velocity))
+	);
+
+	_allMessages.push_back(std::move(frame));
+}
+
+
+bool MIDISceneLive::hasActiveEchoForNote(short note) const
+{
+	for (const auto& [id, echo] : _activeEchoNotes)
+	{
+		(void)id;
+		if (echo.note == note)
+			return true;
+	}
+
+	return false;
+}
+
+
+void MIDISceneLive::clearEchoes()
+{
+	int minUpdated = MAX_NOTES_IN_FLIGHT;
+	int maxUpdated = 0;
+
+	for (const auto& [voiceId, echo] : _activeEchoNotes)
+	{
+		auto& note = _notes[echo.noteIndex];
+		note.duration = (std::max)(float(_previousTime) - note.start, 0.0f);
+		minUpdated = (std::min)(minUpdated, echo.noteIndex);
+		maxUpdated = (std::max)(maxUpdated, echo.noteIndex);
+
+		if (_audioEngine)
+		{
+			_audioEngine->noteOff(
+				echo.channel,
+				echo.note,
+				0.0f,
+				static_cast<int32_t>(voiceId & 0x7fffffff));
+		}
+	}
+
+	_scheduledEchoEvents.clear();
+	_activeEchoNotes.clear();
+
+	for (size_t note = 0; note < _actives.size(); ++note)
+	{
+		if (!_activeRecording[note])
+			_actives[note] = -1;
+	}
+
+	if (minUpdated <= maxUpdated)
+	{
+		_dirtyNotes = true;
+		_dirtyNotesRange = { minUpdated, maxUpdated };
+	}
+
+	for (auto& channels : _echoVoices)
+		for (auto& voices : channels)
+			voices.clear();
 }
 
 
@@ -296,6 +572,18 @@ void MIDISceneLive::updatesActiveNotes(
 		_actives[nid] = -1;
 	}
 
+	// Echoes have their own note instances so overlapping repetitions do not
+	// overwrite the physical note currently held for the same key.
+	for (const auto& [voiceId, echo] : _activeEchoNotes)
+	{
+		(void)voiceId;
+		auto& note = _notes[echo.noteIndex];
+		note.duration = (std::max)(float(time) - note.start, 0.0f);
+		_actives[echo.note] = int(note.set);
+		minUpdated = (std::min)(minUpdated, echo.noteIndex);
+		maxUpdated = (std::max)(maxUpdated, echo.noteIndex);
+	}
+
 
 	/*
 	 * Extend active notes.
@@ -451,6 +739,13 @@ void MIDISceneLive::updatesActiveNotes(
 				velocity > 0
 				)
 			{
+				scheduleEchoes(
+					message.get_channel(),
+					note,
+					velocity,
+					time
+				);
+
 				if (_audioEngine)
 				{
 					_audioEngine->noteOn(
@@ -559,6 +854,13 @@ void MIDISceneLive::updatesActiveNotes(
 				/*
 				 * Note OFF.
 				 */
+				scheduleEchoReleases(
+					message.get_channel(),
+					note,
+					velocity,
+					time
+				);
+
 				if (_audioEngine)
 				{
 					_audioEngine->noteOff(
@@ -755,6 +1057,10 @@ void MIDISceneLive::updatesActiveNotes(
 		}
 	}
 
+	// Echo events are dispatched on the live scene's owner thread. This keeps
+	// scene data and VST event submission synchronized without a sleep thread.
+	dispatchDueEchoes(time, minUpdated, maxUpdated);
+
 
 	/*
 	 * Store messages.
@@ -886,6 +1192,7 @@ void MIDISceneLive::startRecording(double time)
 
 	_allMessages.clear();
 	_notesInfos.clear();
+	_notesInfos.resize(MAX_NOTES_IN_FLIGHT);
 	_pedalInfos.clear();
 
 	_activeIds.fill(-1);
@@ -1116,6 +1423,8 @@ void MIDISceneLive::setDeviceCallback(DeviceCallback callback)
 void MIDISceneLive::handleMIDIDisconnect(
 	const std::string& deviceName)
 {
+	clearEchoes();
+
 	Logger::Log(
 		"[MIDI] Handling disconnect: %s\n",
 		deviceName.c_str()

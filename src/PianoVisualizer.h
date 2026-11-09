@@ -195,6 +195,19 @@ public:
 
 private:
 
+    enum class SettingsSection
+    {
+        Display,
+        Visualizer,
+        Camera,
+        Audio,
+        Plugins,
+        Fun,
+        Configuration,
+        Status,
+        Help
+    };
+
     // =========================================================
     // Initialization
     // =========================================================
@@ -252,6 +265,8 @@ private:
     void RenderPluginsTab();
 
     void RenderConfigurationTab();
+
+    void RenderFunTab();
 
     void RenderStatusTab();
 
@@ -439,6 +454,11 @@ private:
 
     Viewer* m_viewer = nullptr;
 
+    Viewer::LiveEchoSettings m_liveEchoSettings;
+
+    SettingsSection m_activeSettingsSection =
+        SettingsSection::Display;
+
     std::once_flag m_SetAudioEngine;
 
     // =========================================================
@@ -513,6 +533,10 @@ private:
     // =========================================================
 
     bool m_drawVisualizer = false;
+
+    // Window-style changes are requested from ImGui and applied on the next
+    // update tick, outside the active rendering frame.
+    bool m_queueFullscreenCall = false;
 
     bool m_initialized = false;
 

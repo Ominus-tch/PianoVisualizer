@@ -415,6 +415,23 @@ Viewer::~Viewer() {
 	Logger::Log("[MIDI Visualizer] Viewer closed!\n");
 }
 
+
+void Viewer::setLiveEchoSettings(const LiveEchoSettings& settings)
+{
+	_liveEchoSettings = settings;
+
+	if (auto liveScene = std::dynamic_pointer_cast<MIDISceneLive>(_scene))
+	{
+		liveScene->setEchoSettings({
+			_liveEchoSettings.enabled,
+			_liveEchoSettings.repetitions,
+			_liveEchoSettings.delaySeconds,
+			_liveEchoSettings.velocityDropoff,
+			_liveEchoSettings.recordInRecording
+		});
+	}
+}
+
 bool Viewer::loadFile(const std::string& midiFilePath) {
 	std::shared_ptr<MIDIScene> scene(nullptr);
 
@@ -469,6 +486,7 @@ bool Viewer::connectDevice(const std::string& deviceName) {
 	_scene.reset();
 
 	_scene = std::make_shared<MIDISceneLive>(_selectedPort, _verbose);
+	setLiveEchoSettings(_liveEchoSettings);
 	_renderer.clearFlashes();
 	_timer = 0.0f;
 
@@ -496,6 +514,7 @@ bool Viewer::connectDevice(const int port) {
 	_selectedPort = port;
 
 	_scene = std::make_shared<MIDISceneLive>(_selectedPort, _verbose);
+	setLiveEchoSettings(_liveEchoSettings);
 	_renderer.clearFlashes();
 	_timer = 0.0f;
 

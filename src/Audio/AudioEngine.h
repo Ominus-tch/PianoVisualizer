@@ -49,12 +49,14 @@ namespace audio
         bool noteOn(
             int16_t channel,
             int16_t pitch,
-            float velocity);
+            float velocity,
+            int32_t noteId = -1);
 
         bool noteOff(
             int16_t channel,
             int16_t pitch,
-            float velocity = 0.0f);
+            float velocity = 0.0f,
+            int32_t noteId = -1);
 
         bool controlChange(
             int16_t channel,

@@ -308,7 +308,8 @@ namespace vst
     bool VSTAudio::noteOn(
         int16_t channel,
         int16_t pitch,
-        float velocity)
+        float velocity,
+        int32_t noteId)
     {
         std::lock_guard<std::mutex> lock(
             _processMutex);
@@ -382,7 +383,7 @@ namespace vst
             0;
 
         event.noteOn.noteId =
-            pitch;
+            noteId >= 0 ? noteId : pitch;
 
         if (_eventList.addEvent(event) !=
             Steinberg::kResultTrue)
@@ -411,7 +412,8 @@ namespace vst
     bool VSTAudio::noteOff(
         int16_t channel,
         int16_t pitch,
-        float velocity)
+        float velocity,
+        int32_t noteId)
     {
         std::lock_guard<std::mutex> lock(
             _processMutex);
@@ -482,7 +484,7 @@ namespace vst
             velocity;
 
         event.noteOff.noteId =
-            pitch;
+            noteId >= 0 ? noteId : pitch;
 
         if (_eventList.addEvent(event) !=
             Steinberg::kResultTrue)

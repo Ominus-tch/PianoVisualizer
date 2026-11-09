@@ -8,93 +8,88 @@
 void ImGui::configureFont(ImFontConfig& font)
 {
 	font = ImFontConfig();
-
-	font.FontData = (void*)fontDataLato;
-	font.FontDataSize = size_fontDataLato;
 	font.SizePixels = 16.0f;
-	font.FontDataOwnedByAtlas = false;
 
 	ImGuiIO& io = ImGui::GetIO();
+	io.FontDefault = io.Fonts->AddFontFromFileTTF(
+		"C:\\Windows\\Fonts\\segoeui.ttf",
+		font.SizePixels,
+		&font
+	);
 
-	io.FontDefault = io.Fonts->AddFont(&font);
+	// Keep the embedded font as a reliable fallback for minimal Windows images.
+	if (!io.FontDefault)
+	{
+		font.FontData = (void*)fontDataLato;
+		font.FontDataSize = size_fontDataLato;
+		font.FontDataOwnedByAtlas = false;
+		io.FontDefault = io.Fonts->AddFont(&font);
+	}
 }
 
 void ImGui::configureStyle(){
-	// Customize the style.
+	// Piano Visualizer design tokens: a quiet dark canvas with one cyan accent.
 	ImGui::StyleColorsDark();
 	ImGuiStyle & style = ImGui::GetStyle();
-	// Colors.
-	const ImVec4 a( 0.9f, 0.7f, 1.0f, 1.0f );
 	ImVec4* colors = style.Colors;
-	const ImVec4 textColor = ImVec4( 0.95f, 0.95f, 0.95f, 1.00f );
-	const ImVec4 bgColor					= ImVec4(0.10f * a.x, 0.10f * a.y, 0.10f * a.z, 1.00f);
-	const ImVec4 buttonColor				= ImVec4(0.20f * a.x, 0.20f * a.y, 0.20f * a.z, 1.00f);
-	const ImVec4 buttonHoverColor			= ImVec4(0.32f * a.x, 0.32f * a.y, 0.32f * a.z, 1.00f);
-	const ImVec4 buttonActiveColor			= ImVec4(0.40f * a.x, 0.40f * a.y, 0.40f * a.z, 1.00f);
-	colors[ImGuiCol_TextDisabled]           = ImVec4(0.7f, 0.7f, 0.7f, 1.00f);
-	colors[ImGuiCol_ChildBg]                = ImVec4(0.00f * a.x, 0.00f * a.y, 0.00f * a.z, 0.00f);
-	colors[ImGuiCol_PopupBg]                = ImVec4(0.10f * a.x, 0.10f * a.y, 0.10f * a.z, 1.00f);
-	colors[ImGuiCol_Border]                 = ImVec4(0.00f * a.x, 0.00f * a.y, 0.00f * a.z, 0.50f);
-	colors[ImGuiCol_BorderShadow]           = ImVec4(0.00f * a.x, 0.00f * a.y, 0.00f * a.z, 0.00f);
-	colors[ImGuiCol_FrameBg]                = ImVec4(0.16f * a.x, 0.16f * a.y, 0.16f * a.z, 1.00f);
-	colors[ImGuiCol_FrameBgHovered]         = ImVec4(0.14f * a.x, 0.14f * a.y, 0.14f * a.z, 1.00f);
-	colors[ImGuiCol_FrameBgActive]          = ImVec4(0.22f * a.x, 0.22f * a.y, 0.22f * a.z, 1.00f);
-	colors[ImGuiCol_TitleBgActive]          = ImVec4(0.14f * a.x, 0.14f * a.y, 0.14f * a.z, 1.00f);
-	colors[ImGuiCol_MenuBarBg]              = ImVec4(0.14f * a.x, 0.14f * a.y, 0.14f * a.z, 1.00f);
-	colors[ImGuiCol_ScrollbarBg]            = ImVec4(0.00f * a.x, 0.00f * a.y, 0.00f * a.z, 0.00f);
-	colors[ImGuiCol_TabActive]              = ImVec4(0.37f * a.x, 0.37f * a.y, 0.37f * a.z, 1.00f);
-	colors[ImGuiCol_TabUnfocused]           = ImVec4(0.14f * a.x, 0.14f * a.y, 0.14f * a.z, 0.97f);
-	colors[ImGuiCol_TabUnfocusedActive]     = ImVec4(0.40f * a.x, 0.40f * a.y, 0.40f * a.z, 1.00f);
-	colors[ImGuiCol_PlotLines]              = ImVec4(0.58f * a.x, 0.58f * a.y, 0.58f * a.z, 1.00f);
-	colors[ImGuiCol_PlotLinesHovered]       = ImVec4(0.95f * a.x, 0.95f * a.y, 0.95f * a.z, 1.00f);
-	colors[ImGuiCol_PlotHistogram]          = ImVec4(0.59f * a.x, 0.59f * a.y, 0.59f * a.z, 1.00f);
-	colors[ImGuiCol_PlotHistogramHovered]   = ImVec4(0.89f * a.x, 0.89f * a.y, 0.89f * a.z, 1.00f);
-	colors[ImGuiCol_TableHeaderBg]          = ImVec4(0.28f * a.x, 0.28f * a.y, 0.28f * a.z, 1.00f);
-	colors[ImGuiCol_TableBorderStrong]      = ImVec4(0.28f * a.x, 0.28f * a.y, 0.28f * a.z, 1.00f);
-	colors[ImGuiCol_TableBorderLight]       = ImVec4(0.44f * a.x, 0.44f * a.y, 0.44f * a.z, 1.00f);
-	colors[ImGuiCol_TableRowBg]             = ImVec4(0.00f * a.x, 0.00f * a.y, 0.00f * a.z, 0.00f);
-	colors[ImGuiCol_TableRowBgAlt]          = ImVec4(0.20f * a.x, 0.20f * a.y, 0.20f * a.z, 1.00f);
-	colors[ImGuiCol_NavHighlight]           = ImVec4(0.87f * a.x, 0.87f * a.y, 0.87f * a.z, 1.00f);
-	colors[ImGuiCol_NavWindowingHighlight]  = ImVec4(1.00f * a.x, 1.00f * a.y, 1.00f * a.z, 0.70f);
-	colors[ImGuiCol_NavWindowingDimBg]      = ImVec4(0.78f * a.x, 0.78f * a.y, 0.78f * a.z, 0.20f);
-	colors[ImGuiCol_ModalWindowDimBg]       = ImVec4(0.47f * a.x, 0.47f * a.y, 0.47f * a.z, 0.35f);
+	const ImVec4 base(0.063f, 0.075f, 0.102f, 1.0f);
+	const ImVec4 raised(0.094f, 0.114f, 0.153f, 1.0f);
+	const ImVec4 frame(0.125f, 0.153f, 0.204f, 1.0f);
+	const ImVec4 border(0.169f, 0.204f, 0.267f, 1.0f);
+	const ImVec4 accent(0.32f, 0.84f, 1.0f, 1.0f);
+	const ImVec4 accentHover(0.40f, 0.88f, 1.0f, 1.0f);
 
-	colors[ImGuiCol_Text]                   = textColor;
-	colors[ImGuiCol_CheckMark]              = textColor;
-	colors[ImGuiCol_WindowBg]               = bgColor;
-	colors[ImGuiCol_TitleBg]                = bgColor;
-	colors[ImGuiCol_TitleBgCollapsed]       = bgColor;
-	colors[ImGuiCol_ScrollbarGrab]          = buttonColor;
-	colors[ImGuiCol_ScrollbarGrabHovered]   = buttonHoverColor;
-	colors[ImGuiCol_ScrollbarGrabActive]    = buttonActiveColor;
-	colors[ImGuiCol_SliderGrab]             = buttonColor;
-	colors[ImGuiCol_SliderGrabActive]       = buttonActiveColor;
-	colors[ImGuiCol_Button]                 = buttonColor;
-	colors[ImGuiCol_ButtonHovered]          = buttonHoverColor;
-	colors[ImGuiCol_ButtonActive]           = buttonActiveColor;
-	colors[ImGuiCol_Header]                 = buttonColor;
-	colors[ImGuiCol_HeaderHovered]          = buttonHoverColor;
-	colors[ImGuiCol_HeaderActive]           = buttonActiveColor;
-	colors[ImGuiCol_Separator]              = buttonColor;
-	colors[ImGuiCol_SeparatorHovered]       = buttonHoverColor;
-	colors[ImGuiCol_SeparatorActive]        = buttonActiveColor;
-	colors[ImGuiCol_ResizeGrip]             = buttonColor;
-	colors[ImGuiCol_ResizeGripHovered]      = buttonHoverColor;
-	colors[ImGuiCol_ResizeGripActive]       = buttonActiveColor;
-	colors[ImGuiCol_Tab]                    = buttonColor;
-	colors[ImGuiCol_TabHovered]             = buttonHoverColor;
-	colors[ImGuiCol_TextSelectedBg]         = buttonColor;
-	colors[ImGuiCol_DragDropTarget]         = textColor;
+	colors[ImGuiCol_Text] = ImVec4(0.95f, 0.96f, 0.98f, 1.0f);
+	colors[ImGuiCol_TextDisabled] = ImVec4(0.67f, 0.71f, 0.79f, 1.0f);
+	colors[ImGuiCol_WindowBg] = base;
+	colors[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+	colors[ImGuiCol_PopupBg] = raised;
+	colors[ImGuiCol_Border] = border;
+	colors[ImGuiCol_FrameBg] = frame;
+	colors[ImGuiCol_FrameBgHovered] = ImVec4(0.16f, 0.25f, 0.33f, 1.0f);
+	colors[ImGuiCol_FrameBgActive] = ImVec4(0.18f, 0.31f, 0.42f, 1.0f);
+	colors[ImGuiCol_TitleBg] = base;
+	colors[ImGuiCol_TitleBgActive] = raised;
+	colors[ImGuiCol_MenuBarBg] = raised;
+	colors[ImGuiCol_ScrollbarBg] = base;
+	colors[ImGuiCol_ScrollbarGrab] = border;
+	colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.25f, 0.36f, 0.46f, 1.0f);
+	colors[ImGuiCol_CheckMark] = accent;
+	colors[ImGuiCol_SliderGrab] = accent;
+	colors[ImGuiCol_SliderGrabActive] = accentHover;
+	colors[ImGuiCol_Button] = ImVec4(0.12f, 0.22f, 0.30f, 1.0f);
+	colors[ImGuiCol_ButtonHovered] = ImVec4(0.15f, 0.32f, 0.43f, 1.0f);
+	colors[ImGuiCol_ButtonActive] = ImVec4(0.18f, 0.41f, 0.54f, 1.0f);
+	colors[ImGuiCol_Header] = ImVec4(0.12f, 0.24f, 0.33f, 1.0f);
+	colors[ImGuiCol_HeaderHovered] = ImVec4(0.15f, 0.32f, 0.43f, 1.0f);
+	colors[ImGuiCol_HeaderActive] = ImVec4(0.18f, 0.41f, 0.54f, 1.0f);
+	colors[ImGuiCol_Separator] = border;
+	colors[ImGuiCol_ResizeGrip] = border;
+	colors[ImGuiCol_ResizeGripHovered] = accent;
+	colors[ImGuiCol_ResizeGripActive] = accentHover;
+	colors[ImGuiCol_Tab] = raised;
+	colors[ImGuiCol_TabHovered] = ImVec4(0.15f, 0.32f, 0.43f, 1.0f);
+	colors[ImGuiCol_TabActive] = ImVec4(0.12f, 0.30f, 0.42f, 1.0f);
+	colors[ImGuiCol_NavHighlight] = accent;
+	colors[ImGuiCol_TextSelectedBg] = ImVec4(accent.x, accent.y, accent.z, 0.28f);
+	colors[ImGuiCol_TableHeaderBg] = raised;
+	colors[ImGuiCol_TableBorderStrong] = border;
+	colors[ImGuiCol_TableBorderLight] = ImVec4(border.x, border.y, border.z, 0.55f);
 
-	// Frames.
-	style.FrameRounding		 = 5.0f;
-	style.GrabRounding		 = 3.0f;
-	style.WindowRounding	 = 5.0f;
-	style.ScrollbarRounding  = 12.0f;
-	style.ScrollbarSize		 = 12.0f;
-	style.WindowTitleAlign.x = 0.5f;
-	style.FramePadding.y	 = 4.0f;
-	style.ItemSpacing.y		 = 3.0f;
+	style.WindowRounding = 8.0f;
+	style.ChildRounding = 8.0f;
+	style.FrameRounding = 7.0f;
+	style.PopupRounding = 7.0f;
+	style.GrabRounding = 7.0f;
+	style.ScrollbarRounding = 10.0f;
+	style.WindowBorderSize = 1.0f;
+	style.ChildBorderSize = 1.0f;
+	style.FrameBorderSize = 1.0f;
+	style.WindowPadding = ImVec2(16.0f, 14.0f);
+	style.FramePadding = ImVec2(10.0f, 7.0f);
+	style.ItemSpacing = ImVec2(10.0f, 8.0f);
+	style.ItemInnerSpacing = ImVec2(8.0f, 6.0f);
+	style.ScrollbarSize = 12.0f;
 }
 
 bool ImGui::SliderPercent( const char* label, float* v, float v_min, float v_max )

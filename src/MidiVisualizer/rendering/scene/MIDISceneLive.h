@@ -11,9 +11,11 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <unordered_map>
 #include <string>
 #include <vector>
 #include <functional>
@@ -23,6 +25,13 @@
 class MIDISceneLive : public MIDIScene {
 
 public:
+	struct EchoSettings {
+		bool enabled = false;
+		int repetitions = 3;
+		float delaySeconds = 0.20f;
+		float velocityDropoff = 0.70f;
+		bool recordInRecording = false;
+	};
 
 	MIDISceneLive(int port, bool verbose);
 
@@ -74,6 +83,8 @@ public:
 
 	static void setDeviceCallback(DeviceCallback callback);
 
+	void setEchoSettings(const EchoSettings& settings);
+
 private:
 
 	void handleMIDIDisconnect(
@@ -100,6 +111,38 @@ private:
 		double timestamp;
 	};
 
+	struct ScheduledEchoEvent {
+		enum class Type { NoteOn, NoteOff };
+		Type type;
+		double dispatchTime;
+		short channel;
+		short note;
+		short velocity;
+		uint64_t voiceId;
+		bool record;
+	};
+
+	struct EchoVoice {
+		uint64_t id;
+		int repetition;
+		bool record;
+	};
+
+	struct ActiveEchoNote {
+		int noteIndex;
+		short channel;
+		short note;
+	};
+
+	void scheduleEchoes(short channel, short note, short velocity, double time);
+	void scheduleEchoReleases(short channel, short note, short velocity, double time);
+	void dispatchDueEchoes(double time, int& minUpdated, int& maxUpdated);
+	void startEchoNote(const ScheduledEchoEvent& event, int& minUpdated, int& maxUpdated);
+	void stopEchoNote(const ScheduledEchoEvent& event, int& minUpdated, int& maxUpdated);
+	void clearEchoes();
+	bool hasActiveEchoForNote(short note) const;
+	void recordEchoEvent(const ScheduledEchoEvent& event);
+
 	std::vector<NoteInfos> _notesInfos;
 
 	std::array<int, 128> _activeIds;
@@ -118,6 +161,11 @@ private:
 	double _secondsPerMeasure = 1.0;
 
 	bool _recording = false;
+	EchoSettings _echoSettings;
+	uint64_t _nextEchoVoiceId = 1;
+	std::vector<ScheduledEchoEvent> _scheduledEchoEvents;
+	std::array<std::array<std::vector<EchoVoice>, 128>, 16> _echoVoices;
+	std::unordered_map<uint64_t, ActiveEchoNote> _activeEchoNotes;
 
 	int _notesCount = 0;
 	int _tempo = 500000;

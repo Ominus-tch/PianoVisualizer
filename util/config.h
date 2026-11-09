@@ -193,6 +193,69 @@ namespace Config {
         return path;
     }
 
+    inline std::filesystem::path GetFunConfigPath()
+    {
+        const auto directory = GetConfigDirectory();
+        return directory.empty() ? std::filesystem::path{} : directory / "fun_config.json";
+    }
+
+    inline bool SaveFunConfig(
+        bool echoEnabled,
+        int echoRepetitions,
+        float echoDelaySeconds,
+        float echoVelocityDropoff,
+        bool echoRecordInRecording)
+    {
+        const auto configPath = GetFunConfigPath();
+        if (configPath.empty())
+            return false;
+
+        json config;
+        config["version"] = APPLICATION_CONFIG_VERSION;
+        config["echo"] = {
+            { "enabled", echoEnabled },
+            { "repetitions", echoRepetitions },
+            { "delaySeconds", echoDelaySeconds },
+            { "velocityDropoff", echoVelocityDropoff },
+            { "recordInRecording", echoRecordInRecording }
+        };
+        return WriteJsonAtomically(configPath, config);
+    }
+
+    inline bool LoadFunConfig(
+        bool& echoEnabled,
+        int& echoRepetitions,
+        float& echoDelaySeconds,
+        float& echoVelocityDropoff,
+        bool& echoRecordInRecording)
+    {
+        std::ifstream file(GetFunConfigPath());
+        if (!file.is_open())
+            return false;
+
+        try
+        {
+            json config;
+            file >> config;
+            const auto& echo = config.at("echo");
+            echoEnabled = echo.at("enabled").get<bool>();
+            echoRepetitions = echo.at("repetitions").get<int>();
+            echoDelaySeconds = echo.at("delaySeconds").get<float>();
+            echoVelocityDropoff = echo.at("velocityDropoff").get<float>();
+
+            if (echo.contains("recordInRecording"))
+                echoRecordInRecording = echo["recordInRecording"].get<bool>();
+
+            return echoRepetitions >= 1 && echoRepetitions <= 8 &&
+                std::isfinite(echoDelaySeconds) && echoDelaySeconds >= 0.02f && echoDelaySeconds <= 2.0f &&
+                std::isfinite(echoVelocityDropoff) && echoVelocityDropoff >= 0.0f && echoVelocityDropoff <= 1.0f;
+        }
+        catch (const std::exception&)
+        {
+            return false;
+        }
+    }
+
     inline std::filesystem::path GetVSTStateDirectory()
     {
         static std::filesystem::path path;

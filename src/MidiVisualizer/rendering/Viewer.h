@@ -36,6 +36,14 @@ struct D3D11Interface {
 class Viewer {
 
 public:
+	struct LiveEchoSettings {
+		bool enabled = false;
+		int repetitions = 3;
+		float delaySeconds = 0.20f;
+		float velocityDropoff = 0.70f;
+		bool recordInRecording = false;
+	};
+
 	Viewer(
 		D3D11Interface d3dInterface,
 		int width,
@@ -50,6 +58,8 @@ public:
 	bool connectDevice(const int port);
 
 	void setState(const State & state);
+	void setLiveEchoSettings(const LiveEchoSettings& settings);
+	bool isLivePlay() const { return _liveplay; }
 	bool isInputting() const { return _inputting; }
 
 	using RecordingCallback = std::function<void()>;
@@ -345,6 +355,7 @@ private:
 	bool _showPedalsEditor = false;
 	bool _exitAfterRecording = false;
 	bool _liveplay = false;
+	LiveEchoSettings _liveEchoSettings;
 
 	RecordingCallback _onStartRecording;
 	RecordingCallback _onStopRecording;

@@ -353,7 +353,8 @@ namespace audio
     bool AudioEngine::noteOn(
         int16_t channel,
         int16_t pitch,
-        float velocity)
+        float velocity,
+        int32_t noteId)
     {
         if (!_vstAudio)
             return false;
@@ -361,14 +362,16 @@ namespace audio
         return _vstAudio->noteOn(
             channel,
             pitch,
-            velocity);
+            velocity,
+            noteId);
     }
 
 
     bool AudioEngine::noteOff(
         int16_t channel,
         int16_t pitch,
-        float velocity)
+        float velocity,
+        int32_t noteId)
     {
         if (!_vstAudio)
             return false;
@@ -376,7 +379,8 @@ namespace audio
         return _vstAudio->noteOff(
             channel,
             pitch,
-            velocity);
+            velocity,
+            noteId);
     }
 
 
