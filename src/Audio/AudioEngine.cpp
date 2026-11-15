@@ -4,7 +4,7 @@
 #include "vst/VSTPlugin.h"
 #include "vst/VSTAudio.h"
 
-#include "../../util/Logger.h"
+#include "../../util/logger.h"
 
 #include <algorithm>
 #include <avrt.h>

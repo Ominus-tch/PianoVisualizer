@@ -13,7 +13,7 @@
 
 #include <stdexcept>
 
-#include "../../../util/Logger.h"
+#include "../../../util/logger.h"
 
 #include <wrl/client.h>
 

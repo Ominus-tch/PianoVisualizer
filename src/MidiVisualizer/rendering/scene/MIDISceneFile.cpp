@@ -14,7 +14,7 @@
 #include "../../helpers/ProgramUtilities.h"
 #include "../../helpers/ResourcesManager.h"
 
-#include "../../../../util/Logger.h"
+#include "../../../../util/logger.h"
 
 #include "MIDISceneFile.h"
 

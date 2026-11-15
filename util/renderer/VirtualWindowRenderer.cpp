@@ -7,7 +7,7 @@
 
 #include <d3dcompiler.h>
 
-#include "../Logger.h"
+#include "../logger.h"
 
 bool VirtualWindowRenderer::InitializeD3D11Resources(
     ID3D11Device* device

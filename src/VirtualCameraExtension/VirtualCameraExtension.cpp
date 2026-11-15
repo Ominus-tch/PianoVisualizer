@@ -8,7 +8,7 @@
 
 #include <shellapi.h>
 
-#include "../../util/Logger.h"
+#include "../../util/logger.h"
 
 #include <dxgi1_2.h>
 

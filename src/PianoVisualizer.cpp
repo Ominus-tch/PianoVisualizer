@@ -2770,6 +2770,25 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
             m_camera.GetHeight()
             );
 
+    float intervalLeftFraction = 0.0f;
+    float intervalRightFraction = 0.0f;
+
+    if (!PianoNoteRange::GetIntervalFractions(
+        m_intervalFirstMidi,
+        m_intervalLastMidi,
+        intervalLeftFraction,
+        intervalRightFraction
+    ))
+    {
+        return;
+    }
+
+    const float visibleLeftX =
+        intervalLeftFraction * PianoNoteRange::FULL_PIANO_WIDTH;
+
+    const float visibleRightX =
+        intervalRightFraction * PianoNoteRange::FULL_PIANO_WIDTH;
+
     PianoCameraPose pose =
         CalculatePianoCameraPose(
             P1,
@@ -2777,7 +2796,9 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
             P3,
             P4,
             cameraWidth,
-            cameraHeight
+            cameraHeight,
+            intervalLeftFraction,
+            intervalRightFraction
         );
 
     if (!pose.valid)
@@ -2791,6 +2812,8 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
     if (!CalculateSurfaceHeightToTop(
         pose,
         m_planePivot,
+        visibleLeftX,
+        visibleRightX,
         surfaceHeight
     ))
     {
@@ -2825,7 +2848,7 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
     float x3, y3;
     float x4, y4;
 
-    float w = 16.0f / 9.0f;
+    const float w = PianoNoteRange::FULL_PIANO_WIDTH;
 
     bool valid1 =
         ProjectPianoPoint(
@@ -3250,6 +3273,26 @@ void PianoVisualizer::RenderPianoOverlay()
                 );
     }
 
+    float intervalLeftFraction = 0.0f;
+    float intervalRightFraction = 0.0f;
+
+    if (!PianoNoteRange::GetIntervalFractions(
+        m_intervalFirstMidi,
+        m_intervalLastMidi,
+        intervalLeftFraction,
+        intervalRightFraction
+    ))
+    {
+        m_virtualCamera.ReleaseFrame();
+        return;
+    }
+
+    const float visibleLeftX =
+        intervalLeftFraction * PianoNoteRange::FULL_PIANO_WIDTH;
+
+    const float visibleRightX =
+        intervalRightFraction * PianoNoteRange::FULL_PIANO_WIDTH;
+
     PianoCameraPose pose =
         CalculatePianoCameraPose(
             P1,
@@ -3257,7 +3300,9 @@ void PianoVisualizer::RenderPianoOverlay()
             P3,
             P4,
             cameraWidth,
-            cameraHeight
+            cameraHeight,
+            intervalLeftFraction,
+            intervalRightFraction
         );
 
     if (!pose.valid)
@@ -3268,6 +3313,8 @@ void PianoVisualizer::RenderPianoOverlay()
     if (!CalculateSurfaceHeightToTop(
         pose,
         m_planePivot,
+        visibleLeftX,
+        visibleRightX,
         surfaceHeight
     ))
     {
@@ -3301,7 +3348,7 @@ void PianoVisualizer::RenderPianoOverlay()
     float x3, y3;
     float x4, y4;
 
-    float w = 16.0f / 9.0f;
+    const float w = PianoNoteRange::FULL_PIANO_WIDTH;
 
     bool valid1 =
         ProjectPianoPoint(
@@ -4216,6 +4263,69 @@ void PianoVisualizer::RenderDisplayTab()
 
         if (!m_choosingPolygonPoints)
         {
+            ImGui::Text("Visible Interval");
+
+            ImGui::SetNextItemWidth(100.0f);
+            ImGui::InputText(
+                "First note",
+                m_intervalFirstInput,
+                sizeof(m_intervalFirstInput)
+            );
+
+            ImGui::SameLine();
+
+            ImGui::SetNextItemWidth(100.0f);
+            ImGui::InputText(
+                "Last note",
+                m_intervalLastInput,
+                sizeof(m_intervalLastInput)
+            );
+
+            if (ImGui::Button("Apply Interval"))
+            {
+                int firstMidi = 0;
+                int lastMidi = 0;
+
+                const bool validFirst =
+                    PianoNoteRange::TryParseNote(
+                        m_intervalFirstInput,
+                        firstMidi
+                    );
+
+                const bool validLast =
+                    PianoNoteRange::TryParseNote(
+                        m_intervalLastInput,
+                        lastMidi
+                    );
+
+                if (!validFirst || !validLast)
+                {
+                    m_intervalMessage =
+                        "Invalid note. Example: C2, A#3, Eb5.";
+                }
+                else if (firstMidi >= lastMidi)
+                {
+                    m_intervalMessage =
+                        "The first note must be lower than the last.";
+                }
+                else
+                {
+                    m_intervalFirstMidi = firstMidi;
+                    m_intervalLastMidi = lastMidi;
+
+                    m_intervalMessage =
+                        "Interval applied successfully.";
+                }
+            }
+
+            if (!m_intervalMessage.empty())
+            {
+                ImGui::TextDisabled(
+                    "%s",
+                    m_intervalMessage.c_str()
+                );
+            }
+
             if (ImGui::Button(
                 "Choose Piano Corners",
                 ImVec2(-1.0f, 36.0f)

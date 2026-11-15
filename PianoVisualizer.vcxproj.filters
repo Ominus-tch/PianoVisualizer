@@ -36,7 +36,7 @@
     <ClCompile Include="ext\fmt\format.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="util\Logger.cpp">
+    <ClCompile Include="util\logger.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="util\camera\Homography.cpp">
@@ -257,7 +257,7 @@
     <ClInclude Include="ext\nlohmann\json.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="util\Logger.h">
+    <ClInclude Include="util\logger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ext\stb_image.h">
@@ -2322,6 +2322,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\MidiVisualizer\editor\MIDIEditor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="util\noteRange.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

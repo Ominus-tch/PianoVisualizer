@@ -27,7 +27,7 @@
 #include "scene/MIDISceneFile.h"
 #include "scene/MIDISceneLive.h"
 
-#include "../../../util/Logger.h"
+#include "../../../util/logger.h"
 #include "../../../util/config.h"
 
 #include <mfapi.h>

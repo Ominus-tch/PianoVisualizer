@@ -6,7 +6,7 @@
 #include "../helpers/System.h"
 #include "../rendering/State.h"
 
-#include "../../../util/Logger.h"
+#include "../../../util/logger.h"
 
 MIDIFile::MIDIFile(){};
 

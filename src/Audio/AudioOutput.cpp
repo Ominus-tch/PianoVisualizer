@@ -1,6 +1,6 @@
 #include "AudioOutput.h"
 
-#include "../../util/Logger.h"
+#include "../../util/logger.h"
 
 #include <algorithm>
 #include <cmath>

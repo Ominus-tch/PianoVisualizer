@@ -15,7 +15,7 @@
 #include <atomic>
 #include <cstdio>
 
-#include "../util/Logger.h"
+#include "../util/logger.h"
 
 #include "../util/helpers.h"
 #include "../util/config.h"

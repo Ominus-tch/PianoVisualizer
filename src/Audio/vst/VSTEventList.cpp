@@ -2,7 +2,7 @@
 
 #include "pluginterfaces/base/funknownimpl.h"
 
-#include "../../../util/Logger.h"
+#include "../../../util/logger.h"
 
 namespace vst
 {

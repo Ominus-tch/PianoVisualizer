@@ -372,7 +372,9 @@ static PianoCameraPose CalculatePianoCameraPose(
     const ImVec2& P3,
     const ImVec2& P4,
     float imageWidth,
-    float imageHeight
+    float imageHeight,
+    float intervalLeftFraction,
+    float intervalRightFraction
 )
 {
     PianoCameraPose pose{};
@@ -473,12 +475,18 @@ static PianoCameraPose CalculatePianoCameraPose(
     // P4 = (1,0)
     // ---------------------------------------------------------
 
+    const float intervalLeftX =
+        intervalLeftFraction * (16.0f / 9.0f);
+
+    const float intervalRightX =
+        intervalRightFraction * (16.0f / 9.0f);
+
     const ImVec2 src[4] =
     {
-        ImVec2(0.0f, 0.0f), // P1
-        ImVec2(0.0f, 1.0f), // P2
-        ImVec2(1.0f, 1.0f), // P3
-        ImVec2(1.0f, 0.0f)  // P4
+        ImVec2(intervalLeftX,  0.0f), // P1
+        ImVec2(intervalLeftX,  1.0f), // P2
+        ImVec2(intervalRightX, 1.0f), // P3
+        ImVec2(intervalRightX, 0.0f)  // P4
     };
 
 
@@ -791,11 +799,20 @@ static bool ProjectPianoPoint(
 static bool CalculateSurfaceHeightToTop(
     const PianoCameraPose& pose,
     float planePivot,
+    float visibleLeftX,
+    float visibleRightX,
     float& outSurfaceHeight
 )
 {
     if (!pose.valid)
         return false;
+
+    if (!std::isfinite(visibleLeftX) ||
+        !std::isfinite(visibleRightX) ||
+        visibleLeftX >= visibleRightX)
+    {
+        return false;
+    }
 
     const float pi =
         3.14159265358979323846f;
@@ -812,8 +829,6 @@ static bool CalculateSurfaceHeightToTop(
     const float q =
         pose.K[1][2] /
         pose.K[1][1];
-
-    float planeWidth = 16.0f / 9.0f;
 
     // ---------------------------------------------------------
     // Solve the surface height for one top corner.
@@ -868,13 +883,13 @@ static bool CalculateSurfaceHeightToTop(
 
     const bool leftValid =
         SolveCorner(
-            0.0f,
+            visibleLeftX,
             leftHeight
         );
 
     const bool rightValid =
         SolveCorner(
-            planeWidth,
+            visibleRightX,
             rightHeight
         );
 
@@ -933,13 +948,13 @@ static bool CalculateSurfaceHeightToTop(
         {
             const float leftY =
                 ProjectTopY(
-                    0.0f,
+                    visibleLeftX,
                     height
                 );
 
             const float rightY =
                 ProjectTopY(
-                    planeWidth,
+                    visibleRightX,
                     height
                 );
 

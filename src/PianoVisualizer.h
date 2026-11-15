@@ -24,7 +24,7 @@
 #include <imgui/imgui_impl_dx11.h>
 #include <imgui/imgui_internal.h>
 
-#include "../util/Logger.h"
+#include "../util/logger.h"
 #include "../util/camera/Camera.h"
 #include "../util/camera/CameraVideoPlayer.h"
 #include "../util/capture/WindowCapture.h"
@@ -33,6 +33,7 @@
 
 #include "../util/helpers.h"
 #include "../util/gui.h"
+#include "../util/noteRange.h"
 #include "../util/config.h"
 
 // MidiVisualizer
@@ -528,6 +529,14 @@ private:
     float m_planePivot = 90.0f;
 
     PianoConfiguration m_savedConfiguration;
+
+    int m_intervalFirstMidi = PianoNoteRange::FIRST_MIDI_NOTE;
+    int m_intervalLastMidi = PianoNoteRange::LAST_MIDI_NOTE;
+
+    char m_intervalFirstInput[16] = "A0";
+    char m_intervalLastInput[16] = "C8";
+
+    std::string m_intervalMessage;
 
     // =========================================================
     // State

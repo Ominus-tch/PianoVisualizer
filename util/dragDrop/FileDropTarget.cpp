@@ -1,6 +1,6 @@
 #include "FileDropTarget.h"
 
-#include "../../util/Logger.h"
+#include "../../util/logger.h"
 
 #include <shellapi.h>
 

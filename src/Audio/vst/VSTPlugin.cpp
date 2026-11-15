@@ -6,7 +6,7 @@
 
 #include <fstream>
 
-#include "../../../util/Logger.h"
+#include "../../../util/logger.h"
 #include "../../../util/Config.h"
 
 #include "pluginterfaces/vst/vsttypes.h"

@@ -4,7 +4,7 @@
 #include <wincodec.h>
 #include <d3dcompiler.h>
 
-#include "../Logger.h"
+#include "../logger.h"
 
 #include <cstring>
 #include <cstdint>

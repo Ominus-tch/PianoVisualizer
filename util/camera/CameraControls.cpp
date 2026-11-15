@@ -1,6 +1,6 @@
 #include "CameraControls.h"
 
-#include "../Logger.h"
+#include "../logger.h"
 
 #include <vector>
 

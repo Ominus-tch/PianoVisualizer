@@ -142,7 +142,7 @@
     <ClCompile Include="util\camera\Homography.cpp" />
     <ClCompile Include="util\capture\WindowCapture.cpp" />
     <ClCompile Include="util\dragDrop\FileDropTarget.cpp" />
-    <ClCompile Include="util\Logger.cpp" />
+    <ClCompile Include="util\logger.cpp" />
     <ClCompile Include="util\renderer\VirtualWindowRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -845,7 +845,8 @@
     <ClInclude Include="util\camera\Homography.h" />
     <ClInclude Include="util\capture\WindowCapture.h" />
     <ClInclude Include="util\dragDrop\FileDropTarget.h" />
-    <ClInclude Include="util\Logger.h" />
+    <ClInclude Include="util\logger.h" />
+    <ClInclude Include="util\noteRange.h" />
     <ClInclude Include="util\renderer\VirtualWindowRenderer.h" />
   </ItemGroup>
   <ItemGroup>

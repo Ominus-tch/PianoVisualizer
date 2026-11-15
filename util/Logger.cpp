@@ -1,4 +1,4 @@
-#include "Logger.h"
+#include "logger.h"
 
 bool Logger::Init(bool console)
 {

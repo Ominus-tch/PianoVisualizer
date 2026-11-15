@@ -13,7 +13,7 @@
 #include "MIDISceneLive.h" 
 #include <libremidi/writer.hpp> 
 
-#include "../../../../util/Logger.h"
+#include "../../../../util/logger.h"
 
 #ifdef _WIN32
 #undef MIN
