@@ -2,6 +2,6 @@
 
 enum class PixelFormat
 {
-    NV12,
-    RGB32
+	NV12,
+	RGB32
 };

@@ -59,566 +59,566 @@ class PianoVisualizer
 {
 public:
 
-    enum class PianoScene
-    {
-        Perspective,
-        PianoRoll
-    };
+	enum class PianoScene
+	{
+		Perspective,
+		PianoRoll
+	};
 
-    struct PianoConfiguration
-    {
-        std::vector<ImVec2> polygonPoints;
+	struct PianoConfiguration
+	{
+		std::vector<ImVec2> polygonPoints;
 
-        PianoScene pianoScene;
-        float planePivot;
+		PianoScene pianoScene;
+		float planePivot;
 
-        float pianoRollVisualizerHeight;
-        float pianoRollCameraSourceScale;
+		float pianoRollVisualizerHeight;
+		float pianoRollCameraSourceScale;
 
-        bool operator==(const PianoConfiguration& other) const
-        {
-            return
-                pianoScene == other.pianoScene &&
-                planePivot == other.planePivot &&
-                pianoRollVisualizerHeight == other.pianoRollVisualizerHeight &&
-                pianoRollCameraSourceScale == other.pianoRollCameraSourceScale &&
-                polygonPoints.size() == other.polygonPoints.size() &&
-                std::equal(
-                    polygonPoints.begin(),
-                    polygonPoints.end(),
-                    other.polygonPoints.begin(),
-                    [](const ImVec2& a, const ImVec2& b)
-                    {
-                        return
-                            a.x == b.x &&
-                            a.y == b.y;
-                    }
-                );
-        }
-    };
+		bool operator==(const PianoConfiguration& other) const
+		{
+			return
+				pianoScene == other.pianoScene &&
+				planePivot == other.planePivot &&
+				pianoRollVisualizerHeight == other.pianoRollVisualizerHeight &&
+				pianoRollCameraSourceScale == other.pianoRollCameraSourceScale &&
+				polygonPoints.size() == other.polygonPoints.size() &&
+				std::equal(
+					polygonPoints.begin(),
+					polygonPoints.end(),
+					other.polygonPoints.begin(),
+					[](const ImVec2& a, const ImVec2& b)
+					{
+						return
+							a.x == b.x &&
+							a.y == b.y;
+					}
+				);
+		}
+	};
 
-    PianoVisualizer();
-    ~PianoVisualizer();
+	PianoVisualizer();
+	~PianoVisualizer();
 
-    // Non-copyable
-    PianoVisualizer(const PianoVisualizer&) = delete;
-    PianoVisualizer& operator=(const PianoVisualizer&) = delete;
+	// Non-copyable
+	PianoVisualizer(const PianoVisualizer&) = delete;
+	PianoVisualizer& operator=(const PianoVisualizer&) = delete;
 
-    // ---------------------------------------------------------
-    // Lifecycle
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Lifecycle
+	// ---------------------------------------------------------
 
-    bool Initialize(
-        HINSTANCE instance,
-        HWND window,
-        ID3D11Device* device,
-        ID3D11DeviceContext* context,
-        IDXGISwapChain* swapChain,
-        ID3D11RenderTargetView* renderTargetView
-    );
+	bool Initialize(
+		HINSTANCE instance,
+		HWND window,
+		ID3D11Device* device,
+		ID3D11DeviceContext* context,
+		IDXGISwapChain* swapChain,
+		ID3D11RenderTargetView* renderTargetView
+	);
 
-    void Shutdown();
+	void Shutdown();
 
-    void Update();
+	void Update();
 
-    void Render();
+	void Render();
 
-    // ---------------------------------------------------------
-    // Window handling
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Window handling
+	// ---------------------------------------------------------
 
-    void Resize(
-        UINT width,
-        UINT height
-    );
+	void Resize(
+		UINT width,
+		UINT height
+	);
 
-    void KeyPressed(
-        int key,
-        int state
-    );
-    
-    void RequestExit() { m_exitRequested = true; }
-    bool OnExit();
+	void KeyPressed(
+		int key,
+		int state
+	);
+	
+	void RequestExit() { m_exitRequested = true; }
+	bool OnExit();
 
-    // ---------------------------------------------------------
-    // Accessors
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Accessors
+	// ---------------------------------------------------------
 
-    ID3D11Device* GetDevice() const
-    {
-        return m_device;
-    }
+	ID3D11Device* GetDevice() const
+	{
+		return m_device;
+	}
 
-    ID3D11DeviceContext* GetContext() const
-    {
-        return m_context;
-    }
+	ID3D11DeviceContext* GetContext() const
+	{
+		return m_context;
+	}
 
-    IDXGISwapChain* GetSwapChain() const
-    {
-        return m_swapChain;
-    }
+	IDXGISwapChain* GetSwapChain() const
+	{
+		return m_swapChain;
+	}
 
-    ID3D11RenderTargetView* GetRenderTargetView() const
-    {
-        return m_renderTargetView;
-    }
+	ID3D11RenderTargetView* GetRenderTargetView() const
+	{
+		return m_renderTargetView;
+	}
 
-    HWND GetWindow() const
-    {
-        return m_window;
-    }
+	HWND GetWindow() const
+	{
+		return m_window;
+	}
 
-    Viewer* GetViewer() const
-    {
-        return m_viewer;
-    }
+	Viewer* GetViewer() const
+	{
+		return m_viewer;
+	}
 
-    audio::AudioEngine* GetAudioEngine() const
-    {
-        return m_audioEngine;
-    }
+	audio::AudioEngine* GetAudioEngine() const
+	{
+		return m_audioEngine;
+	}
 
-    Camera& GetCamera()
-    {
-        return m_camera;
-    }
+	Camera& GetCamera()
+	{
+		return m_camera;
+	}
 
-    WindowCapture& GetWindowCapture()
-    {
-        return m_windowCapture;
-    }
+	WindowCapture& GetWindowCapture()
+	{
+		return m_windowCapture;
+	}
 
-    VirtualWindowRenderer& GetVirtualWindowRenderer()
-    {
-        return m_virtualWindowRenderer;
-    }
+	VirtualWindowRenderer& GetVirtualWindowRenderer()
+	{
+		return m_virtualWindowRenderer;
+	}
 
 private:
 
-    enum class SettingsSection
-    {
-        Display,
-        Visualizer,
-        Camera,
-        Audio,
-        Plugins,
-        Fun,
-        Configuration,
-        Status,
-        Help
-    };
+	enum class SettingsSection
+	{
+		Display,
+		Visualizer,
+		Camera,
+		Audio,
+		Plugins,
+		Fun,
+		Configuration,
+		Status,
+		Help
+	};
 
-    // =========================================================
-    // Initialization
-    // =========================================================
+	// =========================================================
+	// Initialization
+	// =========================================================
 
-    bool InitializeMidiVisualizer();
+	bool InitializeMidiVisualizer();
 
-    bool InitializeAudio();
+	bool InitializeAudio();
 
-    bool InitializeCamera();
+	bool InitializeCamera();
 
-    bool InitializeWindowCapture();
+	bool InitializeWindowCapture();
 
-    bool InitializeRenderTarget();
+	bool InitializeRenderTarget();
 
-    bool InitializeCameraOutput();
+	bool InitializeCameraOutput();
 
-    // =========================================================
-    // Shutdown
-    // =========================================================
+	// =========================================================
+	// Shutdown
+	// =========================================================
 
-    void ShutdownAudio();
+	void ShutdownAudio();
 
-    void ShutdownCamera();
+	void ShutdownCamera();
 
-    void ShutdownMidiVisualizer();
+	void ShutdownMidiVisualizer();
 
-    void ShutdownRenderTarget();
+	void ShutdownRenderTarget();
 
-    // =========================================================
-    // Rendering
-    // =========================================================
+	// =========================================================
+	// Rendering
+	// =========================================================
 
-    void RenderCamera();
+	void RenderCamera();
 
-    void RenderCameraOutput();
+	void RenderCameraOutput();
 
-    void RenderPianoRoll();
+	void RenderPianoRoll();
 
-    void RenderPianoRollVisualizer();
+	void RenderPianoRollVisualizer();
 
-    void RenderVSTDropTarget();
+	void RenderVSTDropTarget();
 
-    void RenderVisualizer();
+	void RenderVisualizer();
 
-    // GUI
+	// GUI
 
-    void RenderDisplayTab();
+	void RenderDisplayTab();
 
-    void RenderVisualizerTab();
+	void RenderVisualizerTab();
 
-    void RenderCameraTab();
+	void RenderCameraTab();
 
-    void RenderAudioTab();
+	void RenderAudioTab();
 
-    void RenderPluginsTab();
+	void RenderPluginsTab();
 
-    void RenderConfigurationTab();
+	void RenderConfigurationTab();
 
-    void RenderFunTab();
+	void RenderFunTab();
 
-    void RenderStatusTab();
+	void RenderStatusTab();
 
-    void RenderHelpTab();
+	void RenderHelpTab();
 
-    // STATS
+	// STATS
 
-    void RenderStatistics();
+	void RenderStatistics();
 
-    // =========================================================
-    // Camera / Piano
-    // =========================================================
+	// =========================================================
+	// Camera / Piano
+	// =========================================================
 
-    void RenderCameraFeed();
+	void RenderCameraFeed();
 
-    void RenderVirtualCameraVisualizer();
+	void RenderVirtualCameraVisualizer();
 
-    void RenderVirtualCameraFrame();
+	void RenderVirtualCameraFrame();
 
-    void RenderCameraErrorDialog();
+	void RenderCameraErrorDialog();
 
-    void RenderPianoOverlay();
+	void RenderPianoOverlay();
 
-    void RenderPolygonSelectionTooltip();
+	void RenderPolygonSelectionTooltip();
 
-    bool CalculatePianoRollGeometry(
-        float outputWidth,
-        float outputHeight,
-        float cameraWidth,
-        float cameraHeight,
-        ImVec2& visualizerTopLeft,
-        ImVec2& visualizerTopRight,
-        ImVec2& boundaryLeft,
-        ImVec2& boundaryRight,
-        ImVec2& cameraBottomLeft,
-        ImVec2& cameraBottomRight
-    );
-
-    void HandlePolygonPointSelection(
-        const ImVec2& imagePos,
-        float width,
-        float height,
-        float cameraWidth,
-        float cameraHeight
-    );
-
-    void DrawSelectedPolygon(
-        ImDrawList* drawList,
-        const std::function<ImVec2(float, float)>& cameraToScreen,
-        const std::function<ImVec2(float, float)>& screenToCamera
-    );
-
-    // =========================================================
-    // VST
-    // =========================================================
-
-    void HandleVSTDrop();
-
-    void LoadVST(
-        const std::filesystem::path& path
-    );
-
-    void UnloadVST();
-
-    void LoadRecentVST(
-        const std::filesystem::path& path
-    );
-
-    void AddRecentVST(
-        const std::filesystem::path& path
-    );
-
-    void RemoveRecentVST(
-        const std::filesystem::path& path
-    );
-
-    // =========================================================
-    // Capture
-    // =========================================================
-
-    void UpdateWindowCapture();
-
-    void StopWindowCapture();
-
-    void StartWindowCapture(
-        HWND window
-    );
-
-    void onStartRecording();
-
-    void onStopRecording();
-
-    // =========================================================
-    // Configuration
-    // =========================================================
-
-    PianoConfiguration GetCurrentConfiguration() const
-    {
-        return {
-            m_polygonPoints,
-            m_pianoScene,
-            m_planePivot,
-            m_pianoRollVisualizerHeight,
-            m_pianoRollCameraSourceScale
-        };
-    }
-
-    bool HasUnsavedChanges() const
-    {
-        return GetCurrentConfiguration() != m_savedConfiguration;
-    }
-
-    void LoadPianoConfiguration();
-
-    void SavePianoConfiguration();
-
-    // =========================================================
-    // Rendering target
-    // =========================================================
-
-    void CleanupRenderTarget();
-
-    void CreateRenderTarget();
-
-    // =========================================================
-    // Statistics
-    // =========================================================
-
-    void UpdateStatistics();
+	bool CalculatePianoRollGeometry(
+		float outputWidth,
+		float outputHeight,
+		float cameraWidth,
+		float cameraHeight,
+		ImVec2& visualizerTopLeft,
+		ImVec2& visualizerTopRight,
+		ImVec2& boundaryLeft,
+		ImVec2& boundaryRight,
+		ImVec2& cameraBottomLeft,
+		ImVec2& cameraBottomRight
+	);
+
+	void HandlePolygonPointSelection(
+		const ImVec2& imagePos,
+		float width,
+		float height,
+		float cameraWidth,
+		float cameraHeight
+	);
+
+	void DrawSelectedPolygon(
+		ImDrawList* drawList,
+		const std::function<ImVec2(float, float)>& cameraToScreen,
+		const std::function<ImVec2(float, float)>& screenToCamera
+	);
+
+	// =========================================================
+	// VST
+	// =========================================================
+
+	void HandleVSTDrop();
+
+	void LoadVST(
+		const std::filesystem::path& path
+	);
+
+	void UnloadVST();
+
+	void LoadRecentVST(
+		const std::filesystem::path& path
+	);
+
+	void AddRecentVST(
+		const std::filesystem::path& path
+	);
+
+	void RemoveRecentVST(
+		const std::filesystem::path& path
+	);
+
+	// =========================================================
+	// Capture
+	// =========================================================
+
+	void UpdateWindowCapture();
+
+	void StopWindowCapture();
+
+	void StartWindowCapture(
+		HWND window
+	);
+
+	void onStartRecording();
+
+	void onStopRecording();
+
+	// =========================================================
+	// Configuration
+	// =========================================================
+
+	PianoConfiguration GetCurrentConfiguration() const
+	{
+		return {
+			m_polygonPoints,
+			m_pianoScene,
+			m_planePivot,
+			m_pianoRollVisualizerHeight,
+			m_pianoRollCameraSourceScale
+		};
+	}
+
+	bool HasUnsavedChanges() const
+	{
+		return GetCurrentConfiguration() != m_savedConfiguration;
+	}
+
+	void LoadPianoConfiguration();
+
+	void SavePianoConfiguration();
+
+	// =========================================================
+	// Rendering target
+	// =========================================================
+
+	void CleanupRenderTarget();
+
+	void CreateRenderTarget();
+
+	// =========================================================
+	// Statistics
+	// =========================================================
+
+	void UpdateStatistics();
 
 
 private:
 
-    // =========================================================
-    // Windows / DirectX
-    // =========================================================
+	// =========================================================
+	// Windows / DirectX
+	// =========================================================
 
-    HINSTANCE m_instance = nullptr;
+	HINSTANCE m_instance = nullptr;
 
-    HWND m_window = nullptr;
+	HWND m_window = nullptr;
 
-    ID3D11Device* m_device = nullptr;
+	ID3D11Device* m_device = nullptr;
 
-    ID3D11DeviceContext* m_context = nullptr;
+	ID3D11DeviceContext* m_context = nullptr;
 
-    IDXGISwapChain* m_swapChain = nullptr;
+	IDXGISwapChain* m_swapChain = nullptr;
 
-    ID3D11RenderTargetView* m_renderTargetView = nullptr;
+	ID3D11RenderTargetView* m_renderTargetView = nullptr;
 
-    ComPtr<ID3D11Texture2D> m_cameraOutputTexture;
+	ComPtr<ID3D11Texture2D> m_cameraOutputTexture;
 
-    ComPtr<ID3D11RenderTargetView> m_cameraOutputRTV;
+	ComPtr<ID3D11RenderTargetView> m_cameraOutputRTV;
 
-    ComPtr<ID3D11ShaderResourceView> m_cameraOutputSRV;
+	ComPtr<ID3D11ShaderResourceView> m_cameraOutputSRV;
 
-    // =========================================================
-    // Camera
-    // =========================================================
+	// =========================================================
+	// Camera
+	// =========================================================
 
-    Camera m_camera;
+	Camera m_camera;
 
-    CameraVideoPlayer m_cameraVideoPlayer;
+	CameraVideoPlayer m_cameraVideoPlayer;
 
-    bool m_showCameraError = false;
+	bool m_showCameraError = false;
 
-    std::string m_cameraErrorMessage;
+	std::string m_cameraErrorMessage;
 
-    int m_cameraSelectedIndex = -1;
+	int m_cameraSelectedIndex = -1;
 
-    int m_cameraSettingsWidth = 0;
+	int m_cameraSettingsWidth = 0;
 
-    int m_cameraSettingsHeight = 0;
+	int m_cameraSettingsHeight = 0;
 
-    UINT32 m_cameraSettingsFPSNumerator = 0;
+	UINT32 m_cameraSettingsFPSNumerator = 0;
 
-    UINT32 m_cameraSettingsFPSDenominator = 1;
+	UINT32 m_cameraSettingsFPSDenominator = 1;
 
-    WindowCapture m_windowCapture;
+	WindowCapture m_windowCapture;
 
-    VirtualWindowRenderer m_virtualWindowRenderer;
+	VirtualWindowRenderer m_virtualWindowRenderer;
 
-    // =========================================================
-    // MidiVisualizer
-    // =========================================================
+	// =========================================================
+	// MidiVisualizer
+	// =========================================================
 
-    Viewer* m_viewer = nullptr;
+	Viewer* m_viewer = nullptr;
 
-    Viewer::LiveEchoSettings m_liveEchoSettings;
-    std::vector<Config::FunKeybind> m_funKeybinds;
+	Viewer::LiveEchoSettings m_liveEchoSettings;
+	std::vector<Config::FunKeybind> m_funKeybinds;
 
-    SettingsSection m_activeSettingsSection =
-        SettingsSection::Display;
+	SettingsSection m_activeSettingsSection =
+		SettingsSection::Display;
 
-    std::once_flag m_SetAudioEngine;
+	std::once_flag m_SetAudioEngine;
 
-    // =========================================================
-    // Extensions
-    // =========================================================
+	// =========================================================
+	// Extensions
+	// =========================================================
 
-    VirtualCameraExtension m_virtualCamera;
+	VirtualCameraExtension m_virtualCamera;
 
-    // =========================================================
-    // Audio / VST
-    // =========================================================
+	// =========================================================
+	// Audio / VST
+	// =========================================================
 
-    audio::AudioEngine* m_audioEngine = nullptr;
+	audio::AudioEngine* m_audioEngine = nullptr;
 
-    HWND m_vstEditorWindow = nullptr;
+	HWND m_vstEditorWindow = nullptr;
 
-    std::filesystem::path m_vst3FolderPath =
-        "C:\\Program Files\\Common Files\\VST3\\";
+	std::filesystem::path m_vst3FolderPath =
+		"C:\\Program Files\\Common Files\\VST3\\";
 
-    FileDropTarget m_vstDropTarget{
-        { L".vst3" }
-    };
+	FileDropTarget m_vstDropTarget{
+		{ L".vst3" }
+	};
 
-    std::filesystem::path m_currentPluginPath;
+	std::filesystem::path m_currentPluginPath;
 
-    std::vector<std::filesystem::path> m_recentVSTPlugins;
+	std::vector<std::filesystem::path> m_recentVSTPlugins;
 
-    static constexpr size_t MAX_RECENT_VST_PLUGINS = 8;
+	static constexpr size_t MAX_RECENT_VST_PLUGINS = 8;
 
-    double m_bufferDuration = 20.0;
+	double m_bufferDuration = 20.0;
 
-    // =========================================================
-    // Piano configuration
-    // =========================================================
+	// =========================================================
+	// Piano configuration
+	// =========================================================
 
-    PianoScene m_pianoScene =
-        PianoScene::Perspective;
+	PianoScene m_pianoScene =
+		PianoScene::Perspective;
 
-    float m_pianoRollVisualizerHeight = 0.5f;
-    float m_pianoRollCameraSourceScale = 1.0f;
+	float m_pianoRollVisualizerHeight = 0.5f;
+	float m_pianoRollCameraSourceScale = 1.0f;
 
-    bool m_choosingPolygonPoints = false;
-    bool m_temporaryPerspectiveScene = false;
+	bool m_choosingPolygonPoints = false;
+	bool m_temporaryPerspectiveScene = false;
 
-    int m_polygonClickCount = 0;
+	int m_polygonClickCount = 0;
 
-    // Previously selected points, used when ESC cancels selection.
-    std::vector<ImVec2> m_savedPolygonPoints;
+	// Previously selected points, used when ESC cancels selection.
+	std::vector<ImVec2> m_savedPolygonPoints;
 
-    // 0 = Top-left
-    // 1 = Bottom-left
-    // 2 = Bottom-right
-    // 3 = Top-right
-    std::vector<ImVec2> m_polygonPoints;
+	// 0 = Top-left
+	// 1 = Bottom-left
+	// 2 = Bottom-right
+	// 3 = Top-right
+	std::vector<ImVec2> m_polygonPoints;
 
-    // =========================================================
-    // Perspective scene configuration
-    // =========================================================
+	// =========================================================
+	// Perspective scene configuration
+	// =========================================================
 
-    float m_heightScale = 1.0f;
+	float m_heightScale = 1.0f;
 
-    float m_virtualWidth = 1920.0f;
+	float m_virtualWidth = 1920.0f;
 
-    float m_virtualDepth = 1080.0f;
+	float m_virtualDepth = 1080.0f;
 
-    float m_planePivot = 90.0f;
+	float m_planePivot = 90.0f;
 
-    PianoConfiguration m_savedConfiguration;
+	PianoConfiguration m_savedConfiguration;
 
-    int m_intervalFirstMidi = PianoNoteRange::FIRST_MIDI_NOTE;
-    int m_intervalLastMidi = PianoNoteRange::LAST_MIDI_NOTE;
+	int m_intervalFirstMidi = PianoNoteRange::FIRST_MIDI_NOTE;
+	int m_intervalLastMidi = PianoNoteRange::LAST_MIDI_NOTE;
 
-    char m_intervalFirstInput[16] = "A0";
-    char m_intervalLastInput[16] = "C8";
+	char m_intervalFirstInput[16] = "A0";
+	char m_intervalLastInput[16] = "C8";
 
-    std::string m_intervalMessage;
+	std::string m_intervalMessage;
 
-    // =========================================================
-    // State
-    // =========================================================
+	// =========================================================
+	// State
+	// =========================================================
 
-    bool m_drawVisualizer = false;
+	bool m_drawVisualizer = false;
 
-    // Window-style changes are requested from ImGui and applied on the next
-    // update tick, outside the active rendering frame.
-    bool m_queueFullscreenCall = false;
+	// Window-style changes are requested from ImGui and applied on the next
+	// update tick, outside the active rendering frame.
+	bool m_queueFullscreenCall = false;
 
-    bool m_initialized = false;
+	bool m_initialized = false;
 
-    // Tracks ownership from the beginning of Initialize(), allowing a failed
-    // initialization to release resources without making Shutdown non-idempotent.
-    bool m_initializationStarted = false;
+	// Tracks ownership from the beginning of Initialize(), allowing a failed
+	// initialization to release resources without making Shutdown non-idempotent.
+	bool m_initializationStarted = false;
 
-    std::string m_configSaveMessage;
+	std::string m_configSaveMessage;
 
-    std::string m_recordingStatusMessage;
+	std::string m_recordingStatusMessage;
 
-    // =========================================================
-    // Timing
-    // =========================================================
+	// =========================================================
+	// Timing
+	// =========================================================
 
-    std::chrono::steady_clock::time_point m_startTime;
+	std::chrono::steady_clock::time_point m_startTime;
 
-    std::chrono::steady_clock::time_point m_prevTime;
+	std::chrono::steady_clock::time_point m_prevTime;
 
-    float m_elapsedTime = 0.0f;
+	float m_elapsedTime = 0.0f;
 
-    // =========================================================
-    // Statistics
-    // =========================================================
+	// =========================================================
+	// Statistics
+	// =========================================================
 
-    struct Statistics
-    {
-        float fps = 0.0f;
+	struct Statistics
+	{
+		float fps = 0.0f;
 
-        float frameTimeMs = 0.0f;
+		float frameTimeMs = 0.0f;
 
-        float minFrameTimeMs = 0.0f;
+		float minFrameTimeMs = 0.0f;
 
-        float maxFrameTimeMs = 0.0f;
+		float maxFrameTimeMs = 0.0f;
 
-        float cameraUpdateFps = 0.0f;
+		float cameraUpdateFps = 0.0f;
 
-        uint64_t frameCount = 0;
+		uint64_t frameCount = 0;
 
-        double uptimeSeconds = 0.0;
+		double uptimeSeconds = 0.0;
 
-        UINT renderWidth = 0;
+		UINT renderWidth = 0;
 
-        UINT renderHeight = 0;
+		UINT renderHeight = 0;
 
-        UINT cameraWidth = 0;
+		UINT cameraWidth = 0;
 
-        UINT cameraHeight = 0;
+		UINT cameraHeight = 0;
 
-        uint64_t processMemoryMB = 0;
+		uint64_t processMemoryMB = 0;
 
-        double processCpuPercent = 0.0;
+		double processCpuPercent = 0.0;
 
-        double lastUpdateTime = 0.0;
+		double lastUpdateTime = 0.0;
 
-        double fpsAccumulator = 0.0;
+		double fpsAccumulator = 0.0;
 
-        uint32_t fpsFrameCount = 0;
+		uint32_t fpsFrameCount = 0;
 
-        double cameraAccumulator = 0.0;
+		double cameraAccumulator = 0.0;
 
-        uint32_t cameraUpdateCount = 0;
-    };
+		uint32_t cameraUpdateCount = 0;
+	};
 
-    Statistics m_statistics;
+	Statistics m_statistics;
 
-    bool m_showStatistics = false;
+	bool m_showStatistics = false;
 
-    // =========================================================
-    // Application shutdown
-    // =========================================================
+	// =========================================================
+	// Application shutdown
+	// =========================================================
 
-    bool m_exitRequested = false;
-    bool m_exitPopupOpened = false;
+	bool m_exitRequested = false;
+	bool m_exitPopupOpened = false;
 };

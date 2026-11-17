@@ -14,823 +14,823 @@
 namespace audio
 {
 
-    // =========================================================
-    // CONSTRUCTOR / DESTRUCTOR
-    // =========================================================
+	// =========================================================
+	// CONSTRUCTOR / DESTRUCTOR
+	// =========================================================
 
-    AudioEngine::AudioEngine()
-        : _running(false),
-        _stopRequested(false)
-    {
-        Logger::Log(
-            "[Audio] AudioEngine created\n");
-    }
+	AudioEngine::AudioEngine()
+		: _running(false),
+		_stopRequested(false)
+	{
+		Logger::Log(
+			"[Audio] AudioEngine created\n");
+	}
 
 
-    AudioEngine::~AudioEngine()
-    {
-        shutdown();
+	AudioEngine::~AudioEngine()
+	{
+		shutdown();
 
-        Logger::Log(
-            "[Audio] AudioEngine destroyed\n");
-    }
+		Logger::Log(
+			"[Audio] AudioEngine destroyed\n");
+	}
 
 
-    // =========================================================
-    // INITIALIZATION
-    // =========================================================
+	// =========================================================
+	// INITIALIZATION
+	// =========================================================
 
-    bool AudioEngine::initialize()
-    {
-        if (_initialized)
-        {
-            Logger::Log(
-                "[Audio] AudioEngine is already initialized\n");
+	bool AudioEngine::initialize()
+	{
+		if (_initialized)
+		{
+			Logger::Log(
+				"[Audio] AudioEngine is already initialized\n");
 
-            return true;
-        }
+			return true;
+		}
 
-        AudioOutput::Configuration configuration;
+		AudioOutput::Configuration configuration;
 
-        _output = new AudioOutput();
+		_output = new AudioOutput();
 
-        if (!_output->initialize(configuration))
-        {
-            Logger::Log(
-                "[Audio] Failed to initialize AudioOutput\n");
+		if (!_output->initialize(configuration))
+		{
+			Logger::Log(
+				"[Audio] Failed to initialize AudioOutput\n");
 
-            delete _output;
-            _output = nullptr;
+			delete _output;
+			_output = nullptr;
 
-            return false;
-        }
+			return false;
+		}
 
-        _initialized = true;
+		_initialized = true;
 
-        Logger::Log(
-            "[Audio] AudioEngine initialized\n");
+		Logger::Log(
+			"[Audio] AudioEngine initialized\n");
 
-        Logger::Log(
-            "[Audio] Output device: %ls\n",
-            _output->deviceName().c_str());
+		Logger::Log(
+			"[Audio] Output device: %ls\n",
+			_output->deviceName().c_str());
 
-        Logger::Log(
-            "[Audio] Sample rate: %.0f Hz\n",
-            _output->sampleRate());
+		Logger::Log(
+			"[Audio] Sample rate: %.0f Hz\n",
+			_output->sampleRate());
 
-        Logger::Log(
-            "[Audio] Channels: %d\n",
-            _output->channels());
+		Logger::Log(
+			"[Audio] Channels: %d\n",
+			_output->channels());
 
-        Logger::Log(
-            "[Audio] Output buffer: %.2f ms\n\n",
-            _output->configuration().bufferDurationMs);
+		Logger::Log(
+			"[Audio] Output buffer: %.2f ms\n\n",
+			_output->configuration().bufferDurationMs);
 
-        return true;
-    }
+		return true;
+	}
 
 
-    // =========================================================
-    // VST
-    // =========================================================
+	// =========================================================
+	// VST
+	// =========================================================
 
-    bool AudioEngine::loadPlugin(
-        const std::string& path)
-    {
-        if (!_initialized)
-        {
-            Logger::Log(
-                "[VST] Cannot load plugin: "
-                "AudioEngine is not initialized\n");
+	bool AudioEngine::loadPlugin(
+		const std::string& path)
+	{
+		if (!_initialized)
+		{
+			Logger::Log(
+				"[VST] Cannot load plugin: "
+				"AudioEngine is not initialized\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        if (!_output)
-        {
-            Logger::Log(
-                "[VST] Cannot load plugin: "
-                "AudioOutput is null\n");
+		if (!_output)
+		{
+			Logger::Log(
+				"[VST] Cannot load plugin: "
+				"AudioOutput is null\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        if (_vstPlugin || _vstAudio)
-        {
-            Logger::Log(
-                "[VST] Unloading existing plugin "
-                "before loading new plugin\n");
+		if (_vstPlugin || _vstAudio)
+		{
+			Logger::Log(
+				"[VST] Unloading existing plugin "
+				"before loading new plugin\n");
 
-            unLoadPlugin();
-        }
+			unLoadPlugin();
+		}
 
-        _vstPlugin = new vst::VSTPlugin();
+		_vstPlugin = new vst::VSTPlugin();
 
-        if (!_vstPlugin->load(
-            path,
-            _output->sampleRate()))
-        {
-            Logger::Log(
-                "[VST] Failed to load plugin: %s\n",
-                path.c_str());
+		if (!_vstPlugin->load(
+			path,
+			_output->sampleRate()))
+		{
+			Logger::Log(
+				"[VST] Failed to load plugin: %s\n",
+				path.c_str());
 
-            delete _vstPlugin;
-            _vstPlugin = nullptr;
+			delete _vstPlugin;
+			_vstPlugin = nullptr;
 
-            return false;
-        }
+			return false;
+		}
 
-        _vstPath = path;
+		_vstPath = path;
 
-        _vstAudio = new vst::VSTAudio(
-            _vstPlugin->processor(),
-            _output->sampleRate(),
-            256);
+		_vstAudio = new vst::VSTAudio(
+			_vstPlugin->processor(),
+			_output->sampleRate(),
+			256);
 
-        if (!_vstAudio)
-        {
-            Logger::Log(
-                "[VST] Failed to create VSTAudio\n");
+		if (!_vstAudio)
+		{
+			Logger::Log(
+				"[VST] Failed to create VSTAudio\n");
 
-            _vstPlugin->unload();
+			_vstPlugin->unload();
 
-            delete _vstPlugin;
-            _vstPlugin = nullptr;
+			delete _vstPlugin;
+			_vstPlugin = nullptr;
 
-            _vstPath.clear();
+			_vstPath.clear();
 
-            return false;
-        }
+			return false;
+		}
 
-        return true;
-    }
+		return true;
+	}
 
 
-    void AudioEngine::unLoadPlugin()
-    {
-        stop();
+	void AudioEngine::unLoadPlugin()
+	{
+		stop();
 
-        if (_vstAudio)
-        {
-            delete _vstAudio;
-            _vstAudio = nullptr;
-        }
+		if (_vstAudio)
+		{
+			delete _vstAudio;
+			_vstAudio = nullptr;
+		}
 
-        if (_vstPlugin)
-        {
-            _vstPlugin->unload();
+		if (_vstPlugin)
+		{
+			_vstPlugin->unload();
 
-            delete _vstPlugin;
-            _vstPlugin = nullptr;
-        }
+			delete _vstPlugin;
+			_vstPlugin = nullptr;
+		}
 
-        _vstPath.clear();
+		_vstPath.clear();
 
-        Logger::Log(
-            "[VST] Plugin unloaded\n");
-    }
+		Logger::Log(
+			"[VST] Plugin unloaded\n");
+	}
 
 
-    // =========================================================
-    // START
-    // =========================================================
+	// =========================================================
+	// START
+	// =========================================================
 
-    bool AudioEngine::start()
-    {
-        if (_running)
-            return true;
+	bool AudioEngine::start()
+	{
+		if (_running)
+			return true;
 
-        if (!_initialized)
-        {
-            Logger::Log(
-                "[Audio] Cannot start engine: "
-                "AudioEngine is not initialized\n");
+		if (!_initialized)
+		{
+			Logger::Log(
+				"[Audio] Cannot start engine: "
+				"AudioEngine is not initialized\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        if (!_vstAudio)
-        {
-            Logger::Log(
-                "[Audio] Cannot start engine: "
-                "VSTAudio is null\n");
+		if (!_vstAudio)
+		{
+			Logger::Log(
+				"[Audio] Cannot start engine: "
+				"VSTAudio is null\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        if (!_output)
-        {
-            Logger::Log(
-                "[Audio] Cannot start engine: "
-                "AudioOutput is null\n");
+		if (!_output)
+		{
+			Logger::Log(
+				"[Audio] Cannot start engine: "
+				"AudioOutput is null\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        if (!_output->isInitialized())
-        {
-            Logger::Log(
-                "[Audio] Cannot start engine: "
-                "output is not initialized\n");
+		if (!_output->isInitialized())
+		{
+			Logger::Log(
+				"[Audio] Cannot start engine: "
+				"output is not initialized\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        if (!_output->isRunning() &&
-            !_output->start())
-        {
-            Logger::Log(
-                "[Audio] Cannot start engine: "
-                "failed to start output\n");
+		if (!_output->isRunning() &&
+			!_output->start())
+		{
+			Logger::Log(
+				"[Audio] Cannot start engine: "
+				"failed to start output\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        _stopRequested = false;
-        _running = true;
+		_stopRequested = false;
+		_running = true;
 
-        _thread =
-            std::thread(
-                &AudioEngine::threadMain,
-                this);
+		_thread =
+			std::thread(
+				&AudioEngine::threadMain,
+				this);
 
-        Logger::Log(
-            "[Audio] Audio engine started\n");
+		Logger::Log(
+			"[Audio] Audio engine started\n");
 
-        return true;
-    }
+		return true;
+	}
 
 
-    // =========================================================
-    // STOP
-    // =========================================================
+	// =========================================================
+	// STOP
+	// =========================================================
 
-    void AudioEngine::stop()
-    {
-        if (!_running &&
-            !_thread.joinable())
-        {
-            return;
-        }
+	void AudioEngine::stop()
+	{
+		if (!_running &&
+			!_thread.joinable())
+		{
+			return;
+		}
 
-        Logger::Log(
-            "[Audio] Stopping Audio thread...\n");
+		Logger::Log(
+			"[Audio] Stopping Audio thread...\n");
 
-        _stopRequested = true;
+		_stopRequested = true;
 
-        if (_thread.joinable())
-            _thread.join();
+		if (_thread.joinable())
+			_thread.join();
 
-        _running = false;
+		_running = false;
 
-        Logger::Log(
-            "[Audio] Audio thread stopped\n");
-    }
+		Logger::Log(
+			"[Audio] Audio thread stopped\n");
+	}
 
 
-    // =========================================================
-    // SHUTDOWN
-    // =========================================================
+	// =========================================================
+	// SHUTDOWN
+	// =========================================================
 
-    void AudioEngine::shutdown()
-    {
-        stop();
+	void AudioEngine::shutdown()
+	{
+		stop();
 
-        if (_output)
-        {
-            _output->stop();
-            _output->shutdown();
-        }
+		if (_output)
+		{
+			_output->stop();
+			_output->shutdown();
+		}
 
-        delete _vstAudio;
-        _vstAudio = nullptr;
+		delete _vstAudio;
+		_vstAudio = nullptr;
 
-        if (_vstPlugin)
-        {
-            _vstPlugin->unload();
+		if (_vstPlugin)
+		{
+			_vstPlugin->unload();
 
-            delete _vstPlugin;
-            _vstPlugin = nullptr;
-        }
+			delete _vstPlugin;
+			_vstPlugin = nullptr;
+		}
 
-        delete _output;
-        _output = nullptr;
+		delete _output;
+		_output = nullptr;
 
-        _vstPath.clear();
+		_vstPath.clear();
 
-        _initialized = false;
+		_initialized = false;
 
-        Logger::Log(
-            "[Audio] AudioEngine shutdown\n");
-    }
+		Logger::Log(
+			"[Audio] AudioEngine shutdown\n");
+	}
 
 
-    // =========================================================
-    // STATE
-    // =========================================================
+	// =========================================================
+	// STATE
+	// =========================================================
 
-    bool AudioEngine::isRunning() const
-    {
-        return _running;
-    }
+	bool AudioEngine::isRunning() const
+	{
+		return _running;
+	}
 
 
-    // =========================================================
-    // MIDI
-    // =========================================================
+	// =========================================================
+	// MIDI
+	// =========================================================
 
-    bool AudioEngine::noteOn(
-        int16_t channel,
-        int16_t pitch,
-        float velocity,
-        int32_t noteId)
-    {
-        if (!_vstAudio)
-            return false;
+	bool AudioEngine::noteOn(
+		int16_t channel,
+		int16_t pitch,
+		float velocity,
+		int32_t noteId)
+	{
+		if (!_vstAudio)
+			return false;
 
-        return _vstAudio->noteOn(
-            channel,
-            pitch,
-            velocity,
-            noteId);
-    }
+		return _vstAudio->noteOn(
+			channel,
+			pitch,
+			velocity,
+			noteId);
+	}
 
 
-    bool AudioEngine::noteOff(
-        int16_t channel,
-        int16_t pitch,
-        float velocity,
-        int32_t noteId)
-    {
-        if (!_vstAudio)
-            return false;
+	bool AudioEngine::noteOff(
+		int16_t channel,
+		int16_t pitch,
+		float velocity,
+		int32_t noteId)
+	{
+		if (!_vstAudio)
+			return false;
 
-        return _vstAudio->noteOff(
-            channel,
-            pitch,
-            velocity,
-            noteId);
-    }
+		return _vstAudio->noteOff(
+			channel,
+			pitch,
+			velocity,
+			noteId);
+	}
 
 
-    bool AudioEngine::controlChange(
-        int16_t channel,
-        int16_t controller,
-        int16_t value)
-    {
-        if (!_vstAudio)
-            return false;
+	bool AudioEngine::controlChange(
+		int16_t channel,
+		int16_t controller,
+		int16_t value)
+	{
+		if (!_vstAudio)
+			return false;
 
-        return _vstAudio->controlChange(
-            channel,
-            controller,
-            value);
-    }
+		return _vstAudio->controlChange(
+			channel,
+			controller,
+			value);
+	}
 
 
-    // =========================================================
-    // PLUGIN INFORMATION
-    // =========================================================
+	// =========================================================
+	// PLUGIN INFORMATION
+	// =========================================================
 
-    const std::string& AudioEngine::pluginName() const
-    {
-        if (!_vstPlugin || !_initialized)
-        {
-            static const std::string empty;
+	const std::string& AudioEngine::pluginName() const
+	{
+		if (!_vstPlugin || !_initialized)
+		{
+			static const std::string empty;
 
-            return empty;
-        }
+			return empty;
+		}
 
-        return _vstPlugin->editorName();
-    }
+		return _vstPlugin->editorName();
+	}
 
 
-    // =========================================================
-    // OUTPUT CONFIGURATION
-    // =========================================================
+	// =========================================================
+	// OUTPUT CONFIGURATION
+	// =========================================================
 
-    AudioOutput::Configuration
-        AudioEngine::outputConfiguration() const
-    {
-        if (!_output)
-        {
-            return AudioOutput::Configuration{};
-        }
+	AudioOutput::Configuration
+		AudioEngine::outputConfiguration() const
+	{
+		if (!_output)
+		{
+			return AudioOutput::Configuration{};
+		}
 
-        return _output->configuration();
-    }
+		return _output->configuration();
+	}
 
 
-    bool AudioEngine::setOutputDevice(
-        const std::wstring& deviceId)
-    {
-        if (!_output)
-        {
-            Logger::Log(
-                "[Audio] Cannot change output device: "
-                "AudioOutput is null\n");
+	bool AudioEngine::setOutputDevice(
+		const std::wstring& deviceId)
+	{
+		if (!_output)
+		{
+			Logger::Log(
+				"[Audio] Cannot change output device: "
+				"AudioOutput is null\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        AudioOutput::Configuration configuration =
-            _output->configuration();
+		AudioOutput::Configuration configuration =
+			_output->configuration();
 
-        configuration.deviceId = deviceId;
+		configuration.deviceId = deviceId;
 
-        Logger::Log(
-            "[Audio] Changing output device...\n");
+		Logger::Log(
+			"[Audio] Changing output device...\n");
 
-        return reconfigureOutput(configuration);
-    }
+		return reconfigureOutput(configuration);
+	}
 
 
-    bool AudioEngine::setOutputSampleRate(
-        double sampleRate)
-    {
-        if (!_output)
-        {
-            Logger::Log(
-                "[Audio] Cannot change sample rate: "
-                "AudioOutput is null\n");
+	bool AudioEngine::setOutputSampleRate(
+		double sampleRate)
+	{
+		if (!_output)
+		{
+			Logger::Log(
+				"[Audio] Cannot change sample rate: "
+				"AudioOutput is null\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        if (sampleRate < 0.0)
-        {
-            Logger::Log(
-                "[Audio] Invalid sample rate: %.2f\n",
-                sampleRate);
+		if (sampleRate < 0.0)
+		{
+			Logger::Log(
+				"[Audio] Invalid sample rate: %.2f\n",
+				sampleRate);
 
-            return false;
-        }
+			return false;
+		}
 
-        AudioOutput::Configuration configuration =
-            _output->configuration();
+		AudioOutput::Configuration configuration =
+			_output->configuration();
 
-        configuration.sampleRate = sampleRate;
+		configuration.sampleRate = sampleRate;
 
-        Logger::Log(
-            "[Audio] Changing output sample rate to %.2f Hz...\n",
-            sampleRate);
+		Logger::Log(
+			"[Audio] Changing output sample rate to %.2f Hz...\n",
+			sampleRate);
 
-        return reconfigureOutput(configuration);
-    }
+		return reconfigureOutput(configuration);
+	}
 
 
-    bool AudioEngine::setOutputBufferDuration(
-        double milliseconds)
-    {
-        if (!_output)
-        {
-            Logger::Log(
-                "[Audio] Cannot change buffer duration: "
-                "AudioOutput is null\n");
+	bool AudioEngine::setOutputBufferDuration(
+		double milliseconds)
+	{
+		if (!_output)
+		{
+			Logger::Log(
+				"[Audio] Cannot change buffer duration: "
+				"AudioOutput is null\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        if (milliseconds <= 0.0)
-        {
-            Logger::Log(
-                "[Audio] Invalid buffer duration: %.2f ms\n",
-                milliseconds);
+		if (milliseconds <= 0.0)
+		{
+			Logger::Log(
+				"[Audio] Invalid buffer duration: %.2f ms\n",
+				milliseconds);
 
-            return false;
-        }
+			return false;
+		}
 
-        AudioOutput::Configuration configuration =
-            _output->configuration();
+		AudioOutput::Configuration configuration =
+			_output->configuration();
 
-        configuration.bufferDurationMs = milliseconds;
+		configuration.bufferDurationMs = milliseconds;
 
-        Logger::Log(
-            "[Audio] Changing output buffer duration "
-            "to %.2f ms...\n",
-            milliseconds);
+		Logger::Log(
+			"[Audio] Changing output buffer duration "
+			"to %.2f ms...\n",
+			milliseconds);
 
-        return reconfigureOutput(configuration);
-    }
+		return reconfigureOutput(configuration);
+	}
 
 
-    bool AudioEngine::setOutputFallbackToDefaultDevice(
-        bool enabled)
-    {
-        if (!_output)
-        {
-            Logger::Log(
-                "[Audio] Cannot change fallback behavior: "
-                "AudioOutput is null\n");
+	bool AudioEngine::setOutputFallbackToDefaultDevice(
+		bool enabled)
+	{
+		if (!_output)
+		{
+			Logger::Log(
+				"[Audio] Cannot change fallback behavior: "
+				"AudioOutput is null\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        AudioOutput::Configuration configuration =
-            _output->configuration();
+		AudioOutput::Configuration configuration =
+			_output->configuration();
 
-        configuration.fallbackToDefaultDevice = enabled;
+		configuration.fallbackToDefaultDevice = enabled;
 
-        Logger::Log(
-            "[Audio] %s fallback to the default output device\n",
-            enabled ? "Enabled" : "Disabled");
+		Logger::Log(
+			"[Audio] %s fallback to the default output device\n",
+			enabled ? "Enabled" : "Disabled");
 
-        return reconfigureOutput(configuration);
-    }
+		return reconfigureOutput(configuration);
+	}
 
 
-    // =========================================================
-    // LIVE VOLUME / MUTE
-    // =========================================================
+	// =========================================================
+	// LIVE VOLUME / MUTE
+	// =========================================================
 
-    void AudioEngine::setOutputVolume(
-        float volume)
-    {
-        if (!_output)
-            return;
+	void AudioEngine::setOutputVolume(
+		float volume)
+	{
+		if (!_output)
+			return;
 
-        _output->setVolume(volume);
-    }
+		_output->setVolume(volume);
+	}
 
 
-    float AudioEngine::outputVolume() const
-    {
-        if (!_output)
-            return 1.0f;
+	float AudioEngine::outputVolume() const
+	{
+		if (!_output)
+			return 1.0f;
 
-        return _output->volume();
-    }
+		return _output->volume();
+	}
 
 
-    void AudioEngine::setOutputMuted(
-        bool muted)
-    {
-        if (!_output)
-            return;
+	void AudioEngine::setOutputMuted(
+		bool muted)
+	{
+		if (!_output)
+			return;
 
-        _output->setMuted(muted);
-    }
+		_output->setMuted(muted);
+	}
 
 
-    bool AudioEngine::outputMuted() const
-    {
-        if (!_output)
-            return false;
+	bool AudioEngine::outputMuted() const
+	{
+		if (!_output)
+			return false;
 
-        return _output->isMuted();
-    }
+		return _output->isMuted();
+	}
 
 
-    // =========================================================
-    // DEVICE ENUMERATION
-    // =========================================================
+	// =========================================================
+	// DEVICE ENUMERATION
+	// =========================================================
 
-    std::vector<AudioOutput::Device>
-        AudioEngine::enumerateOutputDevices()
-    {
-        return AudioOutput::enumerateDevices();
-    }
+	std::vector<AudioOutput::Device>
+		AudioEngine::enumerateOutputDevices()
+	{
+		return AudioOutput::enumerateDevices();
+	}
 
 
-    // =========================================================
-    // OUTPUT RECONFIGURATION
-    // =========================================================
+	// =========================================================
+	// OUTPUT RECONFIGURATION
+	// =========================================================
 
-    bool AudioEngine::reconfigureOutput(
-        const AudioOutput::Configuration& configuration)
-    {
-        if (!_output)
-        {
-            Logger::Log(
-                "[Audio] Cannot reconfigure output: "
-                "AudioOutput is null\n");
+	bool AudioEngine::reconfigureOutput(
+		const AudioOutput::Configuration& configuration)
+	{
+		if (!_output)
+		{
+			Logger::Log(
+				"[Audio] Cannot reconfigure output: "
+				"AudioOutput is null\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        const std::string previousVSTPath =
-            _vstPath;
+		const std::string previousVSTPath =
+			_vstPath;
 
-        const bool hadPlugin =
-            (_vstPlugin != nullptr);
+		const bool hadPlugin =
+			(_vstPlugin != nullptr);
 
-        Logger::Log(
-            "[Audio] Reconfiguring audio output...\n");
+		Logger::Log(
+			"[Audio] Reconfiguring audio output...\n");
 
-        // -----------------------------------------------------
-        // Stop audio thread
-        // -----------------------------------------------------
+		// -----------------------------------------------------
+		// Stop audio thread
+		// -----------------------------------------------------
 
-        stop();
+		stop();
 
-        // -----------------------------------------------------
-        // Remove VST audio processor
-        // -----------------------------------------------------
+		// -----------------------------------------------------
+		// Remove VST audio processor
+		// -----------------------------------------------------
 
-        if (_vstAudio)
-        {
-            delete _vstAudio;
-            _vstAudio = nullptr;
-        }
+		if (_vstAudio)
+		{
+			delete _vstAudio;
+			_vstAudio = nullptr;
+		}
 
-        // -----------------------------------------------------
-        // Unload VST
-        //
-        // This is required because a sample-rate change means
-        // the VST needs to be recreated with the new rate.
-        // -----------------------------------------------------
+		// -----------------------------------------------------
+		// Unload VST
+		//
+		// This is required because a sample-rate change means
+		// the VST needs to be recreated with the new rate.
+		// -----------------------------------------------------
 
-        if (_vstPlugin)
-        {
-            _vstPlugin->unload();
+		if (_vstPlugin)
+		{
+			_vstPlugin->unload();
 
-            delete _vstPlugin;
-            _vstPlugin = nullptr;
-        }
+			delete _vstPlugin;
+			_vstPlugin = nullptr;
+		}
 
-        _vstPath.clear();
+		_vstPath.clear();
 
-        // -----------------------------------------------------
-        // Reinitialize AudioOutput
-        // -----------------------------------------------------
+		// -----------------------------------------------------
+		// Reinitialize AudioOutput
+		// -----------------------------------------------------
 
-        _output->stop();
-        _output->shutdown();
+		_output->stop();
+		_output->shutdown();
 
-        if (!_output->initialize(configuration))
-        {
-            Logger::Log(
-                "[Audio] Failed to reinitialize AudioOutput\n");
+		if (!_output->initialize(configuration))
+		{
+			Logger::Log(
+				"[Audio] Failed to reinitialize AudioOutput\n");
 
-            return false;
-        }
+			return false;
+		}
 
-        Logger::Log(
-            "[Audio] Audio output reconfigured successfully\n");
+		Logger::Log(
+			"[Audio] Audio output reconfigured successfully\n");
 
-        Logger::Log(
-            "[Audio] Device: %ls\n",
-            _output->deviceName().c_str());
+		Logger::Log(
+			"[Audio] Device: %ls\n",
+			_output->deviceName().c_str());
 
-        Logger::Log(
-            "[Audio] Sample rate: %.0f Hz\n",
-            _output->sampleRate());
+		Logger::Log(
+			"[Audio] Sample rate: %.0f Hz\n",
+			_output->sampleRate());
 
-        Logger::Log(
-            "[Audio] Buffer: %.2f ms\n",
-            _output->configuration().bufferDurationMs);
+		Logger::Log(
+			"[Audio] Buffer: %.2f ms\n",
+			_output->configuration().bufferDurationMs);
 
-        // -----------------------------------------------------
-        // Reload previous VST
-        // -----------------------------------------------------
+		// -----------------------------------------------------
+		// Reload previous VST
+		// -----------------------------------------------------
 
-        if (hadPlugin && !previousVSTPath.empty())
-        {
-            Logger::Log(
-                "[VST] Reloading plugin after output "
-                "reconfiguration: %s\n",
-                previousVSTPath.c_str());
+		if (hadPlugin && !previousVSTPath.empty())
+		{
+			Logger::Log(
+				"[VST] Reloading plugin after output "
+				"reconfiguration: %s\n",
+				previousVSTPath.c_str());
 
-            if (!loadPlugin(previousVSTPath))
-            {
-                Logger::Log(
-                    "[VST] Failed to reload plugin after "
-                    "output reconfiguration\n");
+			if (!loadPlugin(previousVSTPath))
+			{
+				Logger::Log(
+					"[VST] Failed to reload plugin after "
+					"output reconfiguration\n");
 
-                return false;
-            }
-        }
+				return false;
+			}
+		}
 
-        start();
+		start();
 
-        return true;
-    }
+		return true;
+	}
 
 
-    // =========================================================
-    // AUDIO THREAD
-    // =========================================================
+	// =========================================================
+	// AUDIO THREAD
+	// =========================================================
 
-    void AudioEngine::threadMain()
-    {
-        Logger::Log(
-            "[Audio] Audio thread started\n");
+	void AudioEngine::threadMain()
+	{
+		Logger::Log(
+			"[Audio] Audio thread started\n");
 
-        if (!_vstAudio || !_output)
-        {
-            Logger::Log(
-                "[Audio] Audio thread cannot start: "
-                "missing VSTAudio or AudioOutput\n");
+		if (!_vstAudio || !_output)
+		{
+			Logger::Log(
+				"[Audio] Audio thread cannot start: "
+				"missing VSTAudio or AudioOutput\n");
 
-            _running = false;
-            return;
-        }
+			_running = false;
+			return;
+		}
 
-        DWORD taskIndex = 0;
+		DWORD taskIndex = 0;
 
-        HANDLE mmcssHandle =
-            AvSetMmThreadCharacteristicsW(
-                L"Pro Audio",
-                &taskIndex);
+		HANDLE mmcssHandle =
+			AvSetMmThreadCharacteristicsW(
+				L"Pro Audio",
+				&taskIndex);
 
-        if (!mmcssHandle)
-        {
-            Logger::Log(
-                "[Audio] Failed to register audio thread with MMCSS\n");
-        }
-        else
-        {
-            Logger::Log(
-                "[Audio] Audio thread registered with MMCSS (Pro Audio)\n");
-        }
+		if (!mmcssHandle)
+		{
+			Logger::Log(
+				"[Audio] Failed to register audio thread with MMCSS\n");
+		}
+		else
+		{
+			Logger::Log(
+				"[Audio] Audio thread registered with MMCSS (Pro Audio)\n");
+		}
 
-        const int32_t blockSize =
-            _vstAudio->maxBlockSize();
+		const int32_t blockSize =
+			_vstAudio->maxBlockSize();
 
-        Logger::Log(
-            "[Audio] VST block size: %d\n\n",
-            blockSize);
+		Logger::Log(
+			"[Audio] VST block size: %d\n\n",
+			blockSize);
 
-        while (!_stopRequested)
-        {
-            // Wait for an endpoint wake-up only while its render buffer is
-            // completely full.  Once awake, fill every available frame below
-            // rather than leaving a partial block as a fragile timing gap.
-            if (!_output->waitForSpace(1))
-            {
-                Logger::Log(
-                    "[Audio] Failed waiting for output space\n");
+		while (!_stopRequested)
+		{
+			// Wait for an endpoint wake-up only while its render buffer is
+			// completely full.  Once awake, fill every available frame below
+			// rather than leaving a partial block as a fragile timing gap.
+			if (!_output->waitForSpace(1))
+			{
+				Logger::Log(
+					"[Audio] Failed waiting for output space\n");
 
-                break;
-            }
+				break;
+			}
 
-            if (_stopRequested)
-                break;
+			if (_stopRequested)
+				break;
 
-            int32_t availableFrames =
-                _output->availableFrames();
+			int32_t availableFrames =
+				_output->availableFrames();
 
-            if (availableFrames < 0)
-            {
-                Logger::Log(
-                    "[Audio] Failed to query output space\n");
+			if (availableFrames < 0)
+			{
+				Logger::Log(
+					"[Audio] Failed to query output space\n");
 
-                break;
-            }
+				break;
+			}
 
-            while (availableFrames > 0 &&
-                !_stopRequested)
-            {
-                const int32_t framesToProcess =
-                    (std::min)(
-                        blockSize,
-                        availableFrames);
+			while (availableFrames > 0 &&
+				!_stopRequested)
+			{
+				const int32_t framesToProcess =
+					(std::min)(
+						blockSize,
+						availableFrames);
 
-                if (!_vstAudio->process(framesToProcess))
-                {
-                    Logger::Log(
-                        "[Audio] VST processing failed\n");
+				if (!_vstAudio->process(framesToProcess))
+				{
+					Logger::Log(
+						"[Audio] VST processing failed\n");
 
-                    _stopRequested = true;
-                    break;
-                }
+					_stopRequested = true;
+					break;
+				}
 
-                if (!_output->write(
-                    _vstAudio->channels(),
-                    _vstAudio->numChannels(),
-                    _vstAudio->numSamples()))
-                {
-                    Logger::Log(
-                        "[Audio] Failed writing VST audio\n");
+				if (!_output->write(
+					_vstAudio->channels(),
+					_vstAudio->numChannels(),
+					_vstAudio->numSamples()))
+				{
+					Logger::Log(
+						"[Audio] Failed writing VST audio\n");
 
-                    _stopRequested = true;
-                    break;
-                }
+					_stopRequested = true;
+					break;
+				}
 
-                availableFrames =
-                    _output->availableFrames();
+				availableFrames =
+					_output->availableFrames();
 
-                if (availableFrames < 0)
-                {
-                    Logger::Log(
-                        "[Audio] Failed to query output space\n");
+				if (availableFrames < 0)
+				{
+					Logger::Log(
+						"[Audio] Failed to query output space\n");
 
-                    _stopRequested = true;
-                    break;
-                }
-            }
-        }
+					_stopRequested = true;
+					break;
+				}
+			}
+		}
 
-        if (mmcssHandle)
-        {
-            AvRevertMmThreadCharacteristics(
-                mmcssHandle);
-        }
+		if (mmcssHandle)
+		{
+			AvRevertMmThreadCharacteristics(
+				mmcssHandle);
+		}
 
-        _running = false;
+		_running = false;
 
-        Logger::Log(
-            "[Audio] Audio thread stopped\n");
-    }
+		Logger::Log(
+			"[Audio] Audio thread stopped\n");
+	}
 
 }

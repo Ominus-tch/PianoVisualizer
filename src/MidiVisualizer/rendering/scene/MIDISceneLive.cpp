@@ -25,6 +25,7 @@
 
 MIDISceneLive::~MIDISceneLive()
 {
+	stopLooperPlayback();
 	clearEchoes();
 }
 
@@ -62,6 +63,404 @@ void MIDISceneLive::setKeybindHandler(
 	_keybindHandler = std::move(handler);
 }
 
+void MIDISceneLive::startLooperRecording()
+{
+	// Starting a new take replaces the previous loop.
+	_looperRecording = false;
+	stopLooperPlayback();
+
+	_looperEvents.clear();
+	_looperLength = 0.0;
+
+	for (auto& channel : _looperRecordingNoteIds)
+		for (auto& notes : channel)
+			notes.clear();
+
+	_nextLooperNoteId = 1;
+
+	_looperRecordingStartTime = _currentUpdateTime;
+	_looperRecording = true;
+}
+
+
+void MIDISceneLive::stopLooperRecordingAndStart()
+{
+	if (!_looperRecording)
+		return;
+
+	_looperRecording = false;
+
+	_looperLength = (std::max)(
+		_currentUpdateTime - _looperRecordingStartTime,
+		0.0
+		);
+
+	// Close any notes that were still held when recording ended.
+	// This prevents notes from becoming stuck across loop iterations.
+	for (short channel = 0; channel < 16; ++channel)
+	{
+		for (short note = 0; note < 128; ++note)
+		{
+			auto& activeNotes = _looperRecordingNoteIds[channel][note];
+
+			for (uint64_t noteId : activeNotes)
+			{
+				_looperEvents.push_back({
+					LooperEvent::Type::NoteOff,
+					_looperLength,
+					channel,
+					note,
+					0,
+					noteId
+					});
+			}
+
+			activeNotes.clear();
+		}
+	}
+
+	// Preserve input order for events occurring at the same timestamp.
+	std::stable_sort(
+		_looperEvents.begin(),
+		_looperEvents.end(),
+		[](const LooperEvent& a, const LooperEvent& b)
+		{
+			return a.time < b.time;
+		}
+	);
+
+	if (_looperEvents.empty())
+	{
+		_looperLength = 0.0;
+		return;
+	}
+
+	// Remove silence before the first event.
+	const double firstEventTime = _looperEvents.front().time;
+
+	for (auto& event : _looperEvents)
+		event.time -= firstEventTime;
+
+	// Remove silence after the last event.
+	_looperLength -= firstEventTime;
+
+	if (_looperLength <= 0.0)
+	{
+		_looperEvents.clear();
+		_looperLength = 0.0;
+		return;
+	}
+
+	// Start playback immediately from the first event.
+	startLooperPlayback();
+}
+
+
+void MIDISceneLive::startLooperPlayback()
+{
+	if (_looperRecording || !hasLooperRecording())
+		return;
+
+	stopLooperPlayback();
+
+	_looperPlaybackStartTime = _currentUpdateTime;
+	_looperPlaybackEventIndex = 0;
+	_looperPlaybackIteration = 0;
+	_looperPlaying = true;
+}
+
+
+void MIDISceneLive::stopLooperPlayback()
+{
+	_looperPlaying = false;
+
+	int minUpdated = MAX_NOTES_IN_FLIGHT;
+	int maxUpdated = 0;
+
+	// Release only voices created by the looper.
+	for (const auto& [voiceId, looper] : _activeLooperNotes)
+	{
+		auto& note = _notes[looper.noteIndex];
+
+		note.duration = (std::max)(
+			float(_currentUpdateTime) - note.start,
+			0.0f
+			);
+
+		if (_audioEngine)
+		{
+			_audioEngine->noteOff(
+				looper.channel,
+				looper.audioNote,
+				0.0f,
+				static_cast<int32_t>(voiceId & 0x7fffffff)
+			);
+		}
+
+		minUpdated = (std::min)(minUpdated, looper.noteIndex);
+		maxUpdated = (std::max)(maxUpdated, looper.noteIndex);
+	}
+
+	_activeLooperNotes.clear();
+	_looperPlaybackVoiceIds.clear();
+
+	_looperPlaybackEventIndex = 0;
+	_looperPlaybackIteration = 0;
+
+	// Don't clear a key that is still physically held or has an echo voice.
+	for (size_t note = 0; note < _actives.size(); ++note)
+	{
+		if (!_activeRecording[note] &&
+			!hasActiveEchoForNote(static_cast<short>(note)))
+		{
+			_actives[note] = -1;
+		}
+	}
+
+	if (minUpdated <= maxUpdated)
+	{
+		_dirtyNotes = true;
+		_dirtyNotesRange = { minUpdated, maxUpdated };
+	}
+}
+
+
+void MIDISceneLive::clearLooperRecording()
+{
+	_looperRecording = false;
+	stopLooperPlayback();
+
+	_looperEvents.clear();
+	_looperLength = 0.0;
+
+	for (auto& channel : _looperRecordingNoteIds)
+		for (auto& notes : channel)
+			notes.clear();
+}
+
+void MIDISceneLive::recordLooperEvent(
+	short channel,
+	short note,
+	short velocity,
+	bool pressed,
+	double time)
+{
+	if (!_looperRecording)
+		return;
+
+	channel = clamp<short>(channel, 0, 15);
+	note = clamp<short>(note, 0, 127);
+
+	const double eventTime = (std::max)(
+		time - _looperRecordingStartTime,
+		0.0
+		);
+
+	auto& activeNotes = _looperRecordingNoteIds[channel][note];
+
+	if (pressed)
+	{
+		const uint64_t noteId = _nextLooperNoteId++;
+		activeNotes.push_back(noteId);
+
+		_looperEvents.push_back({
+			LooperEvent::Type::NoteOn,
+			eventTime,
+			channel,
+			note,
+			velocity,
+			noteId
+			});
+	}
+	else
+	{
+		if (activeNotes.empty())
+			return;
+
+		const uint64_t noteId = activeNotes.back();
+		activeNotes.pop_back();
+
+		_looperEvents.push_back({
+			LooperEvent::Type::NoteOff,
+			eventTime,
+			channel,
+			note,
+			velocity,
+			noteId
+			});
+	}
+}
+
+void MIDISceneLive::dispatchDueLooperEvents(
+	double time,
+	int& minUpdated,
+	int& maxUpdated)
+{
+	if (!_looperPlaying || _looperEvents.empty() || _looperLength <= 0.0)
+		return;
+
+	while (_looperPlaying)
+	{
+		if (_looperPlaybackEventIndex >= _looperEvents.size())
+		{
+			_looperPlaybackEventIndex = 0;
+			++_looperPlaybackIteration;
+		}
+
+		const auto& event = _looperEvents[_looperPlaybackEventIndex];
+
+		const double dispatchTime =
+			_looperPlaybackStartTime
+			+ _looperPlaybackIteration * _looperLength
+			+ event.time;
+
+		if (dispatchTime > time)
+			break;
+
+		if (event.type == LooperEvent::Type::NoteOn)
+			startLooperNote(event, dispatchTime, minUpdated, maxUpdated);
+		else
+			stopLooperNote(event, dispatchTime, minUpdated, maxUpdated);
+
+		++_looperPlaybackEventIndex;
+	}
+}
+
+void MIDISceneLive::startLooperNote(
+	const LooperEvent& event,
+	double dispatchTime,
+	int& minUpdated,
+	int& maxUpdated)
+{
+	const int index = _notesCount % MAX_NOTES_IN_FLIGHT;
+	auto& newNote = _notes[index];
+
+	newNote.start = float(dispatchTime);
+	newNote.duration = 0.0f;
+	newNote.note = event.note;
+
+	_notesInfos[index].channel = event.channel;
+	_notesInfos[index].note = event.note;
+
+	newNote.set = float(_currentSetOption.apply(
+		int(event.note),
+		event.channel,
+		0,
+		newNote.start
+	));
+
+	newNote.isMinor = noteIsMinor[event.note % 12] ? 1.0f : 0.0f;
+	newNote.note = float(
+		(event.note / 12) * 7 + noteShift[event.note % 12]
+		);
+
+	const short transposedNote = audioNote(event.note);
+	const uint64_t voiceId = _nextEchoVoiceId++;
+
+	_activeLooperNotes[voiceId] = {
+		index,
+		event.channel,
+		event.note,
+		transposedNote
+	};
+
+	_looperPlaybackVoiceIds[event.recordedNoteId].push_back(voiceId);
+
+	_actives[event.note] = int(newNote.set);
+
+	for (auto& particle : _particles)
+	{
+		if (particle.note >= 0)
+			continue;
+
+		particle.duration = 10.0f;
+		particle.start = newNote.start;
+		particle.note = event.note;
+		particle.set = int(newNote.set);
+		particle.elapsed = 0.0f;
+		break;
+	}
+
+	if (_audioEngine)
+	{
+		_audioEngine->noteOn(
+			event.channel,
+			transposedNote,
+			float(event.velocity) / 127.0f,
+			static_cast<int32_t>(voiceId & 0x7fffffff)
+		);
+	}
+
+	++_notesCount;
+
+	minUpdated = (std::min)(minUpdated, index);
+	maxUpdated = (std::max)(maxUpdated, index);
+}
+
+void MIDISceneLive::stopLooperNote(
+	const LooperEvent& event,
+	double dispatchTime,
+	int& minUpdated,
+	int& maxUpdated)
+{
+	auto voices = _looperPlaybackVoiceIds.find(event.recordedNoteId);
+
+	if (voices == _looperPlaybackVoiceIds.end() || voices->second.empty())
+		return;
+
+	const uint64_t voiceId = voices->second.back();
+	voices->second.pop_back();
+
+	if (voices->second.empty())
+		_looperPlaybackVoiceIds.erase(voices);
+
+	const auto active = _activeLooperNotes.find(voiceId);
+	if (active == _activeLooperNotes.end())
+		return;
+
+	const ActiveLooperNote looper = active->second;
+
+	auto& note = _notes[looper.noteIndex];
+	note.duration = (std::max)(
+		float(dispatchTime) - note.start,
+		0.0f
+		);
+
+	if (_audioEngine)
+	{
+		_audioEngine->noteOff(
+			looper.channel,
+			looper.audioNote,
+			float(event.velocity) / 127.0f,
+			static_cast<int32_t>(voiceId & 0x7fffffff)
+		);
+	}
+
+	_activeLooperNotes.erase(active);
+
+	if (!_activeRecording[looper.note] &&
+		!hasActiveEchoForNote(looper.note) &&
+		!hasActiveLooperForNote(looper.note))
+	{
+		_actives[looper.note] = -1;
+	}
+
+	minUpdated = (std::min)(minUpdated, looper.noteIndex);
+	maxUpdated = (std::max)(maxUpdated, looper.noteIndex);
+}
+
+bool MIDISceneLive::hasActiveLooperForNote(short note) const
+{
+	for (const auto& [voiceId, looper] : _activeLooperNotes)
+	{
+		(void)voiceId;
+
+		if (looper.note == note)
+			return true;
+	}
+
+	return false;
+}
 
 void MIDISceneLive::scheduleEchoes(
 	short channel,
@@ -235,8 +634,12 @@ void MIDISceneLive::stopEchoNote(
 	recordEchoEvent(event);
 
 	_activeEchoNotes.erase(active);
-	if (!_activeRecording[echo.note] && !hasActiveEchoForNote(echo.note))
+	if (!_activeRecording[echo.note] &&
+		!hasActiveEchoForNote(echo.note) &&
+		!hasActiveLooperForNote(echo.note))
+	{
 		_actives[echo.note] = -1;
+	}
 
 	minUpdated = (std::min)(minUpdated, echo.noteIndex);
 	maxUpdated = (std::max)(maxUpdated, echo.noteIndex);
@@ -306,8 +709,11 @@ void MIDISceneLive::clearEchoes()
 
 	for (size_t note = 0; note < _actives.size(); ++note)
 	{
-		if (!_activeRecording[note])
+		if (!_activeRecording[note] &&
+			!hasActiveLooperForNote(static_cast<short>(note)))
+		{
 			_actives[note] = -1;
+		}
 	}
 
 	if (minUpdated <= maxUpdated)
@@ -502,6 +908,7 @@ void MIDISceneLive::updatesActiveNotes(
 {
 	(void)filter;
 
+	_currentUpdateTime = time;
 
 	/*
 	 * IMPORTANT:
@@ -604,6 +1011,18 @@ void MIDISceneLive::updatesActiveNotes(
 		maxUpdated = (std::max)(maxUpdated, echo.noteIndex);
 	}
 
+	for (const auto& [voiceId, looper] : _activeLooperNotes)
+	{
+		(void)voiceId;
+
+		auto& note = _notes[looper.noteIndex];
+		note.duration = (std::max)(float(time) - note.start, 0.0f);
+
+		_actives[looper.note] = int(note.set);
+
+		minUpdated = (std::min)(minUpdated, looper.noteIndex);
+		maxUpdated = (std::max)(maxUpdated, looper.noteIndex);
+	}
 
 	/*
 	 * Extend active notes.
@@ -734,6 +1153,14 @@ void MIDISceneLive::updatesActiveNotes(
 				frame.messages.pop_back();
 				continue;
 			}
+
+			recordLooperEvent(
+				static_cast<short>(message.get_channel()),
+				note,
+				velocity,
+				pressed,
+				time
+			);
 
 
 			if (_verbose)
@@ -1099,6 +1526,7 @@ void MIDISceneLive::updatesActiveNotes(
 	// Echo events are dispatched on the live scene's owner thread. This keeps
 	// scene data and VST event submission synchronized without a sleep thread.
 	dispatchDueEchoes(time, minUpdated, maxUpdated);
+	dispatchDueLooperEvents(time, minUpdated, maxUpdated);
 
 
 	/*

@@ -182,6 +182,8 @@ struct PianoCameraPose
     float focalLength = 0.0f;
     float horizontalFovDegrees = 0.0f;
 
+    float pianoWidth = 0.0f;
+
     bool valid = false;
 };
 
@@ -600,11 +602,12 @@ static PianoCameraPose CalculatePianoCameraPose(
         return pose;
     }
 
+    const float widthScale = norm1 / norm2;
+    pose.pianoWidth =
+        (16.0f/9.0f) * widthScale;
 
     const float lambda =
-        2.0f /
-        (norm1 + norm2);
-
+        1.0f / norm2;
 
     // ---------------------------------------------------------
     // Recover rotation axes.
@@ -796,52 +799,32 @@ static bool ProjectPianoPoint(
         std::isfinite(outY);
 }
 
+
 static bool CalculateSurfaceHeightToTop(
     const PianoCameraPose& pose,
     float planePivot,
-    float visibleLeftX,
-    float visibleRightX,
     float& outSurfaceHeight
 )
 {
-    if (!pose.valid)
+    if (!pose.valid || pose.pianoWidth <= 0.0f)
         return false;
 
-    if (!std::isfinite(visibleLeftX) ||
-        !std::isfinite(visibleRightX) ||
-        visibleLeftX >= visibleRightX)
-    {
-        return false;
-    }
+    const float pi = 3.14159265358979323846f;
 
-    const float pi =
-        3.14159265358979323846f;
+    const float angle = planePivot * pi / 180.0f;
 
-    const float angle =
-        planePivot * pi / 180.0f;
-
-    const float c =
-        std::cos(angle);
-
-    const float s =
-        std::sin(angle);
+    const float c = std::cos(angle);
+    const float s = std::sin(angle);
 
     const float q =
-        pose.K[1][2] /
-        pose.K[1][1];
+        pose.K[1][2] / pose.K[1][1];
+
+    // The FULL piano boundaries, not the selected interval.
+    const float leftX = 0.0f;
+    const float rightX = pose.pianoWidth;
 
     // ---------------------------------------------------------
     // Solve the surface height for one top corner.
-    //
-    // Camera-space:
-    //
-    // Y = A + hB
-    // Z = C + hD
-    //
-    // We want projected Y = 0:
-    //
-    //     fy * Y / Z + cy = 0
-    //
     // ---------------------------------------------------------
 
     auto SolveCorner =
@@ -870,48 +853,33 @@ static bool CalculateSurfaceHeightToTop(
                 return false;
 
             height =
-                (-q * C - A) /
-                denominator;
+                (-q * C - A) / denominator;
 
             return std::isfinite(height) &&
                 height > 0.0f;
         };
 
-
     float leftHeight = 0.0f;
     float rightHeight = 0.0f;
 
     const bool leftValid =
-        SolveCorner(
-            visibleLeftX,
-            leftHeight
-        );
+        SolveCorner(leftX, leftHeight);
 
     const bool rightValid =
-        SolveCorner(
-            visibleRightX,
-            rightHeight
-        );
-
+        SolveCorner(rightX, rightHeight);
 
     if (!leftValid && !rightValid)
         return false;
 
-
     // ---------------------------------------------------------
-    // Determine which candidate actually makes the LOWER
-    // top corner touch the top of the image.
+    // Project the top corner to screen space.
     // ---------------------------------------------------------
 
     auto ProjectTopY =
         [&](float x, float height) -> float
         {
-            const float worldY =
-                height * c;
-
-            const float worldZ =
-                -height * s;
-
+            const float worldY = height * c;
+            const float worldZ = -height * s;
 
             const float cameraY =
                 pose.r1.y * x +
@@ -925,12 +893,8 @@ static bool CalculateSurfaceHeightToTop(
                 pose.r3.z * worldZ +
                 pose.translation.z;
 
-
             if (cameraZ <= 0.000001f)
-            {
                 return std::numeric_limits<float>::infinity();
-            }
-
 
             return
                 pose.K[1][1] *
@@ -938,25 +902,24 @@ static bool CalculateSurfaceHeightToTop(
                 pose.K[1][2];
         };
 
+    // ---------------------------------------------------------
+    // Test both possible heights.
+    //
+    // We want the lower of the two top corners to touch
+    // the top of the image.
+    // ---------------------------------------------------------
 
     float bestHeight = 0.0f;
-    float bestError = 1e30f;
-
+    float bestError = std::numeric_limits<float>::infinity();
 
     auto TestCandidate =
         [&](float height)
         {
             const float leftY =
-                ProjectTopY(
-                    visibleLeftX,
-                    height
-                );
+                ProjectTopY(leftX, height);
 
             const float rightY =
-                ProjectTopY(
-                    visibleRightX,
-                    height
-                );
+                ProjectTopY(rightX, height);
 
             if (!std::isfinite(leftY) ||
                 !std::isfinite(rightY))
@@ -964,13 +927,8 @@ static bool CalculateSurfaceHeightToTop(
                 return;
             }
 
-            // The lower of the two top corners is the one with
-            // the larger screen-space Y.
             const float lowerY =
-                max(
-                    leftY,
-                    rightY
-                );
+                max(leftY, rightY);
 
             const float error =
                 std::abs(lowerY);
@@ -982,13 +940,11 @@ static bool CalculateSurfaceHeightToTop(
             }
         };
 
-
     if (leftValid)
         TestCandidate(leftHeight);
 
     if (rightValid)
         TestCandidate(rightHeight);
-
 
     if (!std::isfinite(bestHeight) ||
         bestHeight <= 0.0f)
@@ -996,9 +952,7 @@ static bool CalculateSurfaceHeightToTop(
         return false;
     }
 
-
-    outSurfaceHeight =
-        bestHeight;
+    outSurfaceHeight = bestHeight;
 
     return true;
 }

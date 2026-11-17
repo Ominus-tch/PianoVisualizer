@@ -14,6 +14,7 @@
 #include <string>
 
 #include "logger.h"
+#include "noteRange.h"
 
 using json = nlohmann::json;
 
@@ -205,7 +206,9 @@ namespace Config {
         IncreaseRepetitions,
         DecreaseRepetitions,
         TransposeUp,
-        TransposeDown
+        TransposeDown,
+        StartLooperRecording,
+        EndLooperRecording
     };
 
     struct FunKeybind
@@ -295,7 +298,7 @@ namespace Config {
                         keybind.key = item.value("key", 0);
                         keybind.modifiers = item.value("modifiers", 0);
                         keybind.enabled = item.value("enabled", true);
-                        if (action >= 0 && action <= 4 &&
+                        if (action >= 0 && action <= 6 &&
                             keybind.source >= 0 && keybind.source <= 1 &&
                             keybind.key >= 0)
                         {
@@ -472,7 +475,10 @@ namespace Config {
 
         // PianoRoll Scene
         float pianoRollVisualizerHeight,
-        float pianoRollCameraSourceScale
+        float pianoRollCameraSourceScale,
+
+        int intervalFirstMidi,
+        int intervalLastMidi
     )
     {
         if (configPath.empty())
@@ -530,6 +536,11 @@ namespace Config {
         config["settings"]["pianoRollCameraSourceScale"] =
             pianoRollCameraSourceScale;
 
+        config["settings"]["visibleInterval"] = {
+            { "firstMidi", intervalFirstMidi },
+            { "lastMidi", intervalLastMidi }
+        };
+
         // --------------------------------------------------------
         // Save
         // --------------------------------------------------------
@@ -546,7 +557,10 @@ namespace Config {
 
         // PianoRoll Scene
         float pianoRollVisualizerHeight,
-        float pianoRollCameraSourceScale
+        float pianoRollCameraSourceScale,
+
+        int intervalFirstMidi,
+        int intervalLastMidi
     )
     {
         return SavePianoConfigToPath(
@@ -558,7 +572,11 @@ namespace Config {
             planePivot,
 
             pianoRollVisualizerHeight,
-            pianoRollCameraSourceScale);
+            pianoRollCameraSourceScale,
+
+            intervalFirstMidi,
+            intervalLastMidi
+        );
     }
 
     // ============================================================
@@ -575,7 +593,10 @@ namespace Config {
 
         // PianoRoll Scene
         float& pianoRollVisualizerHeight,
-        float& pianoRollCameraSourceScale
+        float& pianoRollCameraSourceScale,
+
+        int& intervalFirstMidi,
+        int& intervalLastMidi
     )
     {
         Logger::Log("Loading piano config from %s\n", configPath.string().c_str());
@@ -676,6 +697,26 @@ namespace Config {
                     if (!std::isfinite(pianoRollCameraSourceScale))
                         return false;
                 }
+
+                if (settings.contains("visibleInterval"))
+                {
+                    const auto& interval = settings["visibleInterval"];
+
+                    if (interval.contains("firstMidi") &&
+                        interval.contains("lastMidi"))
+                    {
+                        const int first = interval["firstMidi"].get<int>();
+                        const int last = interval["lastMidi"].get<int>();
+
+                        if (first >= PianoNoteRange::FIRST_MIDI_NOTE &&
+                            last <= PianoNoteRange::LAST_MIDI_NOTE &&
+                            first < last)
+                        {
+                            intervalFirstMidi = first;
+                            intervalLastMidi = last;
+                        }
+                    }
+                }
             }
             else { return false; }
 
@@ -701,7 +742,10 @@ namespace Config {
 
         // PianoRoll Scene
         float& pianoRollVisualizerHeight,
-        float& pianoRollCameraSourceScale
+        float& pianoRollCameraSourceScale,
+
+        int& intervalFirstMidi,
+        int& intervalLastMidi
     )
     {
         return LoadPianoConfigFromPath(
@@ -713,6 +757,10 @@ namespace Config {
             planePivot,
 
             pianoRollVisualizerHeight,
-            pianoRollCameraSourceScale);
+            pianoRollCameraSourceScale,
+
+            intervalFirstMidi,
+            intervalLastMidi
+        );
     }
 }

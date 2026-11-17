@@ -11,139 +11,139 @@
 #pragma comment(lib, "Psapi.lib")
 
 static BOOL CALLBACK EnumWindowsProc(
-    HWND hwnd,
-    LPARAM lParam
+	HWND hwnd,
+	LPARAM lParam
 )
 {
-    if (!IsWindowVisible(hwnd))
-        return TRUE;
+	if (!IsWindowVisible(hwnd))
+		return TRUE;
 
-    if (hwnd == GetShellWindow())
-        return TRUE;
+	if (hwnd == GetShellWindow())
+		return TRUE;
 
-    int length = GetWindowTextLengthW(hwnd);
+	int length = GetWindowTextLengthW(hwnd);
 
-    if (length <= 0)
-        return TRUE;
+	if (length <= 0)
+		return TRUE;
 
-    std::wstring title(
-        length,
-        L'\0'
-    );
+	std::wstring title(
+		length,
+		L'\0'
+	);
 
-    GetWindowTextW(
-        hwnd,
-        title.data(),
-        length + 1
-    );
+	GetWindowTextW(
+		hwnd,
+		title.data(),
+		length + 1
+	);
 
-    if (title.empty())
-        return TRUE;
+	if (title.empty())
+		return TRUE;
 
-    auto* windows =
-        reinterpret_cast<
-        std::vector<gui::CaptureWindowEntry>*
-        >(lParam);
+	auto* windows =
+		reinterpret_cast<
+		std::vector<gui::CaptureWindowEntry>*
+		>(lParam);
 
-    windows->push_back({
-        hwnd,
-        title
-        });
+	windows->push_back({
+		hwnd,
+		title
+		});
 
-    return TRUE;
+	return TRUE;
 }
 
 static void RefreshCaptureWindows()
 {
-    gui::captureWindows.clear();
+	gui::captureWindows.clear();
 
-    EnumWindows(
-        EnumWindowsProc,
-        reinterpret_cast<LPARAM>(
-            &gui::captureWindows
-            )
-    );
+	EnumWindows(
+		EnumWindowsProc,
+		reinterpret_cast<LPARAM>(
+			&gui::captureWindows
+			)
+	);
 }
 
 void SetFullscreen(HWND window, bool fullscreen)
 {
-    static WINDOWPLACEMENT previousPlacement{
-        sizeof(WINDOWPLACEMENT)
-    };
+	static WINDOWPLACEMENT previousPlacement{
+		sizeof(WINDOWPLACEMENT)
+	};
 
-    if (fullscreen)
-    {
-        MONITORINFO monitorInfo{};
-        monitorInfo.cbSize = sizeof(MONITORINFO);
+	if (fullscreen)
+	{
+		MONITORINFO monitorInfo{};
+		monitorInfo.cbSize = sizeof(MONITORINFO);
 
-        if (!GetWindowPlacement(
-            window,
-            &previousPlacement
-        ))
-        {
-            return;
-        }
+		if (!GetWindowPlacement(
+			window,
+			&previousPlacement
+		))
+		{
+			return;
+		}
 
-        HMONITOR monitor =
-            MonitorFromWindow(
-                window,
-                MONITOR_DEFAULTTONEAREST
-            );
+		HMONITOR monitor =
+			MonitorFromWindow(
+				window,
+				MONITOR_DEFAULTTONEAREST
+			);
 
-        if (!GetMonitorInfo(
-            monitor,
-            &monitorInfo
-        ))
-        {
-            return;
-        }
+		if (!GetMonitorInfo(
+			monitor,
+			&monitorInfo
+		))
+		{
+			return;
+		}
 
-        SetWindowLongPtr(
-            window,
-            GWL_STYLE,
-            WS_POPUP | WS_VISIBLE
-        );
+		SetWindowLongPtr(
+			window,
+			GWL_STYLE,
+			WS_POPUP | WS_VISIBLE
+		);
 
-        SetWindowPos(
-            window,
-            HWND_TOP,
-            monitorInfo.rcMonitor.left,
-            monitorInfo.rcMonitor.top,
-            monitorInfo.rcMonitor.right -
-            monitorInfo.rcMonitor.left,
-            monitorInfo.rcMonitor.bottom -
-            monitorInfo.rcMonitor.top,
-            SWP_FRAMECHANGED |
-            SWP_NOOWNERZORDER
-        );
-    }
-    else
-    {
-        SetWindowLongPtr(
-            window,
-            GWL_STYLE,
-            WS_OVERLAPPEDWINDOW | WS_VISIBLE
-        );
+		SetWindowPos(
+			window,
+			HWND_TOP,
+			monitorInfo.rcMonitor.left,
+			monitorInfo.rcMonitor.top,
+			monitorInfo.rcMonitor.right -
+			monitorInfo.rcMonitor.left,
+			monitorInfo.rcMonitor.bottom -
+			monitorInfo.rcMonitor.top,
+			SWP_FRAMECHANGED |
+			SWP_NOOWNERZORDER
+		);
+	}
+	else
+	{
+		SetWindowLongPtr(
+			window,
+			GWL_STYLE,
+			WS_OVERLAPPEDWINDOW | WS_VISIBLE
+		);
 
-        SetWindowPlacement(
-            window,
-            &previousPlacement
-        );
+		SetWindowPlacement(
+			window,
+			&previousPlacement
+		);
 
-        SetWindowPos(
-            window,
-            nullptr,
-            0,
-            0,
-            0,
-            0,
-            SWP_NOMOVE |
-            SWP_NOSIZE |
-            SWP_NOZORDER |
-            SWP_NOACTIVATE |
-            SWP_FRAMECHANGED
-        );
-    }
+		SetWindowPos(
+			window,
+			nullptr,
+			0,
+			0,
+			0,
+			0,
+			SWP_NOMOVE |
+			SWP_NOSIZE |
+			SWP_NOZORDER |
+			SWP_NOACTIVATE |
+			SWP_FRAMECHANGED
+		);
+	}
 }
 
 
@@ -153,7 +153,7 @@ PianoVisualizer::PianoVisualizer()
 
 PianoVisualizer::~PianoVisualizer()
 {
-    Shutdown();
+	Shutdown();
 }
 
 
@@ -162,139 +162,139 @@ PianoVisualizer::~PianoVisualizer()
 // =========================================================
 
 bool PianoVisualizer::Initialize(
-    HINSTANCE instance,
-    HWND window,
-    ID3D11Device* device,
-    ID3D11DeviceContext* context,
-    IDXGISwapChain* swapChain,
-    ID3D11RenderTargetView* renderTargetView
+	HINSTANCE instance,
+	HWND window,
+	ID3D11Device* device,
+	ID3D11DeviceContext* context,
+	IDXGISwapChain* swapChain,
+	ID3D11RenderTargetView* renderTargetView
 )
 {
-    m_instance = instance;
-    m_window = window;
+	m_instance = instance;
+	m_window = window;
 
-    m_device = device;
-    m_context = context;
-    m_swapChain = swapChain;
-    m_renderTargetView = renderTargetView;
-    m_initializationStarted = true;
+	m_device = device;
+	m_context = context;
+	m_swapChain = swapChain;
+	m_renderTargetView = renderTargetView;
+	m_initializationStarted = true;
 
-    Logger::Log(
-        "Initializing Piano Visualizer...\n"
-    );
+	Logger::Log(
+		"Initializing Piano Visualizer...\n"
+	);
 
-    if (!InitializeRenderTarget())
-    {
-        Logger::Log(
-            "Failed to initialize render target!\n"
-        );
+	if (!InitializeRenderTarget())
+	{
+		Logger::Log(
+			"Failed to initialize render target!\n"
+		);
 
-        return false;
-    }
+		return false;
+	}
 
-    // ---------------------------------------------------------
-    // Audio
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Audio
+	// ---------------------------------------------------------
 
-    if (!InitializeAudio())
-    {
-        Logger::Log(
-            "Failed to initialize Audio Engine!\n"
-        );
+	if (!InitializeAudio())
+	{
+		Logger::Log(
+			"Failed to initialize Audio Engine!\n"
+		);
 
-        return false;
-    }
+		return false;
+	}
 
-    // ---------------------------------------------------------
-    // Camera
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Camera
+	// ---------------------------------------------------------
 
-    if (!InitializeCamera())
-    {
-        Logger::Log(
-            "Failed to initialize camera!\n"
-        );
+	if (!InitializeCamera())
+	{
+		Logger::Log(
+			"Failed to initialize camera!\n"
+		);
 
-        return false;
-    }
+		return false;
+	}
 
-    // ---------------------------------------------------------
-    // Window capture
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Window capture
+	// ---------------------------------------------------------
 
-    if (!InitializeWindowCapture())
-    {
-        Logger::Log(
-            "Failed to initialize window capture!\n"
-        );
+	if (!InitializeWindowCapture())
+	{
+		Logger::Log(
+			"Failed to initialize window capture!\n"
+		);
 
-        return false;
-    }
+		return false;
+	}
 
-    // ---------------------------------------------------------
-    // MIDI Visualizer
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// MIDI Visualizer
+	// ---------------------------------------------------------
 
-    if (!InitializeMidiVisualizer())
-    {
-        Logger::Log(
-            "Failed to create MIDI visualizer!\n"
-        );
+	if (!InitializeMidiVisualizer())
+	{
+		Logger::Log(
+			"Failed to create MIDI visualizer!\n"
+		);
 
-        return false;
-    }
+		return false;
+	}
 
-    // ---------------------------------------------------------
-    // VST drag & drop
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// VST drag & drop
+	// ---------------------------------------------------------
 
-    if (!m_vstDropTarget.Register(m_window))
-    {
-        Logger::Log(
-            "Failed to register VST drag-drop target!\n\n"
-        );
-    }
+	if (!m_vstDropTarget.Register(m_window))
+	{
+		Logger::Log(
+			"Failed to register VST drag-drop target!\n\n"
+		);
+	}
 
-    // ---------------------------------------------------------
-    // Configuration
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Configuration
+	// ---------------------------------------------------------
 
-    LoadPianoConfiguration();
+	LoadPianoConfiguration();
 
-    // ---------------------------------------------------------
-    // Extensions
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Extensions
+	// ---------------------------------------------------------
 
-    if (!m_virtualCamera.Initialize(m_device))
-    {
-        Logger::Log(
-            "Failed to initialize virtual camera extension!\n"
-        );
-    }
+	if (!m_virtualCamera.Initialize(m_device))
+	{
+		Logger::Log(
+			"Failed to initialize virtual camera extension!\n"
+		);
+	}
 
-    // ---------------------------------------------------------
-    // Timing
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Timing
+	// ---------------------------------------------------------
 
-    m_startTime =
-        std::chrono::steady_clock::now();
+	m_startTime =
+		std::chrono::steady_clock::now();
 
-    m_prevTime =
-        m_startTime;
+	m_prevTime =
+		m_startTime;
 
-    m_elapsedTime = 0.0f;
+	m_elapsedTime = 0.0f;
 
-    m_initialized = true;
+	m_initialized = true;
 
-    // ---------------------------------------------------------
-    // Start virtual camera
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Start virtual camera
+	// ---------------------------------------------------------
 
-    Logger::Log(
-        "[Piano Visualizer] Initialized!\n"
-    );
+	Logger::Log(
+		"[Piano Visualizer] Initialized!\n"
+	);
 
-    return true;
+	return true;
 }
 
 
@@ -304,56 +304,56 @@ bool PianoVisualizer::Initialize(
 
 bool PianoVisualizer::InitializeRenderTarget()
 {
-    if (!m_device)
-    {
-        Logger::Log(
-            "[Error] Cannot initialize render target: device is null!\n"
-        );
+	if (!m_device)
+	{
+		Logger::Log(
+			"[Error] Cannot initialize render target: device is null!\n"
+		);
 
-        return false;
-    }
+		return false;
+	}
 
-    if (!m_context)
-    {
-        Logger::Log(
-            "[Error] Cannot initialize render target: context is null!\n"
-        );
+	if (!m_context)
+	{
+		Logger::Log(
+			"[Error] Cannot initialize render target: context is null!\n"
+		);
 
-        return false;
-    }
+		return false;
+	}
 
-    if (!m_swapChain)
-    {
-        Logger::Log(
-            "[Error] Cannot initialize render target: swap chain is null!\n"
-        );
+	if (!m_swapChain)
+	{
+		Logger::Log(
+			"[Error] Cannot initialize render target: swap chain is null!\n"
+		);
 
-        return false;
-    }
+		return false;
+	}
 
-    if (!m_renderTargetView)
-    {
-        Logger::Log(
-            "[Error] Cannot initialize render target: RTV is null!\n"
-        );
+	if (!m_renderTargetView)
+	{
+		Logger::Log(
+			"[Error] Cannot initialize render target: RTV is null!\n"
+		);
 
-        return false;
-    }
+		return false;
+	}
 
-    DXGI_SWAP_CHAIN_DESC desc{};
+	DXGI_SWAP_CHAIN_DESC desc{};
 
-    if (SUCCEEDED(
-        m_swapChain->GetDesc(&desc)
-    ))
-    {
-        m_statistics.renderWidth =
-            desc.BufferDesc.Width;
+	if (SUCCEEDED(
+		m_swapChain->GetDesc(&desc)
+	))
+	{
+		m_statistics.renderWidth =
+			desc.BufferDesc.Width;
 
-        m_statistics.renderHeight =
-            desc.BufferDesc.Height;
-    }
+		m_statistics.renderHeight =
+			desc.BufferDesc.Height;
+	}
 
-    return InitializeCameraOutput();
+	return InitializeCameraOutput();
 }
 
 
@@ -363,111 +363,111 @@ bool PianoVisualizer::InitializeRenderTarget()
 
 bool PianoVisualizer::InitializeCameraOutput()
 {
-    if (!m_device)
-    {
-        Logger::Log(
-            "[Error] Cannot initialize camera output: device is null!\n"
-        );
+	if (!m_device)
+	{
+		Logger::Log(
+			"[Error] Cannot initialize camera output: device is null!\n"
+		);
 
-        return false;
-    }
+		return false;
+	}
 
-    if (m_statistics.renderWidth == 0 ||
-        m_statistics.renderHeight == 0)
-    {
-        Logger::Log(
-            "[Error] Cannot initialize camera output: render size is invalid!\n"
-        );
+	if (m_statistics.renderWidth == 0 ||
+		m_statistics.renderHeight == 0)
+	{
+		Logger::Log(
+			"[Error] Cannot initialize camera output: render size is invalid!\n"
+		);
 
-        return false;
-    }
+		return false;
+	}
 
-    D3D11_TEXTURE2D_DESC description{};
+	D3D11_TEXTURE2D_DESC description{};
 
-    description.Width =
-        m_statistics.renderWidth;
+	description.Width =
+		m_statistics.renderWidth;
 
-    description.Height =
-        m_statistics.renderHeight;
+	description.Height =
+		m_statistics.renderHeight;
 
-    description.MipLevels = 1;
-    description.ArraySize = 1;
+	description.MipLevels = 1;
+	description.ArraySize = 1;
 
-    description.Format =
-        DXGI_FORMAT_B8G8R8A8_UNORM;
+	description.Format =
+		DXGI_FORMAT_B8G8R8A8_UNORM;
 
-    description.SampleDesc.Count = 1;
+	description.SampleDesc.Count = 1;
 
-    description.Usage =
-        D3D11_USAGE_DEFAULT;
+	description.Usage =
+		D3D11_USAGE_DEFAULT;
 
-    description.BindFlags =
-        D3D11_BIND_RENDER_TARGET |
-        D3D11_BIND_SHADER_RESOURCE;
+	description.BindFlags =
+		D3D11_BIND_RENDER_TARGET |
+		D3D11_BIND_SHADER_RESOURCE;
 
-    HRESULT hr =
-        m_device->CreateTexture2D(
-            &description,
-            nullptr,
-            &m_cameraOutputTexture
-        );
+	HRESULT hr =
+		m_device->CreateTexture2D(
+			&description,
+			nullptr,
+			&m_cameraOutputTexture
+		);
 
-    if (FAILED(hr))
-    {
-        Logger::Log(
-            "[Error] Failed to create camera output texture! HRESULT: 0x%08X\n",
-            static_cast<unsigned int>(hr)
-        );
+	if (FAILED(hr))
+	{
+		Logger::Log(
+			"[Error] Failed to create camera output texture! HRESULT: 0x%08X\n",
+			static_cast<unsigned int>(hr)
+		);
 
-        return false;
-    }
+		return false;
+	}
 
-    hr =
-        m_device->CreateRenderTargetView(
-            m_cameraOutputTexture.Get(),
-            nullptr,
-            &m_cameraOutputRTV
-        );
+	hr =
+		m_device->CreateRenderTargetView(
+			m_cameraOutputTexture.Get(),
+			nullptr,
+			&m_cameraOutputRTV
+		);
 
-    if (FAILED(hr))
-    {
-        Logger::Log(
-            "[Error] Failed to create camera output render target view! HRESULT: 0x%08X\n",
-            static_cast<unsigned int>(hr)
-        );
+	if (FAILED(hr))
+	{
+		Logger::Log(
+			"[Error] Failed to create camera output render target view! HRESULT: 0x%08X\n",
+			static_cast<unsigned int>(hr)
+		);
 
-        m_cameraOutputTexture.Reset();
+		m_cameraOutputTexture.Reset();
 
-        return false;
-    }
+		return false;
+	}
 
-    hr =
-        m_device->CreateShaderResourceView(
-            m_cameraOutputTexture.Get(),
-            nullptr,
-            &m_cameraOutputSRV
-        );
+	hr =
+		m_device->CreateShaderResourceView(
+			m_cameraOutputTexture.Get(),
+			nullptr,
+			&m_cameraOutputSRV
+		);
 
-    if (FAILED(hr))
-    {
-        Logger::Log(
-            "[Error] Failed to create camera output shader resource view! HRESULT: 0x%08X\n",
-            static_cast<unsigned int>(hr)
-        );
+	if (FAILED(hr))
+	{
+		Logger::Log(
+			"[Error] Failed to create camera output shader resource view! HRESULT: 0x%08X\n",
+			static_cast<unsigned int>(hr)
+		);
 
-        m_cameraOutputRTV.Reset();
-        m_cameraOutputTexture.Reset();
+		m_cameraOutputRTV.Reset();
+		m_cameraOutputTexture.Reset();
 
-        return false;
-    }
+		return false;
+	}
 
-    Logger::Log(
-        "[Camera] Created %ux%u camera output texture.\n",
-        m_statistics.renderWidth,
-        m_statistics.renderHeight
-    );
+	Logger::Log(
+		"[Camera] Created %ux%u camera output texture.\n",
+		m_statistics.renderWidth,
+		m_statistics.renderHeight
+	);
 
-    return true;
+	return true;
 }
 
 
@@ -477,72 +477,72 @@ bool PianoVisualizer::InitializeCameraOutput()
 
 bool PianoVisualizer::InitializeAudio()
 {
-    Logger::Log(
-        "[Piano Visualizer] Initializing Audio Engine...\n\n"
-    );
+	Logger::Log(
+		"[Piano Visualizer] Initializing Audio Engine...\n\n"
+	);
 
-    m_audioEngine =
-        new audio::AudioEngine();
+	m_audioEngine =
+		new audio::AudioEngine();
 
-    if (!m_audioEngine->initialize())
-    {
-        Logger::Log(
-            "[Error] Failed to initialize Audio Engine!\n"
-        );
+	if (!m_audioEngine->initialize())
+	{
+		Logger::Log(
+			"[Error] Failed to initialize Audio Engine!\n"
+		);
 
-        delete m_audioEngine;
+		delete m_audioEngine;
 
-        m_audioEngine = nullptr;
+		m_audioEngine = nullptr;
 
-        return false;
-    }
+		return false;
+	}
 
-    // ---------------------------------------------------------
-    // Load previous VST configuration
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Load previous VST configuration
+	// ---------------------------------------------------------
 
-    std::filesystem::path previousVstPath;
-    std::filesystem::path folderPath;
+	std::filesystem::path previousVstPath;
+	std::filesystem::path folderPath;
 
-    if (Config::LoadVSTConfig(
-        previousVstPath,
-        folderPath,
-        m_recentVSTPlugins
-    ))
-    {
-        if (!folderPath.empty())
-        {
-            m_vst3FolderPath = folderPath;
-        }
+	if (Config::LoadVSTConfig(
+		previousVstPath,
+		folderPath,
+		m_recentVSTPlugins
+	))
+	{
+		if (!folderPath.empty())
+		{
+			m_vst3FolderPath = folderPath;
+		}
 
-        if (!previousVstPath.empty())
-        {
-            if (m_audioEngine->loadPlugin(
-                previousVstPath.string()
-            ))
-            {
-                if (!m_audioEngine->start())
-                {
-                    Logger::Log(
-                        "[Error] Failed to start Audio Engine!\n"
-                    );
-                }
+		if (!previousVstPath.empty())
+		{
+			if (m_audioEngine->loadPlugin(
+				previousVstPath.string()
+			))
+			{
+				if (!m_audioEngine->start())
+				{
+					Logger::Log(
+						"[Error] Failed to start Audio Engine!\n"
+					);
+				}
 
-                m_currentPluginPath = previousVstPath;
-            }
-            else
-            {
-                Logger::Log(
-                    "[Error] Failed to load plugin %s\n",
-                    previousVstPath.string().c_str()
-                );
-            }
-        }
-    }
+				m_currentPluginPath = previousVstPath;
+			}
+			else
+			{
+				Logger::Log(
+					"[Error] Failed to load plugin %s\n",
+					previousVstPath.string().c_str()
+				);
+			}
+		}
+	}
 
-    m_bufferDuration = m_audioEngine->outputConfiguration().bufferDurationMs;
+	m_bufferDuration = m_audioEngine->outputConfiguration().bufferDurationMs;
 
-    return true;
+	return true;
 }
 
 
@@ -552,39 +552,39 @@ bool PianoVisualizer::InitializeAudio()
 
 bool PianoVisualizer::InitializeCamera()
 {
-    if (!m_camera.Initialize(m_device, m_context))
-        return false;
+	if (!m_camera.Initialize(m_device, m_context))
+		return false;
 
-    const std::string cameraError =
-        m_camera.GetLastError();
+	const std::string cameraError =
+		m_camera.GetLastError();
 
-    if (!cameraError.empty())
-    {
-        m_showCameraError = true;
-        m_cameraErrorMessage = cameraError;
+	if (!cameraError.empty())
+	{
+		m_showCameraError = true;
+		m_cameraErrorMessage = cameraError;
 
-        m_camera.ClearLastError();
-    }
+		m_camera.ClearLastError();
+	}
 
-    if (!m_cameraVideoPlayer.Initialize(
-        m_device,
-        m_context
-    ))
-    {
-        Logger::Log(
-            "[Playback] Failed to initialize video player.\n"
-        );
+	if (!m_cameraVideoPlayer.Initialize(
+		m_device,
+		m_context
+	))
+	{
+		Logger::Log(
+			"[Playback] Failed to initialize video player.\n"
+		);
 
-        m_camera.Shutdown();
+		m_camera.Shutdown();
 
-        return false;
-    }
-    else
-    {
-        Logger::Log("[CameraVideoPlayer] Initialized.\n");
-    }
+		return false;
+	}
+	else
+	{
+		Logger::Log("[CameraVideoPlayer] Initialized.\n");
+	}
 
-    return true;
+	return true;
 }
 
 
@@ -594,10 +594,10 @@ bool PianoVisualizer::InitializeCamera()
 
 bool PianoVisualizer::InitializeWindowCapture()
 {
-    return m_windowCapture.Initialize(
-        m_device,
-        m_context
-    );
+	return m_windowCapture.Initialize(
+		m_device,
+		m_context
+	);
 }
 
 
@@ -607,168 +607,182 @@ bool PianoVisualizer::InitializeWindowCapture()
 
 bool PianoVisualizer::InitializeMidiVisualizer()
 {
-    // =========================================================
-    // MidiVisualizer setup
-    // =========================================================
+	// =========================================================
+	// MidiVisualizer setup
+	// =========================================================
 
-    ResourcesManager::loadResources(
-        m_device
-    );
+	ResourcesManager::loadResources(
+		m_device
+	);
 
-    D3D11Interface d3dInterface = {
-        m_device,
-        m_context
-    };
+	D3D11Interface d3dInterface = {
+		m_device,
+		m_context
+	};
 
-    m_viewer =
-        new Viewer(
-            d3dInterface,
-            1920,
-            1080
-        );
+	m_viewer =
+		new Viewer(
+			d3dInterface,
+			1920,
+			1080
+		);
 
-    m_viewer->setLiveEchoSettings(m_liveEchoSettings);
-    m_viewer->setLiveKeybinds(m_funKeybinds);
+	Config::LoadFunConfig(
+		m_liveEchoSettings.enabled,
+		m_liveEchoSettings.repetitions,
+		m_liveEchoSettings.delaySeconds,
+		m_liveEchoSettings.velocityDropoff,
+		m_liveEchoSettings.recordInRecording,
+		m_liveEchoSettings.transposeSemitones,
+		&m_funKeybinds
+	);
 
-    m_viewer->setOnLiveEchoSettingsChanged(
-        [this](const Viewer::LiveEchoSettings& settings)
-        {
-            m_liveEchoSettings = settings;
-            Config::SaveFunConfig(
-                m_liveEchoSettings.enabled,
-                m_liveEchoSettings.repetitions,
-                m_liveEchoSettings.delaySeconds,
-                m_liveEchoSettings.velocityDropoff,
-                m_liveEchoSettings.recordInRecording,
-                m_liveEchoSettings.transposeSemitones,
-                m_funKeybinds
-            );
-        }
-    );
+	m_viewer->setLiveEchoSettings(m_liveEchoSettings);
+	m_viewer->setLiveKeybinds(m_funKeybinds);
 
-    m_viewer->setOnLiveKeybindsChanged(
-        [this](const std::vector<Viewer::LiveKeybind>& keybinds)
-        {
-            m_funKeybinds = keybinds;
-            Config::SaveFunConfig(
-                m_liveEchoSettings.enabled,
-                m_liveEchoSettings.repetitions,
-                m_liveEchoSettings.delaySeconds,
-                m_liveEchoSettings.velocityDropoff,
-                m_liveEchoSettings.recordInRecording,
-                m_liveEchoSettings.transposeSemitones,
-                m_funKeybinds
-            );
-        }
-    );
+	m_viewer->setOnLiveEchoSettingsChanged(
+		[this](const Viewer::LiveEchoSettings& settings)
+		{
+			m_liveEchoSettings = settings;
+			Config::SaveFunConfig(
+				m_liveEchoSettings.enabled,
+				m_liveEchoSettings.repetitions,
+				m_liveEchoSettings.delaySeconds,
+				m_liveEchoSettings.velocityDropoff,
+				m_liveEchoSettings.recordInRecording,
+				m_liveEchoSettings.transposeSemitones,
+				m_funKeybinds
+			);
+		}
+	);
 
-    m_viewer->setOnStartRecording(
-        [this]()
-        {
-            onStartRecording();
-        }
-    );
+	m_viewer->setOnLiveKeybindsChanged(
+		[this](const std::vector<Viewer::LiveKeybind>& keybinds)
+		{
+			m_funKeybinds = keybinds;
+			Config::SaveFunConfig(
+				m_liveEchoSettings.enabled,
+				m_liveEchoSettings.repetitions,
+				m_liveEchoSettings.delaySeconds,
+				m_liveEchoSettings.velocityDropoff,
+				m_liveEchoSettings.recordInRecording,
+				m_liveEchoSettings.transposeSemitones,
+				m_funKeybinds
+			);
+		}
+	);
 
-    m_viewer->setOnStopRecording(
-        [this]()
-        {
-            onStopRecording();
-        }
-    );
+	m_viewer->setOnStartRecording(
+		[this]()
+		{
+			onStartRecording();
+		}
+	);
 
-    m_viewer->setOnStartPlayback(
-        [this](const std::string& path)
-        {
+	m_viewer->setOnStopRecording(
+		[this]()
+		{
+			onStopRecording();
+		}
+	);
 
-
-            if (m_camera.IsOpen())
-            {
-                m_cameraSelectedIndex = m_camera.GetCameraIndex();
-                m_camera.CloseCamera();
-            }
-
-            if (m_cameraVideoPlayer.Open(path)) {
-                int scene = (int)m_pianoScene;
-
-                bool success = Config::LoadPianoConfigFromPath(
-                    m_viewer->selectedRecordingDirectory() / "recordingPreset.json",
-                    m_polygonPoints,
-                    scene,
-                    m_planePivot,
-                    m_pianoRollVisualizerHeight,
-                    m_pianoRollCameraSourceScale
-                );
-
-                m_pianoScene = static_cast<PianoScene>(scene);
-
-                m_savedConfiguration = GetCurrentConfiguration();
-
-                return success;
-            }
-            else
-            {
-                m_pianoScene = PianoScene::PianoRoll;
-                m_pianoRollVisualizerHeight = 1.f;
-
-                return true;
-            }
-        }
-    );
+	m_viewer->setOnStartPlayback(
+		[this](const std::string& path)
+		{
 
 
-    m_viewer->setOnStopPlayback(
-        [this]()
-        {
+			if (m_camera.IsOpen())
+			{
+				m_cameraSelectedIndex = m_camera.GetCameraIndex();
+				m_camera.CloseCamera();
+			}
 
-            m_cameraVideoPlayer.Close();
-            if (!m_camera.IsOpen() && m_cameraSelectedIndex != -1)
-            {
-                m_camera.OpenCamera(m_cameraSelectedIndex);
-            }
+			if (m_cameraVideoPlayer.Open(path)) {
+				int scene = (int)m_pianoScene;
 
-            int scene = (int)m_pianoScene;
+				bool success = Config::LoadPianoConfigFromPath(
+					m_viewer->selectedRecordingDirectory() / "recordingPreset.json",
+					m_polygonPoints,
+					scene,
+					m_planePivot,
+					m_pianoRollVisualizerHeight,
+					m_pianoRollCameraSourceScale,
+					m_intervalFirstMidi,
+					m_intervalLastMidi
+				);
 
-            Config::LoadPianoConfig(
-                m_polygonPoints,
-                scene,
-                m_planePivot,
-                m_pianoRollVisualizerHeight,
-                m_pianoRollCameraSourceScale
-            );
+				m_pianoScene = static_cast<PianoScene>(scene);
 
-            m_pianoScene = static_cast<PianoScene>(scene);
+				m_savedConfiguration = GetCurrentConfiguration();
 
-            Config::LoadFunConfig(
-                m_liveEchoSettings.enabled,
-                m_liveEchoSettings.repetitions,
-                m_liveEchoSettings.delaySeconds,
-                m_liveEchoSettings.velocityDropoff,
-                m_liveEchoSettings.recordInRecording,
-                m_liveEchoSettings.transposeSemitones,
-                &m_funKeybinds
-            );
+				return success;
+			}
+			else
+			{
+				m_pianoScene = PianoScene::PianoRoll;
+				m_pianoRollVisualizerHeight = 1.f;
 
-            if (m_viewer)
-            {
-                m_viewer->setLiveEchoSettings(m_liveEchoSettings);
-                m_viewer->setLiveKeybinds(m_funKeybinds);
-            }
+				return true;
+			}
+		}
+	);
 
-            m_savedConfiguration = GetCurrentConfiguration();
-        }
-    );
 
-    m_viewer->setOnSeekChanged(
-        [this](double time)
-        {
-            if (!m_cameraVideoPlayer.Seek(time))
-            {
-                Logger::Log("[CameraVideoPlayer] Seek to %.2f failed!\n", time);
-            }
-        }
-    );
+	m_viewer->setOnStopPlayback(
+		[this]()
+		{
 
-    return true;
+			m_cameraVideoPlayer.Close();
+			if (!m_camera.IsOpen() && m_cameraSelectedIndex != -1)
+			{
+				m_camera.OpenCamera(m_cameraSelectedIndex);
+			}
+
+			int scene = (int)m_pianoScene;
+
+			Config::LoadPianoConfig(
+				m_polygonPoints,
+				scene,
+				m_planePivot,
+				m_pianoRollVisualizerHeight,
+				m_pianoRollCameraSourceScale,
+				m_intervalFirstMidi,
+				m_intervalLastMidi
+			);
+
+			m_pianoScene = static_cast<PianoScene>(scene);
+
+			Config::LoadFunConfig(
+				m_liveEchoSettings.enabled,
+				m_liveEchoSettings.repetitions,
+				m_liveEchoSettings.delaySeconds,
+				m_liveEchoSettings.velocityDropoff,
+				m_liveEchoSettings.recordInRecording,
+				m_liveEchoSettings.transposeSemitones,
+				&m_funKeybinds
+			);
+
+			if (m_viewer)
+			{
+				m_viewer->setLiveEchoSettings(m_liveEchoSettings);
+				m_viewer->setLiveKeybinds(m_funKeybinds);
+			}
+
+			m_savedConfiguration = GetCurrentConfiguration();
+		}
+	);
+
+	m_viewer->setOnSeekChanged(
+		[this](double time)
+		{
+			if (!m_cameraVideoPlayer.Seek(time))
+			{
+				Logger::Log("[CameraVideoPlayer] Seek to %.2f failed!\n", time);
+			}
+		}
+	);
+
+	return true;
 }
 
 
@@ -778,62 +792,68 @@ bool PianoVisualizer::InitializeMidiVisualizer()
 
 void PianoVisualizer::LoadPianoConfiguration()
 {
-    std::call_once(
-        gui::onceFlag,
-        [&]()
-        {
-            int scene = 0;
+	std::call_once(
+		gui::onceFlag,
+		[&]()
+		{
+			int scene = 0;
 
-            if (!Config::LoadPianoConfig(
-                m_polygonPoints,
-                scene,
-                m_planePivot,
-                m_pianoRollVisualizerHeight,
-                m_pianoRollCameraSourceScale
-            ))
-            {
-                Logger::Log(
-                    "Piano Config not found or corrupted. Using defaults.\n"
-                );
+			if (!Config::LoadPianoConfig(
+				m_polygonPoints,
+				scene,
+				m_planePivot,
+				m_pianoRollVisualizerHeight,
+				m_pianoRollCameraSourceScale,
+				m_intervalFirstMidi,
+				m_intervalLastMidi
+			))
+			{
+				Logger::Log(
+					"Piano Config not found or corrupted. Using defaults.\n"
+				);
 
-                scene = 0;
+				scene = 0;
 
-                Config::SavePianoConfig(
-                    m_polygonPoints,
-                    scene,
-                    m_planePivot,
-                    m_pianoRollVisualizerHeight,
-                    m_pianoRollCameraSourceScale
-                );
-            }
+				Config::SavePianoConfig(
+					m_polygonPoints,
+					scene,
+					m_planePivot,
+					m_pianoRollVisualizerHeight,
+					m_pianoRollCameraSourceScale,
+					m_intervalFirstMidi,
+					m_intervalLastMidi
+				);
+			}
 
-            m_pianoScene = static_cast<PianoScene>(scene);
+			m_pianoScene = static_cast<PianoScene>(scene);
 
-            m_savedConfiguration = GetCurrentConfiguration();
-        }
-    );
+			m_savedConfiguration = GetCurrentConfiguration();
+		}
+	);
 }
 
 void PianoVisualizer::SavePianoConfiguration()
 {
-    if (Config::SavePianoConfig(
-        m_polygonPoints,
-        static_cast<int>(m_pianoScene),
-        m_planePivot,
-        m_pianoRollVisualizerHeight,
-        m_pianoRollCameraSourceScale
-    ))
-    {
-        m_configSaveMessage =
-            "Configuration saved!";
+	if (Config::SavePianoConfig(
+		m_polygonPoints,
+		static_cast<int>(m_pianoScene),
+		m_planePivot,
+		m_pianoRollVisualizerHeight,
+		m_pianoRollCameraSourceScale,
+		m_intervalFirstMidi,
+		m_intervalLastMidi
+	))
+	{
+		m_configSaveMessage =
+			"Configuration saved!";
 
-        m_savedConfiguration = GetCurrentConfiguration();
-    }
-    else
-    {
-        m_configSaveMessage =
-            "Failed to save configuration!";
-    }
+		m_savedConfiguration = GetCurrentConfiguration();
+	}
+	else
+	{
+		m_configSaveMessage =
+			"Failed to save configuration!";
+	}
 }
 
 
@@ -843,104 +863,104 @@ void PianoVisualizer::SavePianoConfiguration()
 
 void PianoVisualizer::Update()
 {
-    if (!m_initialized)
-        return;
+	if (!m_initialized)
+		return;
 
-    if (m_queueFullscreenCall)
-    {
-        m_queueFullscreenCall = false;
-        SetFullscreen(m_window, gui::fullscreen);
-    }
+	if (m_queueFullscreenCall)
+	{
+		m_queueFullscreenCall = false;
+		SetFullscreen(m_window, gui::fullscreen);
+	}
 
-    if (m_exitRequested)
-    {
-        if (OnExit())
-        {
-            gui::running = false;
-            return;
-        }
-    }
+	if (m_exitRequested)
+	{
+		if (OnExit())
+		{
+			gui::running = false;
+			return;
+		}
+	}
 
-    auto currentTime =
-        std::chrono::steady_clock::now();
+	auto currentTime =
+		std::chrono::steady_clock::now();
 
-    // ---------------------------------------------------------
-    // Timing
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Timing
+	// ---------------------------------------------------------
 
-    const double deltaTime =
-        std::chrono::duration<double>(
-            currentTime - m_prevTime
-        ).count();
+	const double deltaTime =
+		std::chrono::duration<double>(
+			currentTime - m_prevTime
+		).count();
 
-    m_elapsedTime =
-        static_cast<float>(
-            std::chrono::duration<double>(
-                currentTime - m_startTime
-            ).count()
-            );
+	m_elapsedTime =
+		static_cast<float>(
+			std::chrono::duration<double>(
+				currentTime - m_startTime
+			).count()
+			);
 
-    UpdateStatistics();
+	UpdateStatistics();
 
-    m_prevTime =
-        currentTime;
+	m_prevTime =
+		currentTime;
 
-    // ---------------------------------------------------------
-    // Keyboard shortcuts
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Keyboard shortcuts
+	// ---------------------------------------------------------
 
-    if (!m_viewer->isInputting()) {
+	if (!m_viewer->isInputting()) {
 
-        if (ImGui::IsKeyPressed(ImGuiKey_I))
-        {
-            gui::showSettings =
-                !gui::showSettings;
-        }
+		if (ImGui::IsKeyPressed(ImGuiKey_I))
+		{
+			gui::showSettings =
+				!gui::showSettings;
+		}
 
-        if (ImGui::IsKeyPressed(ImGuiKey_S))
-        {
-            m_showStatistics =
-                !m_showStatistics;
-        }
+		if (ImGui::IsKeyPressed(ImGuiKey_S))
+		{
+			m_showStatistics =
+				!m_showStatistics;
+		}
 
-        if (ImGui::IsKeyPressed(ImGuiKey_F))
-        {
-            gui::fullscreen =
-                !gui::fullscreen;
-            m_queueFullscreenCall = true;
-        }
-    }
+		if (ImGui::IsKeyPressed(ImGuiKey_F))
+		{
+			gui::fullscreen =
+				!gui::fullscreen;
+			m_queueFullscreenCall = true;
+		}
+	}
 
-    if (m_viewer) 
-    {
-        if (m_viewer->isPlaybackLoaded() && m_cameraVideoPlayer.IsOpen())
-        {
-            double time = m_viewer->getTime();
-            float bufferAhead = m_viewer->getBufferAhead();
+	if (m_viewer) 
+	{
+		if (m_viewer->isPlaybackLoaded() && m_cameraVideoPlayer.IsOpen())
+		{
+			double time = m_viewer->getTime();
+			float bufferAhead = m_viewer->getBufferAhead();
 
-            m_cameraVideoPlayer.Update(time);
-            m_cameraVideoPlayer.SetBufferAhead(bufferAhead);
-        }
-        else if (m_camera.IsOpen())
-        {
-            double time = m_viewer->getElapsedRecordingTime();
-            m_camera.Update(time);
-        }
+			m_cameraVideoPlayer.Update(time);
+			m_cameraVideoPlayer.SetBufferAhead(bufferAhead);
+		}
+		else if (m_camera.IsOpen())
+		{
+			double time = m_viewer->getElapsedRecordingTime();
+			m_camera.Update(time);
+		}
 
-        m_viewer->setAudioEngine(m_audioEngine);
-    }
+		m_viewer->setAudioEngine(m_audioEngine);
+	}
 
-    // ---------------------------------------------------------
-    // Window capture
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Window capture
+	// ---------------------------------------------------------
 
-    UpdateWindowCapture();
+	UpdateWindowCapture();
 
-    // ---------------------------------------------------------
-    // VST
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// VST
+	// ---------------------------------------------------------
 
-    HandleVSTDrop();
+	HandleVSTDrop();
 }
 
 
@@ -950,140 +970,142 @@ void PianoVisualizer::Update()
 
 void PianoVisualizer::UpdateWindowCapture()
 {
-    if (
-        gui::renderer ==
-        gui::VisualizerRenderer::OtherVisualizer
-        )
-    {
-        HWND desiredWindow =
-            gui::selectedCaptureWindow;
+	if (
+		gui::renderer ==
+		gui::VisualizerRenderer::OtherVisualizer
+		)
+	{
+		HWND desiredWindow =
+			gui::selectedCaptureWindow;
 
-        if (
-            desiredWindow !=
-            gui::activeCaptureWindow
-            )
-        {
-            StopWindowCapture();
+		if (
+			desiredWindow !=
+			gui::activeCaptureWindow
+			)
+		{
+			StopWindowCapture();
 
-            if (
-                desiredWindow &&
-                IsWindow(desiredWindow)
-                )
-            {
-                StartWindowCapture(
-                    desiredWindow
-                );
-            }
-        }
-    }
-    else
-    {
-        StopWindowCapture();
-    }
+			if (
+				desiredWindow &&
+				IsWindow(desiredWindow)
+				)
+			{
+				StartWindowCapture(
+					desiredWindow
+				);
+			}
+		}
+	}
+	else
+	{
+		StopWindowCapture();
+	}
 }
 
 
 void PianoVisualizer::StopWindowCapture()
 {
-    if (!gui::windowCaptureRunning)
-        return;
+	if (!gui::windowCaptureRunning)
+		return;
 
-    m_windowCapture.Stop();
+	m_windowCapture.Stop();
 
-    gui::windowCaptureRunning =
-        false;
+	gui::windowCaptureRunning =
+		false;
 
-    gui::activeCaptureWindow =
-        nullptr;
+	gui::activeCaptureWindow =
+		nullptr;
 
-    Logger::Log(
-        "Window capture stopped.\n"
-    );
+	Logger::Log(
+		"Window capture stopped.\n"
+	);
 }
 
 
 void PianoVisualizer::StartWindowCapture(
-    HWND window
+	HWND window
 )
 {
-    if (!window)
-        return;
+	if (!window)
+		return;
 
-    if (gui::windowCaptureRunning)
-        return;
+	if (gui::windowCaptureRunning)
+		return;
 
-    if (!m_windowCapture.Start(window))
-    {
-        Logger::Log(
-            "[PianoVisualizer] Failed to start window capture!\n"
-        );
+	if (!m_windowCapture.Start(window))
+	{
+		Logger::Log(
+			"[PianoVisualizer] Failed to start window capture!\n"
+		);
 
-        m_windowCapture.Stop();
+		m_windowCapture.Stop();
 
-        return;
-    }
+		return;
+	}
 
-    gui::windowCaptureRunning =
-        true;
+	gui::windowCaptureRunning =
+		true;
 
-    gui::activeCaptureWindow =
-        window;
+	gui::activeCaptureWindow =
+		window;
 
-    Logger::Log(
-        "[WindowCapture] Started.\n"
-    );
+	Logger::Log(
+		"[WindowCapture] Started.\n"
+	);
 }
 
 void PianoVisualizer::onStartRecording()
 {
-    if (!m_viewer)
-        return;
+	if (!m_viewer)
+		return;
 
-    const auto recordingPath =
-        m_viewer->recordingDirectory() / "cameraRecording.mp4";
+	const auto recordingPath =
+		m_viewer->recordingDirectory() / "cameraRecording.mp4";
 
-    if (!m_camera.StartRecording(recordingPath.string()))
-    {
-        Logger::Log("[Recording] Failed to start!\n");
-        m_recordingStatusMessage =
-            "MIDI recording started, but camera recording could not start.";
-    }
-    else
-    {
-        m_recordingStatusMessage =
-            "Recording camera and MIDI to " +
-            m_viewer->recordingDirectory().filename().string() + ".";
-    }
+	if (!m_camera.StartRecording(recordingPath.string()))
+	{
+		Logger::Log("[Recording] Failed to start!\n");
+		m_recordingStatusMessage =
+			"MIDI recording started, but camera recording could not start.";
+	}
+	else
+	{
+		m_recordingStatusMessage =
+			"Recording camera and MIDI to " +
+			m_viewer->recordingDirectory().filename().string() + ".";
+	}
 }
 
 void PianoVisualizer::onStopRecording()
 {
-    const bool cameraStopped = m_camera.StopRecording();
+	const bool cameraStopped = m_camera.StopRecording();
 
-    if (!cameraStopped)
-    {
-        Logger::Log("[Recording] Failed to stop!\n");
-        m_recordingStatusMessage =
-            "Recording stopped, but the camera file may be incomplete.";
-    }
+	if (!cameraStopped)
+	{
+		Logger::Log("[Recording] Failed to stop!\n");
+		m_recordingStatusMessage =
+			"Recording stopped, but the camera file may be incomplete.";
+	}
 
-    Config::SavePianoConfigToPath(
-        m_viewer->recordingDirectory() / "recordingPreset.json",
-        m_polygonPoints,
-        static_cast<int>(m_pianoScene),
-        m_planePivot,
-        m_pianoRollVisualizerHeight,
-        m_pianoRollCameraSourceScale
-    );
+	Config::SavePianoConfigToPath(
+		m_viewer->recordingDirectory() / "recordingPreset.json",
+		m_polygonPoints,
+		static_cast<int>(m_pianoScene),
+		m_planePivot,
+		m_pianoRollVisualizerHeight,
+		m_pianoRollCameraSourceScale,
+		m_intervalFirstMidi,
+		m_intervalLastMidi
+	);
 
-    m_savedConfiguration = GetCurrentConfiguration();
+	m_savedConfiguration = GetCurrentConfiguration();
 
-    if (cameraStopped && m_viewer)
-    {
-        m_recordingStatusMessage =
-            "Recording saved to " +
-            m_viewer->recordingDirectory().filename().string() + ".";
-    }
+	if (cameraStopped && m_viewer)
+	{
+		m_recordingStatusMessage =
+			"Recording saved to " +
+			m_viewer->recordingDirectory().filename().string() + ".";
+	}
 }
 
 // =========================================================
@@ -1092,265 +1114,265 @@ void PianoVisualizer::onStopRecording()
 
 void PianoVisualizer::HandleVSTDrop()
 {
-    if (!m_audioEngine)
-        return;
+	if (!m_audioEngine)
+		return;
 
-    RenderVSTDropTarget();
+	RenderVSTDropTarget();
 
-    auto droppedFiles =
-        m_vstDropTarget.consumeDroppedFiles();
+	auto droppedFiles =
+		m_vstDropTarget.consumeDroppedFiles();
 
-    if (droppedFiles.empty())
-        return;
+	if (droppedFiles.empty())
+		return;
 
-    const std::filesystem::path& vstPath =
-        droppedFiles[0];
+	const std::filesystem::path& vstPath =
+		droppedFiles[0];
 
-    if (vstPath == m_audioEngine->vstPath())
-        return;
+	if (vstPath == m_audioEngine->vstPath())
+		return;
 
-    LoadVST(vstPath);
+	LoadVST(vstPath);
 }
 
 
 void PianoVisualizer::RenderVSTDropTarget()
 {
-    if (!m_vstDropTarget.isDragging())
-        return;
+	if (!m_vstDropTarget.isDragging())
+		return;
 
-    ImGuiViewport* viewport =
-        ImGui::GetMainViewport();
+	ImGuiViewport* viewport =
+		ImGui::GetMainViewport();
 
-    ImDrawList* drawList =
-        ImGui::GetForegroundDrawList();
+	ImDrawList* drawList =
+		ImGui::GetForegroundDrawList();
 
-    drawList->AddRectFilled(
-        viewport->WorkPos,
-        ImVec2(
-            viewport->WorkPos.x +
-            viewport->WorkSize.x,
-            viewport->WorkPos.y +
-            viewport->WorkSize.y
-        ),
-        IM_COL32(
-            255,
-            255,
-            255,
-            20
-        )
-    );
+	drawList->AddRectFilled(
+		viewport->WorkPos,
+		ImVec2(
+			viewport->WorkPos.x +
+			viewport->WorkSize.x,
+			viewport->WorkPos.y +
+			viewport->WorkSize.y
+		),
+		IM_COL32(
+			255,
+			255,
+			255,
+			20
+		)
+	);
 }
 
 void PianoVisualizer::RenderVisualizer()
 {
-    if (!m_viewer)
-        return;
+	if (!m_viewer)
+		return;
 
-    m_viewer->draw(
-        DEBUG_SPEED *
-        float(System::time())
-    );
+	m_viewer->draw(
+		DEBUG_SPEED *
+		float(System::time())
+	);
 
-    m_context->OMSetRenderTargets(
-        1,
-        &m_renderTargetView,
-        nullptr
-    );
+	m_context->OMSetRenderTargets(
+		1,
+		&m_renderTargetView,
+		nullptr
+	);
 
-    D3D11_VIEWPORT viewport{};
+	D3D11_VIEWPORT viewport{};
 
-    viewport.TopLeftX = 0.0f;
-    viewport.TopLeftY = 0.0f;
+	viewport.TopLeftX = 0.0f;
+	viewport.TopLeftY = 0.0f;
 
-    viewport.Width =
-        static_cast<float>(
-            m_statistics.renderWidth
-            );
+	viewport.Width =
+		static_cast<float>(
+			m_statistics.renderWidth
+			);
 
-    viewport.Height =
-        static_cast<float>(
-            m_statistics.renderHeight
-            );
+	viewport.Height =
+		static_cast<float>(
+			m_statistics.renderHeight
+			);
 
-    viewport.MinDepth = 0.0f;
-    viewport.MaxDepth = 1.0f;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
 
-    m_context->RSSetViewports(
-        1,
-        &viewport
-    );
+	m_context->RSSetViewports(
+		1,
+		&viewport
+	);
 
-    m_drawVisualizer = false;
+	m_drawVisualizer = false;
 }
 
 
 void PianoVisualizer::LoadVST(
-    const std::filesystem::path& path
+	const std::filesystem::path& path
 )
 {
-    // IMPORTANT:
-    // path may reference an element inside m_recentVSTPlugins.
-    // We modify that vector below, so make our own copy first.
-    const std::filesystem::path pluginPath = path;
+	// IMPORTANT:
+	// path may reference an element inside m_recentVSTPlugins.
+	// We modify that vector below, so make our own copy first.
+	const std::filesystem::path pluginPath = path;
 
-    if (!m_audioEngine || pluginPath.empty())
-    {
-        Logger::Log(
-            "[VST] LoadVST ABORT: audio engine or path invalid\n"
-        );
-        return;
-    }
+	if (!m_audioEngine || pluginPath.empty())
+	{
+		Logger::Log(
+			"[VST] LoadVST ABORT: audio engine or path invalid\n"
+		);
+		return;
+	}
 
-    // Remember the currently loaded plugin.
-    const std::filesystem::path oldPluginPath =
-        m_currentPluginPath;
+	// Remember the currently loaded plugin.
+	const std::filesystem::path oldPluginPath =
+		m_currentPluginPath;
 
-    // Move the old current plugin into recents.
-    if (!oldPluginPath.empty())
-    {
-        AddRecentVST(oldPluginPath);
-    }
+	// Move the old current plugin into recents.
+	if (!oldPluginPath.empty())
+	{
+		AddRecentVST(oldPluginPath);
+	}
 
-    // The old plugin is no longer the current plugin.
-    m_currentPluginPath.clear();
+	// The old plugin is no longer the current plugin.
+	m_currentPluginPath.clear();
 
-    m_audioEngine->unLoadPlugin();
+	m_audioEngine->unLoadPlugin();
 
-    if (!m_audioEngine->loadPlugin(pluginPath.string()))
-    {
+	if (!m_audioEngine->loadPlugin(pluginPath.string()))
+	{
 
-        Config::SaveVSTConfig(
-            m_currentPluginPath,
-            m_vst3FolderPath,
-            m_recentVSTPlugins
-        );
+		Config::SaveVSTConfig(
+			m_currentPluginPath,
+			m_vst3FolderPath,
+			m_recentVSTPlugins
+		);
 
-        return;
-    }
+		return;
+	}
 
-    RemoveRecentVST(pluginPath);
+	RemoveRecentVST(pluginPath);
 
-    m_currentPluginPath = pluginPath;
+	m_currentPluginPath = pluginPath;
 
 
-    Config::SaveVSTConfig(
-        m_currentPluginPath,
-        m_vst3FolderPath,
-        m_recentVSTPlugins
-    );
+	Config::SaveVSTConfig(
+		m_currentPluginPath,
+		m_vst3FolderPath,
+		m_recentVSTPlugins
+	);
 
-    m_audioEngine->start();
+	m_audioEngine->start();
 }
 
 
 void PianoVisualizer::UnloadVST()
 {
 
-    if (!m_audioEngine)
-    {
-        Logger::Log(
-            "[VST] UnloadVST ABORT: audio engine is null\n"
-        );
-        return;
-    }
+	if (!m_audioEngine)
+	{
+		Logger::Log(
+			"[VST] UnloadVST ABORT: audio engine is null\n"
+		);
+		return;
+	}
 
-    // Copy it first. This makes the operation independent
-    // of any changes to the recent list.
-    const std::filesystem::path pluginPath =
-        m_currentPluginPath;
+	// Copy it first. This makes the operation independent
+	// of any changes to the recent list.
+	const std::filesystem::path pluginPath =
+		m_currentPluginPath;
 
-    if (!pluginPath.empty())
-    {
-        AddRecentVST(pluginPath);
-    }
+	if (!pluginPath.empty())
+	{
+		AddRecentVST(pluginPath);
+	}
 
-    m_audioEngine->unLoadPlugin();
+	m_audioEngine->unLoadPlugin();
 
-    m_currentPluginPath.clear();
+	m_currentPluginPath.clear();
 
-    Config::SaveVSTConfig(
-        m_currentPluginPath,
-        m_vst3FolderPath,
-        m_recentVSTPlugins
-    );
+	Config::SaveVSTConfig(
+		m_currentPluginPath,
+		m_vst3FolderPath,
+		m_recentVSTPlugins
+	);
 }
 
 
 void PianoVisualizer::LoadRecentVST(
-    const std::filesystem::path& path
+	const std::filesystem::path& path
 )
 {
-    // Copy because path may be a reference to an element
-    // inside m_recentVSTPlugins.
-    const std::filesystem::path pluginPath = path;
+	// Copy because path may be a reference to an element
+	// inside m_recentVSTPlugins.
+	const std::filesystem::path pluginPath = path;
 
-    if (!std::filesystem::exists(pluginPath))
-    {
-        Logger::Log(
-            "[VST] Recent VST no longer exists: %s\n",
-            pluginPath.string().c_str()
-        );
+	if (!std::filesystem::exists(pluginPath))
+	{
+		Logger::Log(
+			"[VST] Recent VST no longer exists: %s\n",
+			pluginPath.string().c_str()
+		);
 
-        m_recentVSTPlugins.erase(
-            std::remove(
-                m_recentVSTPlugins.begin(),
-                m_recentVSTPlugins.end(),
-                pluginPath
-            ),
-            m_recentVSTPlugins.end()
-        );
+		m_recentVSTPlugins.erase(
+			std::remove(
+				m_recentVSTPlugins.begin(),
+				m_recentVSTPlugins.end(),
+				pluginPath
+			),
+			m_recentVSTPlugins.end()
+		);
 
-        return;
-    }
+		return;
+	}
 
-    LoadVST(pluginPath);
+	LoadVST(pluginPath);
 }
 
 
 void PianoVisualizer::AddRecentVST(
-    const std::filesystem::path& path
+	const std::filesystem::path& path
 )
 {
-    if (path.empty())
-        return;
+	if (path.empty())
+		return;
 
-    // Remove any existing occurrence first.
-    m_recentVSTPlugins.erase(
-        std::remove(
-            m_recentVSTPlugins.begin(),
-            m_recentVSTPlugins.end(),
-            path
-        ),
-        m_recentVSTPlugins.end()
-    );
+	// Remove any existing occurrence first.
+	m_recentVSTPlugins.erase(
+		std::remove(
+			m_recentVSTPlugins.begin(),
+			m_recentVSTPlugins.end(),
+			path
+		),
+		m_recentVSTPlugins.end()
+	);
 
-    // Put it at the front.
-    m_recentVSTPlugins.insert(
-        m_recentVSTPlugins.begin(),
-        path
-    );
+	// Put it at the front.
+	m_recentVSTPlugins.insert(
+		m_recentVSTPlugins.begin(),
+		path
+	);
 
-    // Keep only the most recent plugins.
-    if (m_recentVSTPlugins.size() > MAX_RECENT_VST_PLUGINS)
-        m_recentVSTPlugins.resize(MAX_RECENT_VST_PLUGINS);
+	// Keep only the most recent plugins.
+	if (m_recentVSTPlugins.size() > MAX_RECENT_VST_PLUGINS)
+		m_recentVSTPlugins.resize(MAX_RECENT_VST_PLUGINS);
 }
 
 
 void PianoVisualizer::RemoveRecentVST(
-    const std::filesystem::path& path
+	const std::filesystem::path& path
 )
 {
-    if (path.empty())
-        return;
+	if (path.empty())
+		return;
 
-    m_recentVSTPlugins.erase(
-        std::remove(
-            m_recentVSTPlugins.begin(),
-            m_recentVSTPlugins.end(),
-            path
-        ),
-        m_recentVSTPlugins.end()
-    );
+	m_recentVSTPlugins.erase(
+		std::remove(
+			m_recentVSTPlugins.begin(),
+			m_recentVSTPlugins.end(),
+			path
+		),
+		m_recentVSTPlugins.end()
+	);
 }
 
 // =========================================================
@@ -1359,349 +1381,349 @@ void PianoVisualizer::RemoveRecentVST(
 
 void PianoVisualizer::Render()
 {
-    if (!m_initialized)
-        return;
+	if (!m_initialized)
+		return;
 
-    // ---------------------------------------------------------
-    // Main render viewport
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Main render viewport
+	// ---------------------------------------------------------
 
-    D3D11_VIEWPORT viewport{};
+	D3D11_VIEWPORT viewport{};
 
-    viewport.TopLeftX = 0.0f;
-    viewport.TopLeftY = 0.0f;
+	viewport.TopLeftX = 0.0f;
+	viewport.TopLeftY = 0.0f;
 
-    viewport.Width =
-        static_cast<float>(
-            m_statistics.renderWidth
-            );
+	viewport.Width =
+		static_cast<float>(
+			m_statistics.renderWidth
+			);
 
-    viewport.Height =
-        static_cast<float>(
-            m_statistics.renderHeight
-            );
+	viewport.Height =
+		static_cast<float>(
+			m_statistics.renderHeight
+			);
 
-    viewport.MinDepth = 0.0f;
-    viewport.MaxDepth = 1.0f;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
 
-    m_context->RSSetViewports(
-        1,
-        &viewport
-    );
+	m_context->RSSetViewports(
+		1,
+		&viewport
+	);
 
-    // ---------------------------------------------------------
-    // Camera output
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Camera output
+	// ---------------------------------------------------------
 
-    RenderCameraOutput();
+	RenderCameraOutput();
 
-    // ---------------------------------------------------------
-    // Virtual camera output
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Virtual camera output
+	// ---------------------------------------------------------
 
-    RenderVirtualCameraFrame();
+	RenderVirtualCameraFrame();
 
-    // ---------------------------------------------------------
-    // Clear main render target
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Clear main render target
+	// ---------------------------------------------------------
 
-    constexpr float color[4]{
-        0.0f,
-        0.0f,
-        0.0f,
-        1.0f
-    };
+	constexpr float color[4]{
+		0.0f,
+		0.0f,
+		0.0f,
+		1.0f
+	};
 
-    m_context->OMSetRenderTargets(
-        1,
-        &m_renderTargetView,
-        nullptr
-    );
+	m_context->OMSetRenderTargets(
+		1,
+		&m_renderTargetView,
+		nullptr
+	);
 
-    m_context->ClearRenderTargetView(
-        m_renderTargetView,
-        color
-    );
+	m_context->ClearRenderTargetView(
+		m_renderTargetView,
+		color
+	);
 
-    // ---------------------------------------------------------
-    // Scene
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Scene
+	// ---------------------------------------------------------
 
-    switch (m_pianoScene)
-    {
-    case PianoScene::Perspective:
-        RenderVisualizer();
-        RenderCamera();
-        break;
+	switch (m_pianoScene)
+	{
+	case PianoScene::Perspective:
+		RenderVisualizer();
+		RenderCamera();
+		break;
 
-    case PianoScene::PianoRoll:
-        RenderPianoRoll();
-        break;
-    }
+	case PianoScene::PianoRoll:
+		RenderPianoRoll();
+		break;
+	}
 
-    // ---------------------------------------------------------
-    // Camera errors
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Camera errors
+	// ---------------------------------------------------------
 
-    std::string cameraError =
-        m_camera.GetLastError();
+	std::string cameraError =
+		m_camera.GetLastError();
 
-    if (!cameraError.empty())
-    {
-        m_showCameraError = true;
-        m_cameraErrorMessage = cameraError;
+	if (!cameraError.empty())
+	{
+		m_showCameraError = true;
+		m_cameraErrorMessage = cameraError;
 
-        m_camera.ClearLastError();
-    }
+		m_camera.ClearLastError();
+	}
 
-    RenderCameraErrorDialog();
+	RenderCameraErrorDialog();
 
-    ImGui::SetNextWindowSize(
-        ImVec2(980.0f, 700.0f),
-        ImGuiCond_FirstUseEver
-    );
+	ImGui::SetNextWindowSize(
+		ImVec2(980.0f, 700.0f),
+		ImGuiCond_FirstUseEver
+	);
 
-    if (gui::showSettings)
-    {
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	if (gui::showSettings)
+	{
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
-        if (ImGui::Begin(
-            "Piano Visualizer##Settings",
-            &gui::showSettings,
-            ImGuiWindowFlags_NoCollapse |
-            ImGuiWindowFlags_NoTitleBar
-        ))
-        {
-            const ImVec4 accent(0.32f, 0.84f, 1.0f, 1.0f);
-            const ImVec4 muted(0.67f, 0.71f, 0.79f, 1.0f);
-            const bool liveInput = m_viewer && m_viewer->isLivePlay();
+		if (ImGui::Begin(
+			"Piano Visualizer##Settings",
+			&gui::showSettings,
+			ImGuiWindowFlags_NoCollapse |
+			ImGuiWindowFlags_NoTitleBar
+		))
+		{
+			const ImVec4 accent(0.32f, 0.84f, 1.0f, 1.0f);
+			const ImVec4 muted(0.67f, 0.71f, 0.79f, 1.0f);
+			const bool liveInput = m_viewer && m_viewer->isLivePlay();
 
-            ImGui::BeginChild(
-                "SettingsCommandBar",
-                ImVec2(0.0f, 74.0f),
-                true,
-                ImGuiWindowFlags_NoScrollbar
-            );
-            ImGui::SetCursorPos(ImVec2(20.0f, 25.0f));
-            ImGui::SetWindowFontScale(1.38f);
-            ImGui::TextColored(accent, "PIANO VISUALIZER");
-            ImGui::SetWindowFontScale(1.0f);
+			ImGui::BeginChild(
+				"SettingsCommandBar",
+				ImVec2(0.0f, 74.0f),
+				true,
+				ImGuiWindowFlags_NoScrollbar
+			);
+			ImGui::SetCursorPos(ImVec2(20.0f, 25.0f));
+			ImGui::SetWindowFontScale(1.38f);
+			ImGui::TextColored(accent, "PIANO VISUALIZER");
+			ImGui::SetWindowFontScale(1.0f);
 
-            ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - 306.0f, 21.0f));
-            ImGui::AlignTextToFramePadding();
-            ImGui::TextColored(
-                liveInput ? ImVec4(0.31f, 0.84f, 0.49f, 1.0f) : muted,
-                liveInput ? "LIVE INPUT" : "PLAYBACK"
-            );
-            ImGui::SameLine();
+			ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - 306.0f, 21.0f));
+			ImGui::AlignTextToFramePadding();
+			ImGui::TextColored(
+				liveInput ? ImVec4(0.31f, 0.84f, 0.49f, 1.0f) : muted,
+				liveInput ? "LIVE INPUT" : "PLAYBACK"
+			);
+			ImGui::SameLine();
 
-            if (ImGui::Button("Save", ImVec2(72.0f, 32.0f)))
-                SavePianoConfiguration();
+			if (ImGui::Button("Save", ImVec2(72.0f, 32.0f)))
+				SavePianoConfiguration();
 
-            const auto windowControl = [](const char* id, int icon, bool destructive)
-            {
-                ImGui::SameLine();
-                ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 16.0f);
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.19f, 0.25f, 1.0f));
-                ImGui::PushStyleColor(
-                    ImGuiCol_ButtonHovered,
-                    destructive
-                    ? ImVec4(0.68f, 0.24f, 0.28f, 1.0f)
-                    : ImVec4(0.18f, 0.35f, 0.47f, 1.0f)
-                );
+			const auto windowControl = [](const char* id, int icon, bool destructive)
+			{
+				ImGui::SameLine();
+				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 16.0f);
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.19f, 0.25f, 1.0f));
+				ImGui::PushStyleColor(
+					ImGuiCol_ButtonHovered,
+					destructive
+					? ImVec4(0.68f, 0.24f, 0.28f, 1.0f)
+					: ImVec4(0.18f, 0.35f, 0.47f, 1.0f)
+				);
 
-                const bool clicked = ImGui::Button(id, ImVec2(32.0f, 32.0f));
-                const ImVec2 min = ImGui::GetItemRectMin();
-                const ImVec2 max = ImGui::GetItemRectMax();
-                const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
-                const ImU32 iconColor = IM_COL32(228, 237, 247, 255);
-                ImDrawList* drawList = ImGui::GetWindowDrawList();
+				const bool clicked = ImGui::Button(id, ImVec2(32.0f, 32.0f));
+				const ImVec2 min = ImGui::GetItemRectMin();
+				const ImVec2 max = ImGui::GetItemRectMax();
+				const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
+				const ImU32 iconColor = IM_COL32(228, 237, 247, 255);
+				ImDrawList* drawList = ImGui::GetWindowDrawList();
 
-                if (icon == 0)
-                {
-                    drawList->AddLine(
-                        ImVec2(center.x - 6.0f, center.y + 4.0f),
-                        ImVec2(center.x + 6.0f, center.y + 4.0f),
-                        iconColor,
-                        1.6f
-                    );
-                }
-                else if (icon == 1)
-                {
-                    drawList->AddRect(
-                        ImVec2(center.x - 5.0f, center.y - 5.0f),
-                        ImVec2(center.x + 5.0f, center.y + 5.0f),
-                        iconColor,
-                        1.0f,
-                        0,
-                        1.5f
-                    );
-                }
-                else
-                {
-                    drawList->AddLine(
-                        ImVec2(center.x - 4.5f, center.y - 4.5f),
-                        ImVec2(center.x + 4.5f, center.y + 4.5f),
-                        iconColor,
-                        1.6f
-                    );
-                    drawList->AddLine(
-                        ImVec2(center.x + 4.5f, center.y - 4.5f),
-                        ImVec2(center.x - 4.5f, center.y + 4.5f),
-                        iconColor,
-                        1.6f
-                    );
-                }
+				if (icon == 0)
+				{
+					drawList->AddLine(
+						ImVec2(center.x - 6.0f, center.y + 4.0f),
+						ImVec2(center.x + 6.0f, center.y + 4.0f),
+						iconColor,
+						1.6f
+					);
+				}
+				else if (icon == 1)
+				{
+					drawList->AddRect(
+						ImVec2(center.x - 5.0f, center.y - 5.0f),
+						ImVec2(center.x + 5.0f, center.y + 5.0f),
+						iconColor,
+						1.0f,
+						0,
+						1.5f
+					);
+				}
+				else
+				{
+					drawList->AddLine(
+						ImVec2(center.x - 4.5f, center.y - 4.5f),
+						ImVec2(center.x + 4.5f, center.y + 4.5f),
+						iconColor,
+						1.6f
+					);
+					drawList->AddLine(
+						ImVec2(center.x + 4.5f, center.y - 4.5f),
+						ImVec2(center.x - 4.5f, center.y + 4.5f),
+						iconColor,
+						1.6f
+					);
+				}
 
-                ImGui::PopStyleColor(2);
-                ImGui::PopStyleVar();
-                return clicked;
-            };
+				ImGui::PopStyleColor(2);
+				ImGui::PopStyleVar();
+				return clicked;
+			};
 
-            if (windowControl("##HideSettings", 0, false))
-                gui::showSettings = false;
+			if (windowControl("##HideSettings", 0, false))
+				gui::showSettings = false;
 
-            if (windowControl("##ToggleFullscreen", 1, false))
-            {
-                gui::fullscreen = !gui::fullscreen;
-                m_queueFullscreenCall = true;
-            }
+			if (windowControl("##ToggleFullscreen", 1, false))
+			{
+				gui::fullscreen = !gui::fullscreen;
+				m_queueFullscreenCall = true;
+			}
 
-            if (windowControl("##CloseSettings", 2, true))
-                gui::showSettings = false;
+			if (windowControl("##CloseSettings", 2, true))
+				gui::showSettings = false;
 
-            ImGui::EndChild();
+			ImGui::EndChild();
 
-            const auto navButton =
-                [this](const char* label, SettingsSection section)
-                {
-                    const bool selected = m_activeSettingsSection == section;
-                    ImGui::PushStyleColor(
-                        ImGuiCol_Button,
-                        selected ? ImVec4(0.12f, 0.38f, 0.52f, 1.0f) : ImVec4(0, 0, 0, 0)
-                    );
-                    ImGui::PushStyleColor(
-                        ImGuiCol_ButtonHovered,
-                        ImVec4(0.13f, 0.22f, 0.31f, 1.0f)
-                    );
-                    ImGui::PushStyleColor(
-                        ImGuiCol_Text,
-                        selected ? ImVec4(0.95f, 0.98f, 1.0f, 1.0f) : ImVec4(0.70f, 0.75f, 0.84f, 1.0f)
-                    );
-                    const bool clicked = ImGui::Button(label, ImVec2(-1.0f, 34.0f));
-                    ImGui::PopStyleColor(3);
+			const auto navButton =
+				[this](const char* label, SettingsSection section)
+				{
+					const bool selected = m_activeSettingsSection == section;
+					ImGui::PushStyleColor(
+						ImGuiCol_Button,
+						selected ? ImVec4(0.12f, 0.38f, 0.52f, 1.0f) : ImVec4(0, 0, 0, 0)
+					);
+					ImGui::PushStyleColor(
+						ImGuiCol_ButtonHovered,
+						ImVec4(0.13f, 0.22f, 0.31f, 1.0f)
+					);
+					ImGui::PushStyleColor(
+						ImGuiCol_Text,
+						selected ? ImVec4(0.95f, 0.98f, 1.0f, 1.0f) : ImVec4(0.70f, 0.75f, 0.84f, 1.0f)
+					);
+					const bool clicked = ImGui::Button(label, ImVec2(-1.0f, 34.0f));
+					ImGui::PopStyleColor(3);
 
-                    if (clicked)
-                        m_activeSettingsSection = section;
-                };
+					if (clicked)
+						m_activeSettingsSection = section;
+				};
 
-            ImGui::BeginChild("SettingsNavigation", ImVec2(188.0f, 0.0f), true);
-            ImGui::SetCursorPosX(12.0f);
-            ImGui::TextDisabled("WORKSPACE");
-            navButton("Display", SettingsSection::Display);
-            navButton("Visualizer", SettingsSection::Visualizer);
-            navButton("Camera", SettingsSection::Camera);
+			ImGui::BeginChild("SettingsNavigation", ImVec2(188.0f, 0.0f), true);
+			ImGui::SetCursorPosX(12.0f);
+			ImGui::TextDisabled("WORKSPACE");
+			navButton("Display", SettingsSection::Display);
+			navButton("Visualizer", SettingsSection::Visualizer);
+			navButton("Camera", SettingsSection::Camera);
 
-            ImGui::Spacing();
-            ImGui::SetCursorPosX(12.0f);
-            ImGui::TextDisabled("SOUND");
-            navButton("Audio", SettingsSection::Audio);
-            navButton("Plugins", SettingsSection::Plugins);
+			ImGui::Spacing();
+			ImGui::SetCursorPosX(12.0f);
+			ImGui::TextDisabled("SOUND");
+			navButton("Audio", SettingsSection::Audio);
+			navButton("Plugins", SettingsSection::Plugins);
 
-            ImGui::Spacing();
-            ImGui::SetCursorPosX(12.0f);
-            ImGui::TextDisabled("APPLICATION");
-            navButton("Configuration", SettingsSection::Configuration);
-            navButton("Fun", SettingsSection::Fun);
-            navButton("Status", SettingsSection::Status);
-            navButton("Help", SettingsSection::Help);
-            ImGui::EndChild();
+			ImGui::Spacing();
+			ImGui::SetCursorPosX(12.0f);
+			ImGui::TextDisabled("APPLICATION");
+			navButton("Configuration", SettingsSection::Configuration);
+			navButton("Fun", SettingsSection::Fun);
+			navButton("Status", SettingsSection::Status);
+			navButton("Help", SettingsSection::Help);
+			ImGui::EndChild();
 
-            ImGui::SameLine();
-            ImGui::BeginChild("SettingsContent", ImVec2(0.0f, 0.0f), false);
+			ImGui::SameLine();
+			ImGui::BeginChild("SettingsContent", ImVec2(0.0f, 0.0f), false);
 
-            const char* title = "Visualizer";
-            const char* subtitle = "Shape the look and behavior of the built-in visualizer.";
+			const char* title = "Visualizer";
+			const char* subtitle = "Shape the look and behavior of the built-in visualizer.";
 
-            switch (m_activeSettingsSection)
-            {
-            case SettingsSection::Display:
-                title = "Display";
-                subtitle = "Choose the scene, visualizer source, and piano surface.";
-                break;
-            case SettingsSection::Camera:
-                title = "Camera";
-                subtitle = "Connect, configure, and calibrate your camera source.";
-                break;
-            case SettingsSection::Audio:
-                title = "Audio";
-                subtitle = "Manage the output device, latency, and audio engine.";
-                break;
-            case SettingsSection::Plugins:
-                title = "Plugins";
-                subtitle = "Load and manage VST3 instruments.";
-                break;
-            case SettingsSection::Fun:
-                title = "Fun";
-                subtitle = "Live-only performance effects that keep playback untouched.";
-                break;
-            case SettingsSection::Configuration:
-                title = "Configuration";
-                subtitle = "Save or restore your application and camera setup.";
-                break;
-            case SettingsSection::Status:
-                title = "System status";
-                subtitle = "Review connected devices and application readiness.";
-                break;
-            case SettingsSection::Help:
-                title = "Help";
-                subtitle = "Keyboard shortcuts and practical workflow guidance.";
-                break;
-            case SettingsSection::Visualizer:
-            default:
-                break;
-            }
+			switch (m_activeSettingsSection)
+			{
+			case SettingsSection::Display:
+				title = "Display";
+				subtitle = "Choose the scene, visualizer source, and piano surface.";
+				break;
+			case SettingsSection::Camera:
+				title = "Camera";
+				subtitle = "Connect, configure, and calibrate your camera source.";
+				break;
+			case SettingsSection::Audio:
+				title = "Audio";
+				subtitle = "Manage the output device, latency, and audio engine.";
+				break;
+			case SettingsSection::Plugins:
+				title = "Plugins";
+				subtitle = "Load and manage VST3 instruments.";
+				break;
+			case SettingsSection::Fun:
+				title = "Fun";
+				subtitle = "Performance effects.";
+				break;
+			case SettingsSection::Configuration:
+				title = "Configuration";
+				subtitle = "Save or restore your application and camera setup.";
+				break;
+			case SettingsSection::Status:
+				title = "System status";
+				subtitle = "Review connected devices and application readiness.";
+				break;
+			case SettingsSection::Help:
+				title = "Help";
+				subtitle = "Keyboard shortcuts and practical workflow guidance.";
+				break;
+			case SettingsSection::Visualizer:
+			default:
+				break;
+			}
 
-            ImGui::SetCursorPos(ImVec2(24.0f, 20.0f));
-            ImGui::SetWindowFontScale(1.28f);
-            ImGui::TextColored(accent, "%s", title);
-            ImGui::SetWindowFontScale(1.0f);
+			ImGui::SetCursorPos(ImVec2(24.0f, 20.0f));
+			ImGui::SetWindowFontScale(1.28f);
+			ImGui::TextColored(accent, "%s", title);
+			ImGui::SetWindowFontScale(1.0f);
 
-            ImGui::SetCursorPosX(24.0f);
-            ImGui::TextDisabled("%s", subtitle);
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
+			ImGui::SetCursorPosX(24.0f);
+			ImGui::TextDisabled("%s", subtitle);
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
 
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 4.0f));
-            ImGui::BeginChild("SettingsPageScroll", ImVec2(-18.0f, -16.0f), false);
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 4.0f));
+			ImGui::BeginChild("SettingsPageScroll", ImVec2(-18.0f, -16.0f), false);
 
-            switch (m_activeSettingsSection)
-            {
-            case SettingsSection::Visualizer: RenderVisualizerTab(); break;
-            case SettingsSection::Display: RenderDisplayTab(); break;
-            case SettingsSection::Camera: RenderCameraTab(); break;
-            case SettingsSection::Audio: RenderAudioTab(); break;
-            case SettingsSection::Plugins: RenderPluginsTab(); break;
-            case SettingsSection::Fun: RenderFunTab(); break;
-            case SettingsSection::Configuration: RenderConfigurationTab(); break;
-            case SettingsSection::Status: RenderStatusTab(); break;
-            case SettingsSection::Help: RenderHelpTab(); break;
-            }
+			switch (m_activeSettingsSection)
+			{
+			case SettingsSection::Visualizer: RenderVisualizerTab(); break;
+			case SettingsSection::Display: RenderDisplayTab(); break;
+			case SettingsSection::Camera: RenderCameraTab(); break;
+			case SettingsSection::Audio: RenderAudioTab(); break;
+			case SettingsSection::Plugins: RenderPluginsTab(); break;
+			case SettingsSection::Fun: RenderFunTab(); break;
+			case SettingsSection::Configuration: RenderConfigurationTab(); break;
+			case SettingsSection::Status: RenderStatusTab(); break;
+			case SettingsSection::Help: RenderHelpTab(); break;
+			}
 
-            ImGui::EndChild();
-            ImGui::PopStyleVar();
-            ImGui::EndChild();
-        }
-        ImGui::End();
-        ImGui::PopStyleVar();
-    }
+			ImGui::EndChild();
+			ImGui::PopStyleVar();
+			ImGui::EndChild();
+		}
+		ImGui::End();
+		ImGui::PopStyleVar();
+	}
 
-    // ---------------------------------------------------------
-    // Statistics
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Statistics
+	// ---------------------------------------------------------
 
-    RenderStatistics();
+	RenderStatistics();
 }
 
 
@@ -1711,171 +1733,171 @@ void PianoVisualizer::Render()
 
 void PianoVisualizer::RenderCameraOutput()
 {
-    if (!m_context)
-        return;
+	if (!m_context)
+		return;
 
-    if (!m_cameraOutputRTV)
-        return;
+	if (!m_cameraOutputRTV)
+		return;
 
-    const bool playback =
-        m_viewer &&
-        m_viewer->isPlaybackLoaded();
+	const bool playback =
+		m_viewer &&
+		m_viewer->isPlaybackLoaded();
 
-    ID3D11ShaderResourceView* cameraTexture = nullptr;
+	ID3D11ShaderResourceView* cameraTexture = nullptr;
 
-    float cameraWidth = 0.0f;
-    float cameraHeight = 0.0f;
+	float cameraWidth = 0.0f;
+	float cameraHeight = 0.0f;
 
-    if (playback)
-    {
-        if (!m_cameraVideoPlayer.IsOpen() && !m_viewer->isPlaybackLoaded())
-            return;
+	if (playback)
+	{
+		if (!m_cameraVideoPlayer.IsOpen() && !m_viewer->isPlaybackLoaded())
+			return;
 
-        cameraTexture =
-            m_cameraVideoPlayer.GetTexture();
+		cameraTexture =
+			m_cameraVideoPlayer.GetTexture();
 
-        cameraWidth =
-            static_cast<float>(
-                m_cameraVideoPlayer.GetWidth()
-                );
+		cameraWidth =
+			static_cast<float>(
+				m_cameraVideoPlayer.GetWidth()
+				);
 
-        cameraHeight =
-            static_cast<float>(
-                m_cameraVideoPlayer.GetHeight()
-                );
-    }
-    else
-    {
-        if (!m_camera.IsOpen())
-            return;
+		cameraHeight =
+			static_cast<float>(
+				m_cameraVideoPlayer.GetHeight()
+				);
+	}
+	else
+	{
+		if (!m_camera.IsOpen())
+			return;
 
-        cameraTexture =
-            m_camera.GetTexture();
+		cameraTexture =
+			m_camera.GetTexture();
 
-        cameraWidth =
-            static_cast<float>(
-                m_camera.GetWidth()
-                );
+		cameraWidth =
+			static_cast<float>(
+				m_camera.GetWidth()
+				);
 
-        cameraHeight =
-            static_cast<float>(
-                m_camera.GetHeight()
-                );
-    }
+		cameraHeight =
+			static_cast<float>(
+				m_camera.GetHeight()
+				);
+	}
 
-    if (!cameraTexture)
-        return;
+	if (!cameraTexture)
+		return;
 
-    const float outputWidth =
-        static_cast<float>(
-            m_statistics.renderWidth
-            );
+	const float outputWidth =
+		static_cast<float>(
+			m_statistics.renderWidth
+			);
 
-    const float outputHeight =
-        static_cast<float>(
-            m_statistics.renderHeight
-            );
+	const float outputHeight =
+		static_cast<float>(
+			m_statistics.renderHeight
+			);
 
-    if (
-        outputWidth <= 0.0f ||
-        outputHeight <= 0.0f ||
-        cameraWidth <= 0.0f ||
-        cameraHeight <= 0.0f
-        )
-    {
-        return;
-    }
+	if (
+		outputWidth <= 0.0f ||
+		outputHeight <= 0.0f ||
+		cameraWidth <= 0.0f ||
+		cameraHeight <= 0.0f
+		)
+	{
+		return;
+	}
 
 
-    float clearColor[4]{
-        0.0f,
-        0.0f,
-        0.0f,
-        1.0f
-    };
+	float clearColor[4]{
+		0.0f,
+		0.0f,
+		0.0f,
+		1.0f
+	};
 
-    ID3D11RenderTargetView* renderTarget =
-        m_cameraOutputRTV.Get();
+	ID3D11RenderTargetView* renderTarget =
+		m_cameraOutputRTV.Get();
 
-    m_context->OMSetRenderTargets(
-        1,
-        &renderTarget,
-        nullptr
-    );
+	m_context->OMSetRenderTargets(
+		1,
+		&renderTarget,
+		nullptr
+	);
 
-    m_context->ClearRenderTargetView(
-        renderTarget,
-        clearColor
-    );
+	m_context->ClearRenderTargetView(
+		renderTarget,
+		clearColor
+	);
 
-    const float cameraAspect =
-        cameraWidth / cameraHeight;
+	const float cameraAspect =
+		cameraWidth / cameraHeight;
 
-    float drawWidth =
-        outputWidth;
+	float drawWidth =
+		outputWidth;
 
-    float drawHeight =
-        drawWidth / cameraAspect;
+	float drawHeight =
+		drawWidth / cameraAspect;
 
-    if (drawHeight > outputHeight)
-    {
-        drawHeight =
-            outputHeight;
+	if (drawHeight > outputHeight)
+	{
+		drawHeight =
+			outputHeight;
 
-        drawWidth =
-            drawHeight * cameraAspect;
-    }
+		drawWidth =
+			drawHeight * cameraAspect;
+	}
 
-    D3D11_VIEWPORT cameraViewport{};
+	D3D11_VIEWPORT cameraViewport{};
 
-    cameraViewport.TopLeftX =
-        (outputWidth - drawWidth) * 0.5f;
+	cameraViewport.TopLeftX =
+		(outputWidth - drawWidth) * 0.5f;
 
-    cameraViewport.TopLeftY =
-        (outputHeight - drawHeight) * 0.5f;
+	cameraViewport.TopLeftY =
+		(outputHeight - drawHeight) * 0.5f;
 
-    cameraViewport.Width =
-        drawWidth;
+	cameraViewport.Width =
+		drawWidth;
 
-    cameraViewport.Height =
-        drawHeight;
+	cameraViewport.Height =
+		drawHeight;
 
-    cameraViewport.MinDepth = 0.0f;
-    cameraViewport.MaxDepth = 1.0f;
+	cameraViewport.MinDepth = 0.0f;
+	cameraViewport.MaxDepth = 1.0f;
 
-    m_context->RSSetViewports(
-        1,
-        &cameraViewport
-    );
+	m_context->RSSetViewports(
+		1,
+		&cameraViewport
+	);
 
-    m_viewer->getFullscreenQuad().draw(
-        m_context,
-        cameraTexture,
-        0.0f
-    );
+	m_viewer->getFullscreenQuad().draw(
+		m_context,
+		cameraTexture,
+		0.0f
+	);
 
-    ID3D11ShaderResourceView* nullSRV =
-        nullptr;
+	ID3D11ShaderResourceView* nullSRV =
+		nullptr;
 
-    m_context->PSSetShaderResources(
-        0,
-        1,
-        &nullSRV
-    );
+	m_context->PSSetShaderResources(
+		0,
+		1,
+		&nullSRV
+	);
 
-    D3D11_VIEWPORT viewport{};
+	D3D11_VIEWPORT viewport{};
 
-    viewport.TopLeftX = 0.0f;
-    viewport.TopLeftY = 0.0f;
-    viewport.Width = outputWidth;
-    viewport.Height = outputHeight;
-    viewport.MinDepth = 0.0f;
-    viewport.MaxDepth = 1.0f;
+	viewport.TopLeftX = 0.0f;
+	viewport.TopLeftY = 0.0f;
+	viewport.Width = outputWidth;
+	viewport.Height = outputHeight;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
 
-    m_context->RSSetViewports(
-        1,
-        &viewport
-    );
+	m_context->RSSetViewports(
+		1,
+		&viewport
+	);
 }
 
 // =========================================================
@@ -1884,280 +1906,280 @@ void PianoVisualizer::RenderCameraOutput()
 
 void PianoVisualizer::RenderPianoRoll()
 {
-    if (!m_viewer)
-        return;
+	if (!m_viewer)
+		return;
 
-    // ---------------------------------------------------------
-    // Render MIDI visualizer
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Render MIDI visualizer
+	// ---------------------------------------------------------
 
-    m_viewer->draw(
-        DEBUG_SPEED *
-        float(System::time()),
-        false
-    );
+	m_viewer->draw(
+		DEBUG_SPEED *
+		float(System::time()),
+		false
+	);
 
-    const bool onlyFilePlayback =
-        m_viewer->isOnlyFilePlayback();
+	const bool onlyFilePlayback =
+		m_viewer->isOnlyFilePlayback();
 
-    // ---------------------------------------------------------
-    // Restore main render target / viewport
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Restore main render target / viewport
+	// ---------------------------------------------------------
 
-    m_context->OMSetRenderTargets(
-        1,
-        &m_renderTargetView,
-        nullptr
-    );
+	m_context->OMSetRenderTargets(
+		1,
+		&m_renderTargetView,
+		nullptr
+	);
 
-    D3D11_VIEWPORT d3dviewport{};
+	D3D11_VIEWPORT d3dviewport{};
 
-    d3dviewport.TopLeftX = 0.0f;
-    d3dviewport.TopLeftY = 0.0f;
+	d3dviewport.TopLeftX = 0.0f;
+	d3dviewport.TopLeftY = 0.0f;
 
-    d3dviewport.Width =
-        static_cast<float>(
-            m_statistics.renderWidth
-            );
+	d3dviewport.Width =
+		static_cast<float>(
+			m_statistics.renderWidth
+			);
 
-    d3dviewport.Height =
-        static_cast<float>(
-            m_statistics.renderHeight
-            );
+	d3dviewport.Height =
+		static_cast<float>(
+			m_statistics.renderHeight
+			);
 
-    d3dviewport.MinDepth = 0.0f;
-    d3dviewport.MaxDepth = 1.0f;
+	d3dviewport.MinDepth = 0.0f;
+	d3dviewport.MaxDepth = 1.0f;
 
-    m_context->RSSetViewports(
-        1,
-        &d3dviewport
-    );
+	m_context->RSSetViewports(
+		1,
+		&d3dviewport
+	);
 
-    if (onlyFilePlayback)
-    {
-        RenderPianoRollVisualizer();
-        return;
-    }
+	if (onlyFilePlayback)
+	{
+		RenderPianoRollVisualizer();
+		return;
+	}
 
-    // ---------------------------------------------------------
-    // Camera
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Camera
+	// ---------------------------------------------------------
 
-    float cameraWidth = 0.0f;
-    float cameraHeight = 0.0f;
+	float cameraWidth = 0.0f;
+	float cameraHeight = 0.0f;
 
-    ID3D11ShaderResourceView* cameraTexture =
-        nullptr;
+	ID3D11ShaderResourceView* cameraTexture =
+		nullptr;
 
-    if (
-        m_viewer->isPlaybackLoaded() &&
-        m_cameraVideoPlayer.IsOpen()
-        )
-    {
-        cameraTexture =
-            m_cameraVideoPlayer.GetTexture();
+	if (
+		m_viewer->isPlaybackLoaded() &&
+		m_cameraVideoPlayer.IsOpen()
+		)
+	{
+		cameraTexture =
+			m_cameraVideoPlayer.GetTexture();
 
-        cameraWidth =
-            static_cast<float>(
-                m_cameraVideoPlayer.GetWidth()
-                );
+		cameraWidth =
+			static_cast<float>(
+				m_cameraVideoPlayer.GetWidth()
+				);
 
-        cameraHeight =
-            static_cast<float>(
-                m_cameraVideoPlayer.GetHeight()
-                );
-    }
-    else if (m_camera.IsOpen())
-    {
-        cameraTexture =
-            m_camera.GetTexture();
+		cameraHeight =
+			static_cast<float>(
+				m_cameraVideoPlayer.GetHeight()
+				);
+	}
+	else if (m_camera.IsOpen())
+	{
+		cameraTexture =
+			m_camera.GetTexture();
 
-        cameraWidth =
-            static_cast<float>(
-                m_camera.GetWidth()
-                );
+		cameraWidth =
+			static_cast<float>(
+				m_camera.GetWidth()
+				);
 
-        cameraHeight =
-            static_cast<float>(
-                m_camera.GetHeight()
-                );
-    }
+		cameraHeight =
+			static_cast<float>(
+				m_camera.GetHeight()
+				);
+	}
 
-    if (
-        !cameraTexture ||
-        cameraWidth <= 0.0f ||
-        cameraHeight <= 0.0f
-        )
-    {
-        return;
-    }
+	if (
+		!cameraTexture ||
+		cameraWidth <= 0.0f ||
+		cameraHeight <= 0.0f
+		)
+	{
+		return;
+	}
 
-    // ---------------------------------------------------------
-    // Viewport
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Viewport
+	// ---------------------------------------------------------
 
-    ImGuiViewport* viewport =
-        ImGui::GetMainViewport();
+	ImGuiViewport* viewport =
+		ImGui::GetMainViewport();
 
-    const float outputWidth =
-        viewport->WorkSize.x;
+	const float outputWidth =
+		viewport->WorkSize.x;
 
-    const float outputHeight =
-        viewport->WorkSize.y;
+	const float outputHeight =
+		viewport->WorkSize.y;
 
-    const float visualizerHeight =
-        outputHeight *
-        std::clamp(
-            m_pianoRollVisualizerHeight,
-            0.00f,
-            1.00f
-        );
+	const float visualizerHeight =
+		outputHeight *
+		std::clamp(
+			m_pianoRollVisualizerHeight,
+			0.00f,
+			1.00f
+		);
 
-    const float topWidth =
-        std::hypot(
-            m_polygonPoints[3].x - m_polygonPoints[0].x,
-            m_polygonPoints[3].y - m_polygonPoints[0].y
-        );
+	const float topWidth =
+		std::hypot(
+			m_polygonPoints[3].x - m_polygonPoints[0].x,
+			m_polygonPoints[3].y - m_polygonPoints[0].y
+		);
 
-    const float bottomWidth =
-        std::hypot(
-            m_polygonPoints[2].x - m_polygonPoints[1].x,
-            m_polygonPoints[2].y - m_polygonPoints[1].y
-        );
+	const float bottomWidth =
+		std::hypot(
+			m_polygonPoints[2].x - m_polygonPoints[1].x,
+			m_polygonPoints[2].y - m_polygonPoints[1].y
+		);
 
-    const float leftHeight =
-        std::hypot(
-            m_polygonPoints[1].x - m_polygonPoints[0].x,
-            m_polygonPoints[1].y - m_polygonPoints[0].y
-        );
+	const float leftHeight =
+		std::hypot(
+			m_polygonPoints[1].x - m_polygonPoints[0].x,
+			m_polygonPoints[1].y - m_polygonPoints[0].y
+		);
 
-    const float rightHeight =
-        std::hypot(
-            m_polygonPoints[2].x - m_polygonPoints[3].x,
-            m_polygonPoints[2].y - m_polygonPoints[3].y
-        );
+	const float rightHeight =
+		std::hypot(
+			m_polygonPoints[2].x - m_polygonPoints[3].x,
+			m_polygonPoints[2].y - m_polygonPoints[3].y
+		);
 
-    const float regionWidth =
-        (topWidth + bottomWidth) * 0.5f;
+	const float regionWidth =
+		(topWidth + bottomWidth) * 0.5f;
 
-    const float regionHeight =
-        (leftHeight + rightHeight) * 0.5f;
+	const float regionHeight =
+		(leftHeight + rightHeight) * 0.5f;
 
-    const float regionAspectRatio =
-        regionHeight / regionWidth;
+	const float regionAspectRatio =
+		regionHeight / regionWidth;
 
-    const float cameraDisplayHeight =
-        outputWidth * regionAspectRatio;
+	const float cameraDisplayHeight =
+		outputWidth * regionAspectRatio;
 
-    // ---------------------------------------------------------
-    // Camera destination
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Camera destination
+	// ---------------------------------------------------------
 
-    const float cameraY =
-        viewport->WorkPos.y +
-        visualizerHeight;
+	const float cameraY =
+		viewport->WorkPos.y +
+		visualizerHeight;
 
-    const ImVec2 cameraTopLeft(
-        viewport->WorkPos.x,
-        cameraY
-    );
+	const ImVec2 cameraTopLeft(
+		viewport->WorkPos.x,
+		cameraY
+	);
 
-    const ImVec2 cameraTopRight(
-        viewport->WorkPos.x +
-        outputWidth,
-        cameraY
-    );
+	const ImVec2 cameraTopRight(
+		viewport->WorkPos.x +
+		outputWidth,
+		cameraY
+	);
 
-    const ImVec2 cameraBottomRight(
-        viewport->WorkPos.x +
-        outputWidth,
-        cameraY +
-        cameraDisplayHeight
-    );
+	const ImVec2 cameraBottomRight(
+		viewport->WorkPos.x +
+		outputWidth,
+		cameraY +
+		cameraDisplayHeight
+	);
 
-    const ImVec2 cameraBottomLeft(
-        viewport->WorkPos.x,
-        cameraY +
-        cameraDisplayHeight
-    );
+	const ImVec2 cameraBottomLeft(
+		viewport->WorkPos.x,
+		cameraY +
+		cameraDisplayHeight
+	);
 
-    // ---------------------------------------------------------
-    // Camera source quad
-    //
-    // P1 = top-left
-    // P2 = bottom-left
-    // P3 = bottom-right
-    // P4 = top-right
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Camera source quad
+	//
+	// P1 = top-left
+	// P2 = bottom-left
+	// P3 = bottom-right
+	// P4 = top-right
+	// ---------------------------------------------------------
 
-    if (m_polygonPoints.size() == 4)
-    {
-        const ImVec2 sourceTopLeft(
-            m_polygonPoints[0].x / cameraWidth,
-            m_polygonPoints[0].y / cameraHeight
-        );
+	if (m_polygonPoints.size() == 4)
+	{
+		const ImVec2 sourceTopLeft(
+			m_polygonPoints[0].x / cameraWidth,
+			m_polygonPoints[0].y / cameraHeight
+		);
 
-        const ImVec2 sourceTopRight(
-            m_polygonPoints[3].x / cameraWidth,
-            m_polygonPoints[3].y / cameraHeight
-        );
+		const ImVec2 sourceTopRight(
+			m_polygonPoints[3].x / cameraWidth,
+			m_polygonPoints[3].y / cameraHeight
+		);
 
-        const ImVec2 sourceBottomRight(
-            m_polygonPoints[2].x / cameraWidth,
-            m_polygonPoints[2].y / cameraHeight
-        );
+		const ImVec2 sourceBottomRight(
+			m_polygonPoints[2].x / cameraWidth,
+			m_polygonPoints[2].y / cameraHeight
+		);
 
-        const ImVec2 sourceBottomLeft(
-            m_polygonPoints[1].x / cameraWidth,
-            m_polygonPoints[1].y / cameraHeight
-        );
+		const ImVec2 sourceBottomLeft(
+			m_polygonPoints[1].x / cameraWidth,
+			m_polygonPoints[1].y / cameraHeight
+		);
 
-        ImDrawList* drawList =
-            ImGui::GetBackgroundDrawList();
+		ImDrawList* drawList =
+			ImGui::GetBackgroundDrawList();
 
-        ImTextureID cameraTextureId =
-            reinterpret_cast<ImTextureID>(
-                cameraTexture
-                );
+		ImTextureID cameraTextureId =
+			reinterpret_cast<ImTextureID>(
+				cameraTexture
+				);
 
-        VirtualWindowRenderer::Settings cameraSettings;
+		VirtualWindowRenderer::Settings cameraSettings;
 
-        cameraSettings.gridX = 64;
-        cameraSettings.gridY = 36;
+		cameraSettings.gridX = 64;
+		cameraSettings.gridY = 36;
 
-        cameraSettings.drawDebugLines =
-            gui::showDebugLines;
+		cameraSettings.drawDebugLines =
+			gui::showDebugLines;
 
-        cameraSettings.sourceBottomScale =
-            m_pianoRollCameraSourceScale;
+		cameraSettings.sourceBottomScale =
+			m_pianoRollCameraSourceScale;
 
-        // -----------------------------------------------------
-        // Draw calibrated piano region
-        // -----------------------------------------------------
+		// -----------------------------------------------------
+		// Draw calibrated piano region
+		// -----------------------------------------------------
 
-        m_virtualWindowRenderer.Render(
-            drawList,
-            cameraTextureId,
+		m_virtualWindowRenderer.Render(
+			drawList,
+			cameraTextureId,
 
-            sourceTopLeft,
-            sourceTopRight,
-            sourceBottomRight,
-            sourceBottomLeft,
+			sourceTopLeft,
+			sourceTopRight,
+			sourceBottomRight,
+			sourceBottomLeft,
 
-            cameraTopLeft,
-            cameraTopRight,
-            cameraBottomRight,
-            cameraBottomLeft,
+			cameraTopLeft,
+			cameraTopRight,
+			cameraBottomRight,
+			cameraBottomLeft,
 
-            cameraSettings
-        );
-    }
+			cameraSettings
+		);
+	}
 
-    // ---------------------------------------------------------
-    // Visualizer
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Visualizer
+	// ---------------------------------------------------------
 
-    RenderPianoRollVisualizer();
+	RenderPianoRollVisualizer();
 }
 
 // =========================================================
@@ -2166,111 +2188,111 @@ void PianoVisualizer::RenderPianoRoll()
 
 void PianoVisualizer::RenderPianoRollVisualizer()
 {
-    if (!m_viewer)
-        return;
+	if (!m_viewer)
+		return;
 
-    ID3D11ShaderResourceView* texture =
-        nullptr;
+	ID3D11ShaderResourceView* texture =
+		nullptr;
 
-    // ---------------------------------------------------------
-    // Select renderer
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Select renderer
+	// ---------------------------------------------------------
 
-    if (
-        gui::renderer ==
-        gui::VisualizerRenderer::OtherVisualizer
-        )
-    {
-        m_windowCapture.Update();
+	if (
+		gui::renderer ==
+		gui::VisualizerRenderer::OtherVisualizer
+		)
+	{
+		m_windowCapture.Update();
 
-        texture =
-            m_windowCapture.GetTexture();
-    }
-    else
-    {
-        texture =
-            m_viewer->getTexture();
-    }
+		texture =
+			m_windowCapture.GetTexture();
+	}
+	else
+	{
+		texture =
+			m_viewer->getTexture();
+	}
 
-    if (!texture)
-        return;
+	if (!texture)
+		return;
 
-    // ---------------------------------------------------------
-    // Viewport
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Viewport
+	// ---------------------------------------------------------
 
-    ImGuiViewport* viewport =
-        ImGui::GetMainViewport();
+	ImGuiViewport* viewport =
+		ImGui::GetMainViewport();
 
-    const float width =
-        viewport->WorkSize.x;
+	const float width =
+		viewport->WorkSize.x;
 
-    const float height =
-        viewport->WorkSize.y;
+	const float height =
+		viewport->WorkSize.y;
 
-    const float visualizerHeight =
-        height *
-        std::clamp(
-            m_pianoRollVisualizerHeight,
-            0.00f,
-            1.00f
-        );
+	const float visualizerHeight =
+		height *
+		std::clamp(
+			m_pianoRollVisualizerHeight,
+			0.00f,
+			1.00f
+		);
 
-    const ImVec2 topLeft(
-        viewport->WorkPos.x,
-        viewport->WorkPos.y
-    );
+	const ImVec2 topLeft(
+		viewport->WorkPos.x,
+		viewport->WorkPos.y
+	);
 
-    const ImVec2 topRight(
-        viewport->WorkPos.x +
-        width,
-        viewport->WorkPos.y
-    );
+	const ImVec2 topRight(
+		viewport->WorkPos.x +
+		width,
+		viewport->WorkPos.y
+	);
 
-    const ImVec2 bottomRight(
-        viewport->WorkPos.x +
-        width,
-        viewport->WorkPos.y +
-        visualizerHeight
-    );
+	const ImVec2 bottomRight(
+		viewport->WorkPos.x +
+		width,
+		viewport->WorkPos.y +
+		visualizerHeight
+	);
 
-    const ImVec2 bottomLeft(
-        viewport->WorkPos.x,
-        viewport->WorkPos.y +
-        visualizerHeight
-    );
+	const ImVec2 bottomLeft(
+		viewport->WorkPos.x,
+		viewport->WorkPos.y +
+		visualizerHeight
+	);
 
-    // ---------------------------------------------------------
-    // Draw visualizer
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Draw visualizer
+	// ---------------------------------------------------------
 
-    ImDrawList* drawList =
-        ImGui::GetBackgroundDrawList();
+	ImDrawList* drawList =
+		ImGui::GetBackgroundDrawList();
 
-    ImTextureID textureId =
-        reinterpret_cast<ImTextureID>(
-            texture
-            );
+	ImTextureID textureId =
+		reinterpret_cast<ImTextureID>(
+			texture
+			);
 
-    VirtualWindowRenderer::Settings settings;
+	VirtualWindowRenderer::Settings settings;
 
-    settings.gridX = 64;
-    settings.gridY = 36;
+	settings.gridX = 64;
+	settings.gridY = 36;
 
-    settings.drawDebugLines =
-        gui::showDebugLines;
+	settings.drawDebugLines =
+		gui::showDebugLines;
 
-    m_virtualWindowRenderer.Render(
-        drawList,
-        textureId,
+	m_virtualWindowRenderer.Render(
+		drawList,
+		textureId,
 
-        topLeft,
-        topRight,
-        bottomRight,
-        bottomLeft,
+		topLeft,
+		topRight,
+		bottomRight,
+		bottomLeft,
 
-        settings
-    );
+		settings
+	);
 }
 
 
@@ -2280,74 +2302,74 @@ void PianoVisualizer::RenderPianoRollVisualizer()
 
 void PianoVisualizer::RenderCamera()
 {
-    if (!m_camera.IsOpen() && !m_cameraVideoPlayer.IsOpen())
-        return;
+	if (!m_camera.IsOpen() && !m_cameraVideoPlayer.IsOpen())
+		return;
 
-    ImGuiViewport* viewport =
-        ImGui::GetMainViewport();
+	ImGuiViewport* viewport =
+		ImGui::GetMainViewport();
 
-    ImGui::SetNextWindowPos(
-        viewport->WorkPos,
-        ImGuiCond_Always
-    );
+	ImGui::SetNextWindowPos(
+		viewport->WorkPos,
+		ImGuiCond_Always
+	);
 
-    ImGui::SetNextWindowSize(
-        viewport->WorkSize,
-        ImGuiCond_Always
-    );
+	ImGui::SetNextWindowSize(
+		viewport->WorkSize,
+		ImGuiCond_Always
+	);
 
-    ImGuiWindowFlags flags =
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoScrollbar |
-        ImGuiWindowFlags_NoScrollWithMouse |
-        ImGuiWindowFlags_NoMove;
+	ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoScrollbar |
+		ImGuiWindowFlags_NoScrollWithMouse |
+		ImGuiWindowFlags_NoMove;
 
-    ImGui::PushStyleVar(
-        ImGuiStyleVar_WindowPadding,
-        ImVec2(0, 0)
-    );
+	ImGui::PushStyleVar(
+		ImGuiStyleVar_WindowPadding,
+		ImVec2(0, 0)
+	);
 
-    ImGui::PushStyleVar(
-        ImGuiStyleVar_WindowBorderSize,
-        0.0f
-    );
+	ImGui::PushStyleVar(
+		ImGuiStyleVar_WindowBorderSize,
+		0.0f
+	);
 
-    ImGui::PushStyleVar(
-        ImGuiStyleVar_WindowRounding,
-        0.0f
-    );
+	ImGui::PushStyleVar(
+		ImGuiStyleVar_WindowRounding,
+		0.0f
+	);
 
-    ImGui::Begin(
-        "Camera Feed",
-        nullptr,
-        flags
-    );
+	ImGui::Begin(
+		"Camera Feed",
+		nullptr,
+		flags
+	);
 
-    ImGuiWindow* camWindow =
-        ImGui::GetCurrentWindow();
+	ImGuiWindow* camWindow =
+		ImGui::GetCurrentWindow();
 
-    if (m_choosingPolygonPoints)
-    {
-        ImGui::BringWindowToDisplayFront(
-            camWindow
-        );
-    }
-    else
-    {
-        ImGui::BringWindowToDisplayBack(
-            camWindow
-        );
-    }
+	if (m_choosingPolygonPoints)
+	{
+		ImGui::BringWindowToDisplayFront(
+			camWindow
+		);
+	}
+	else
+	{
+		ImGui::BringWindowToDisplayBack(
+			camWindow
+		);
+	}
 
-    RenderPolygonSelectionTooltip();
+	RenderPolygonSelectionTooltip();
 
-    RenderCameraFeed();
+	RenderCameraFeed();
 
-    ImGui::End();
+	ImGui::End();
 
-    ImGui::PopStyleVar(3);
+	ImGui::PopStyleVar(3);
 }
 
 
@@ -2357,104 +2379,104 @@ void PianoVisualizer::RenderCamera()
 
 void PianoVisualizer::RenderPolygonSelectionTooltip()
 {
-    if (!m_choosingPolygonPoints)
-        return;
+	if (!m_choosingPolygonPoints)
+		return;
 
-    ImGuiIO& io =
-        ImGui::GetIO();
+	ImGuiIO& io =
+		ImGui::GetIO();
 
-    ImGui::SetNextWindowPos(
-        ImVec2(
-            io.MousePos.x + 12.0f,
-            io.MousePos.y + 12.0f
-        ),
-        ImGuiCond_Always
-    );
+	ImGui::SetNextWindowPos(
+		ImVec2(
+			io.MousePos.x + 12.0f,
+			io.MousePos.y + 12.0f
+		),
+		ImGuiCond_Always
+	);
 
-    ImGui::SetNextWindowBgAlpha(
-        0.9f
-    );
+	ImGui::SetNextWindowBgAlpha(
+		0.9f
+	);
 
-    ImGui::PushStyleVar(
-        ImGuiStyleVar_WindowRounding,
-        8.0f
-    );
+	ImGui::PushStyleVar(
+		ImGuiStyleVar_WindowRounding,
+		8.0f
+	);
 
-    ImGui::PushStyleVar(
-        ImGuiStyleVar_WindowPadding,
-        ImVec2(8.0f, 5.0f)
-    );
+	ImGui::PushStyleVar(
+		ImGuiStyleVar_WindowPadding,
+		ImVec2(8.0f, 5.0f)
+	);
 
-    ImGuiWindowFlags ttFlags =
-        ImGuiWindowFlags_NoDecoration |
-        ImGuiWindowFlags_AlwaysAutoResize |
-        ImGuiWindowFlags_NoSavedSettings |
-        ImGuiWindowFlags_NoFocusOnAppearing |
-        ImGuiWindowFlags_NoNav;
+	ImGuiWindowFlags ttFlags =
+		ImGuiWindowFlags_NoDecoration |
+		ImGuiWindowFlags_AlwaysAutoResize |
+		ImGuiWindowFlags_NoSavedSettings |
+		ImGuiWindowFlags_NoFocusOnAppearing |
+		ImGuiWindowFlags_NoNav;
 
-    ImGui::Begin(
-        "MouseTooltip",
-        nullptr,
-        ttFlags
-    );
+	ImGui::Begin(
+		"MouseTooltip",
+		nullptr,
+		ttFlags
+	);
 
-    ImGuiWindow* ttWindow =
-        ImGui::GetCurrentWindow();
+	ImGuiWindow* ttWindow =
+		ImGui::GetCurrentWindow();
 
-    ImGui::BringWindowToDisplayFront(
-        ttWindow
-    );
+	ImGui::BringWindowToDisplayFront(
+		ttWindow
+	);
 
-    switch (m_polygonClickCount)
-    {
-    case 0:
-        ImGui::Text(
-            "P1. Click    TOP-LEFT    corner of the piano (ESC to cancel)"
-        );
-        break;
+	switch (m_polygonClickCount)
+	{
+	case 0:
+		ImGui::Text(
+			"P1. Click    TOP-LEFT    corner of the piano (ESC to cancel)"
+		);
+		break;
 
-    case 1:
-        ImGui::Text(
-            "P2: Click   BOTTOM-LEFT  corner of the piano (ESC to cancel)"
-        );
-        break;
+	case 1:
+		ImGui::Text(
+			"P2: Click   BOTTOM-LEFT  corner of the piano (ESC to cancel)"
+		);
+		break;
 
-    case 2:
-        ImGui::Text(
-            "P3: Click  BOTTOM-RIGHT  corner of the piano (ESC to cancel)"
-        );
-        break;
+	case 2:
+		ImGui::Text(
+			"P3: Click  BOTTOM-RIGHT  corner of the piano (ESC to cancel)"
+		);
+		break;
 
-    case 3:
-        ImGui::Text(
-            "P4: Click    TOP-RIGHT   corner of the piano (ESC to cancel)"
-        );
-        break;
-    }
+	case 3:
+		ImGui::Text(
+			"P4: Click    TOP-RIGHT   corner of the piano (ESC to cancel)"
+		);
+		break;
+	}
 
-    ImGui::End();
+	ImGui::End();
 
-    ImGui::PopStyleVar(2);
+	ImGui::PopStyleVar(2);
 
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape))
-    {
-        m_polygonPoints =
-            m_savedPolygonPoints;
+	if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+	{
+		m_polygonPoints =
+			m_savedPolygonPoints;
 
-        m_choosingPolygonPoints =
-            false;
+		m_choosingPolygonPoints =
+			false;
 
-        if (m_temporaryPerspectiveScene)
-        {
-            m_pianoScene = PianoScene::PianoRoll;
-            m_temporaryPerspectiveScene = false;
-        }
+		if (m_temporaryPerspectiveScene)
+		{
+			m_pianoScene = PianoScene::PianoRoll;
+			m_temporaryPerspectiveScene = false;
+		}
 
-        m_polygonClickCount =
-            static_cast<int>(
-                m_polygonPoints.size()
-                );
-    }
+		m_polygonClickCount =
+			static_cast<int>(
+				m_polygonPoints.size()
+				);
+	}
 }
 
 
@@ -2463,76 +2485,76 @@ void PianoVisualizer::RenderPolygonSelectionTooltip()
 // =========================================================
 
 bool PianoVisualizer::CalculatePianoRollGeometry(
-    float outputWidth,
-    float outputHeight,
-    float cameraWidth,
-    float cameraHeight,
-    ImVec2& visualizerTopLeft,
-    ImVec2& visualizerTopRight,
-    ImVec2& boundaryLeft,
-    ImVec2& boundaryRight,
-    ImVec2& cameraBottomLeft,
-    ImVec2& cameraBottomRight
+	float outputWidth,
+	float outputHeight,
+	float cameraWidth,
+	float cameraHeight,
+	ImVec2& visualizerTopLeft,
+	ImVec2& visualizerTopRight,
+	ImVec2& boundaryLeft,
+	ImVec2& boundaryRight,
+	ImVec2& cameraBottomLeft,
+	ImVec2& cameraBottomRight
 )
 {
-    if (
-        outputWidth <= 0.0f ||
-        outputHeight <= 0.0f ||
-        cameraWidth <= 0.0f ||
-        cameraHeight <= 0.0f
-        )
-    {
-        return false;
-    }
+	if (
+		outputWidth <= 0.0f ||
+		outputHeight <= 0.0f ||
+		cameraWidth <= 0.0f ||
+		cameraHeight <= 0.0f
+		)
+	{
+		return false;
+	}
 
-    if (m_polygonPoints.size() != 4)
-        return false;
+	if (m_polygonPoints.size() != 4)
+		return false;
 
-    const float visualizerHeight =
-        outputHeight *
-        std::clamp(
-            m_pianoRollVisualizerHeight,
-            0.05f,
-            0.95f
-        );
+	const float visualizerHeight =
+		outputHeight *
+		std::clamp(
+			m_pianoRollVisualizerHeight,
+			0.05f,
+			0.95f
+		);
 
-    visualizerTopLeft =
-        ImVec2(
-            0.0f,
-            0.0f
-        );
+	visualizerTopLeft =
+		ImVec2(
+			0.0f,
+			0.0f
+		);
 
-    visualizerTopRight =
-        ImVec2(
-            outputWidth,
-            0.0f
-        );
+	visualizerTopRight =
+		ImVec2(
+			outputWidth,
+			0.0f
+		);
 
-    boundaryLeft =
-        ImVec2(
-            0.0f,
-            visualizerHeight
-        );
+	boundaryLeft =
+		ImVec2(
+			0.0f,
+			visualizerHeight
+		);
 
-    boundaryRight =
-        ImVec2(
-            outputWidth,
-            visualizerHeight
-        );
+	boundaryRight =
+		ImVec2(
+			outputWidth,
+			visualizerHeight
+		);
 
-    cameraBottomLeft =
-        ImVec2(
-            0.0f,
-            outputHeight
-        );
+	cameraBottomLeft =
+		ImVec2(
+			0.0f,
+			outputHeight
+		);
 
-    cameraBottomRight =
-        ImVec2(
-            outputWidth,
-            outputHeight
-        );
+	cameraBottomRight =
+		ImVec2(
+			outputWidth,
+			outputHeight
+		);
 
-    return true;
+	return true;
 }
 
 // =========================================================
@@ -2541,480 +2563,479 @@ bool PianoVisualizer::CalculatePianoRollGeometry(
 
 void PianoVisualizer::RenderCameraFeed()
 {
-    ImVec2 imagePos =
-        ImGui::GetCursorScreenPos();
+	ImVec2 imagePos =
+		ImGui::GetCursorScreenPos();
 
-    ImVec2 available =
-        ImGui::GetContentRegionAvail();
+	ImVec2 available =
+		ImGui::GetContentRegionAvail();
 
-    ID3D11ShaderResourceView* texture = nullptr;
+	ID3D11ShaderResourceView* texture = nullptr;
 
-    float cameraWidth = 0.0f;
-    float cameraHeight = 0.0f;
+	float cameraWidth = 0.0f;
+	float cameraHeight = 0.0f;
 
-    // ---------------------------------------------------------
-    // Draw camera output
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Draw camera output
+	// ---------------------------------------------------------
 
-    if (
-        m_viewer &&
-        m_viewer->isPlaybackLoaded()
-        )
-    {
-        texture =
-            m_cameraVideoPlayer.GetTexture();
+	if (
+		m_viewer &&
+		m_viewer->isPlaybackLoaded()
+		)
+	{
+		texture =
+			m_cameraVideoPlayer.GetTexture();
 
-        cameraWidth =
-            static_cast<float>(
-                m_cameraVideoPlayer.GetWidth()
-                );
+		cameraWidth =
+			static_cast<float>(
+				m_cameraVideoPlayer.GetWidth()
+				);
 
-        cameraHeight =
-            static_cast<float>(
-                m_cameraVideoPlayer.GetHeight()
-                );
+		cameraHeight =
+			static_cast<float>(
+				m_cameraVideoPlayer.GetHeight()
+				);
 
-        //Logger::Log("%fx%f\n", cameraWidth, cameraHeight);
-    }
-    else
-    {
-        texture =
-            m_cameraOutputSRV.Get();
+		//Logger::Log("%fx%f\n", cameraWidth, cameraHeight);
+	}
+	else
+	{
+		texture =
+			m_cameraOutputSRV.Get();
 
-        cameraWidth =
-            static_cast<float>(
-                m_camera.GetWidth()
-                );
+		cameraWidth =
+			static_cast<float>(
+				m_camera.GetWidth()
+				);
 
-        cameraHeight =
-            static_cast<float>(
-                m_camera.GetHeight()
-                );
-    }
+		cameraHeight =
+			static_cast<float>(
+				m_camera.GetHeight()
+				);
+	}
 
-    if (
-        cameraWidth <= 0.0f ||
-        cameraHeight <= 0.0f
-        )
-    {
-        return;
-    }
+	if (
+		cameraWidth <= 0.0f ||
+		cameraHeight <= 0.0f
+		)
+	{
+		return;
+	}
 
-    float aspect =
-        cameraWidth /
-        cameraHeight;
+	float aspect =
+		cameraWidth /
+		cameraHeight;
 
-    float width =
-        available.x;
+	float width =
+		available.x;
 
-    float height =
-        width /
-        aspect;
+	float height =
+		width /
+		aspect;
 
-    // Keep aspect ratio
-    if (height > available.y)
-    {
-        height =
-            available.y;
+	// Keep aspect ratio
+	if (height > available.y)
+	{
+		height =
+			available.y;
 
-        width =
-            height *
-            aspect;
-    }
-    //);
+		width =
+			height *
+			aspect;
+	}
+	//);
 
-    ImGui::Image(
-        (ImTextureID)texture,
-        ImVec2(
-            width,
-            height
-        )
-    );
+	ImGui::Image(
+		(ImTextureID)texture,
+		ImVec2(
+			width,
+			height
+		)
+	);
 
 
 
-    // ---------------------------------------------------------
-    // Camera -> screen conversion
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Camera -> screen conversion
+	// ---------------------------------------------------------
 
-    auto CameraToScreen =
-        [&](float cameraX, float cameraY)
-        {
-            float screenX =
-                imagePos.x +
-                cameraX *
-                (width / cameraWidth);
+	auto CameraToScreen =
+		[&](float cameraX, float cameraY)
+		{
+			float screenX =
+				imagePos.x +
+				cameraX *
+				(width / cameraWidth);
 
-            float screenY =
-                imagePos.y +
-                cameraY *
-                (height / cameraHeight);
+			float screenY =
+				imagePos.y +
+				cameraY *
+				(height / cameraHeight);
 
-            return ImVec2(
-                screenX,
-                screenY
-            );
-        };
+			return ImVec2(
+				screenX,
+				screenY
+			);
+		};
 
-    // ---------------------------------------------------------
-    // Screen -> camera conversion
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Screen -> camera conversion
+	// ---------------------------------------------------------
 
-    auto ScreenToCamera =
-        [&](float screenX, float screenY)
-        {
-            float cameraX =
-                (screenX - imagePos.x) *
-                (cameraWidth / width);
+	auto ScreenToCamera =
+		[&](float screenX, float screenY)
+		{
+			float cameraX =
+				(screenX - imagePos.x) *
+				(cameraWidth / width);
 
-            float cameraY =
-                (screenY - imagePos.y) *
-                (cameraHeight / height);
+			float cameraY =
+				(screenY - imagePos.y) *
+				(cameraHeight / height);
 
-            return ImVec2(
-                cameraX,
-                cameraY
-            );
-        };
+			return ImVec2(
+				cameraX,
+				cameraY
+			);
+		};
 
-    // ---------------------------------------------------------
-    // Piano overlay
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Piano overlay
+	// ---------------------------------------------------------
 
-    RenderPianoOverlay();
+	RenderPianoOverlay();
 
-    // ---------------------------------------------------------
-    // Selected polygon
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Selected polygon
+	// ---------------------------------------------------------
 
-    ImDrawList* drawList =
-        ImGui::GetWindowDrawList();
+	ImDrawList* drawList =
+		ImGui::GetWindowDrawList();
 
-    DrawSelectedPolygon(
-        drawList,
-        CameraToScreen,
-        ScreenToCamera
-    );
+	DrawSelectedPolygon(
+		drawList,
+		CameraToScreen,
+		ScreenToCamera
+	);
 
-    // ---------------------------------------------------------
-    // Polygon point selection
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Polygon point selection
+	// ---------------------------------------------------------
 
-    HandlePolygonPointSelection(
-        imagePos,
-        width,
-        height,
-        cameraWidth,
-        cameraHeight
-    );
+	HandlePolygonPointSelection(
+		imagePos,
+		width,
+		height,
+		cameraWidth,
+		cameraHeight
+	);
 }
 
 void PianoVisualizer::RenderVirtualCameraVisualizer()
 {
-    if (!m_context)
-        return;
+	if (!m_context)
+		return;
 
-    if (!m_viewer)
-        return;
+	if (!m_viewer)
+		return;
 
-    if (!m_virtualCamera.IsActive())
-        return;
+	if (!m_virtualCamera.IsActive())
+		return;
 
-    ID3D11RenderTargetView* frameRTV =
-        m_virtualCamera.GetFrameRTV();
+	ID3D11RenderTargetView* frameRTV =
+		m_virtualCamera.GetFrameRTV();
 
-    if (!frameRTV)
-        return;
+	if (!frameRTV)
+		return;
 
-    ID3D11ShaderResourceView* visualizerTexture =
-        m_viewer->getTexture();
+	ID3D11ShaderResourceView* visualizerTexture =
+		m_viewer->getTexture();
 
-    if (!visualizerTexture)
-        return;
+	if (!visualizerTexture)
+		return;
 
-    if (!m_virtualCamera.AcquireFrame())
-        return;
+	if (!m_virtualCamera.AcquireFrame())
+		return;
 
-    constexpr UINT frameWidth = 1920;
-    constexpr UINT frameHeight = 1080;
+	constexpr UINT frameWidth = 1920;
+	constexpr UINT frameHeight = 1080;
 
-    // ---------------------------------------------------------
-    // Calculate piano projection
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Calculate piano projection
+	// ---------------------------------------------------------
 
-    if (m_polygonPoints.size() != 4)
-    {
-        m_virtualCamera.ReleaseFrame();
-        return;
-    }
+	if (m_polygonPoints.size() != 4)
+	{
+		m_virtualCamera.ReleaseFrame();
+		return;
+	}
 
-    ImVec2 P1 =
-        m_polygonPoints[0];
+	ImVec2 P1 =
+		m_polygonPoints[0];
 
-    ImVec2 P2 =
-        m_polygonPoints[1];
+	ImVec2 P2 =
+		m_polygonPoints[1];
 
-    ImVec2 P3 =
-        m_polygonPoints[2];
+	ImVec2 P3 =
+		m_polygonPoints[2];
 
-    ImVec2 P4 =
-        m_polygonPoints[3];
+	ImVec2 P4 =
+		m_polygonPoints[3];
 
-    const float cameraWidth =
-        static_cast<float>(
-            m_camera.GetWidth()
-            );
+	const float cameraWidth =
+		static_cast<float>(
+			m_camera.GetWidth()
+			);
 
-    const float cameraHeight =
-        static_cast<float>(
-            m_camera.GetHeight()
-            );
+	const float cameraHeight =
+		static_cast<float>(
+			m_camera.GetHeight()
+			);
 
-    float intervalLeftFraction = 0.0f;
-    float intervalRightFraction = 0.0f;
+	float intervalLeftFraction = 0.0f;
+	float intervalRightFraction = 0.0f;
 
-    if (!PianoNoteRange::GetIntervalFractions(
-        m_intervalFirstMidi,
-        m_intervalLastMidi,
-        intervalLeftFraction,
-        intervalRightFraction
-    ))
-    {
-        return;
-    }
+	if (!PianoNoteRange::GetIntervalFractions(
+		m_intervalFirstMidi,
+		m_intervalLastMidi,
+		intervalLeftFraction,
+		intervalRightFraction
+	))
+	{
+		return;
+	}
 
-    const float visibleLeftX =
-        intervalLeftFraction * PianoNoteRange::FULL_PIANO_WIDTH;
+	PianoCameraPose pose =
+		CalculatePianoCameraPose(
+			P1,
+			P2,
+			P3,
+			P4,
+			cameraWidth,
+			cameraHeight,
+			intervalLeftFraction,
+			intervalRightFraction
+		);
 
-    const float visibleRightX =
-        intervalRightFraction * PianoNoteRange::FULL_PIANO_WIDTH;
 
-    PianoCameraPose pose =
-        CalculatePianoCameraPose(
-            P1,
-            P2,
-            P3,
-            P4,
-            cameraWidth,
-            cameraHeight,
-            intervalLeftFraction,
-            intervalRightFraction
-        );
+	if (!pose.valid)
+	{
+		m_virtualCamera.ReleaseFrame();
+		return;
+	}
 
-    if (!pose.valid)
-    {
-        m_virtualCamera.ReleaseFrame();
-        return;
-    }
+	const float visibleLeftX =
+		intervalLeftFraction * pose.pianoWidth;
 
-    float surfaceHeight = 0.0f;
+	const float visibleRightX =
+		intervalRightFraction * pose.pianoWidth;
 
-    if (!CalculateSurfaceHeightToTop(
-        pose,
-        m_planePivot,
-        visibleLeftX,
-        visibleRightX,
-        surfaceHeight
-    ))
-    {
-        m_virtualCamera.ReleaseFrame();
-        return;
-    }
+	float surfaceHeight = 0.0f;
 
-    float angleRadians =
-        m_planePivot *
-        3.14159265358979323846f /
-        180.0f;
+	if (!CalculateSurfaceHeightToTop(
+		pose,
+		m_planePivot,
+		surfaceHeight
+	))
+	{
+		m_virtualCamera.ReleaseFrame();
+		return;
+	}
 
-    // ---------------------------------------------------------
-    // Rotate the virtual surface around the X axis.
-    //
-    // 90° = current vertical orientation
-    //  0° = flat along the piano
-    //
-    // The surface extends in local +Y / -Z.
-    // ---------------------------------------------------------
+	float angleRadians =
+		m_planePivot *
+		3.14159265358979323846f /
+		180.0f;
 
-    float rotatedY =
-        surfaceHeight *
-        std::cos(angleRadians);
+	// ---------------------------------------------------------
+	// Rotate the virtual surface around the X axis.
+	//
+	// 90° = current vertical orientation
+	//  0° = flat along the piano
+	//
+	// The surface extends in local +Y / -Z.
+	// ---------------------------------------------------------
 
-    float rotatedZ =
-        -surfaceHeight *
-        std::sin(angleRadians);
+	float rotatedY =
+		surfaceHeight *
+		std::cos(angleRadians);
 
-    float x1, y1;
-    float x2, y2;
-    float x3, y3;
-    float x4, y4;
+	float rotatedZ =
+		-surfaceHeight *
+		std::sin(angleRadians);
 
-    const float w = PianoNoteRange::FULL_PIANO_WIDTH;
+	float x1, y1;
+	float x2, y2;
+	float x3, y3;
+	float x4, y4;
 
-    bool valid1 =
-        ProjectPianoPoint(
-            pose,
-            0.f,
-            0.f,
-            0.f,
-            x1,
-            y1
-        );
+	const float w = pose.pianoWidth;
 
-    bool valid2 =
-        ProjectPianoPoint(
-            pose,
-            w,
-            0.f,
-            0.f,
-            x2,
-            y2
-        );
+	bool valid1 =
+		ProjectPianoPoint(
+			pose,
+			0.f,
+			0.f,
+			0.f,
+			x1,
+			y1
+		);
 
-    bool valid3 =
-        ProjectPianoPoint(
-            pose,
-            w,
-            rotatedY,
-            rotatedZ,
-            x3,
-            y3
-        );
+	bool valid2 =
+		ProjectPianoPoint(
+			pose,
+			w,
+			0.f,
+			0.f,
+			x2,
+			y2
+		);
 
-    bool valid4 =
-        ProjectPianoPoint(
-            pose,
-            0.f,
-            rotatedY,
-            rotatedZ,
-            x4,
-            y4
-        );
+	bool valid3 =
+		ProjectPianoPoint(
+			pose,
+			w,
+			rotatedY,
+			rotatedZ,
+			x3,
+			y3
+		);
 
-    if (!valid1 ||
-        !valid2 ||
-        !valid3 ||
-        !valid4)
-    {
-        m_virtualCamera.ReleaseFrame();
-        return;
-    }
+	bool valid4 =
+		ProjectPianoPoint(
+			pose,
+			0.f,
+			rotatedY,
+			rotatedZ,
+			x4,
+			y4
+		);
 
-    // ---------------------------------------------------------
-    // Convert camera coordinates to virtual-camera coordinates
-    // ---------------------------------------------------------
+	if (!valid1 ||
+		!valid2 ||
+		!valid3 ||
+		!valid4)
+	{
+		m_virtualCamera.ReleaseFrame();
+		return;
+	}
 
-    auto CameraToFrame =
-        [&](float cameraX, float cameraY)
-        {
-            return ImVec2(
-                cameraX *
-                (
-                    static_cast<float>(frameWidth) /
-                    cameraWidth
-                    ),
+	// ---------------------------------------------------------
+	// Convert camera coordinates to virtual-camera coordinates
+	// ---------------------------------------------------------
 
-                cameraY *
-                (
-                    static_cast<float>(frameHeight) /
-                    cameraHeight
-                    )
-            );
-        };
+	auto CameraToFrame =
+		[&](float cameraX, float cameraY)
+		{
+			return ImVec2(
+				cameraX *
+				(
+					static_cast<float>(frameWidth) /
+					cameraWidth
+					),
 
-    const ImVec2 bottomLeft =
-        CameraToFrame(
-            x1,
-            y1
-        );
+				cameraY *
+				(
+					static_cast<float>(frameHeight) /
+					cameraHeight
+					)
+			);
+		};
 
-    const ImVec2 bottomRight =
-        CameraToFrame(
-            x2,
-            y2
-        );
+	const ImVec2 bottomLeft =
+		CameraToFrame(
+			x1,
+			y1
+		);
 
-    const ImVec2 topRight =
-        CameraToFrame(
-            x3,
-            y3
-        );
+	const ImVec2 bottomRight =
+		CameraToFrame(
+			x2,
+			y2
+		);
 
-    const ImVec2 topLeft =
-        CameraToFrame(
-            x4,
-            y4
-        );
+	const ImVec2 topRight =
+		CameraToFrame(
+			x3,
+			y3
+		);
 
-    // ---------------------------------------------------------
-    // Render visualizer into the shared frame
-    // ---------------------------------------------------------
+	const ImVec2 topLeft =
+		CameraToFrame(
+			x4,
+			y4
+		);
 
-    // IMPORTANT:
-    //
-    // This is NOT the ImGui VirtualWindowRenderer.
-    //
-    // The shared frame is an actual D3D11 texture, so the
-    // perspective transformation needs to happen through D3D11.
-    //
-    // We'll implement this as a GPU grid/homography renderer.
-    //
+	// ---------------------------------------------------------
+	// Render visualizer into the shared frame
+	// ---------------------------------------------------------
 
-    m_virtualWindowRenderer.RenderD3D11(
-        m_context,
-        frameRTV,
-        visualizerTexture,
+	// IMPORTANT:
+	//
+	// This is NOT the ImGui VirtualWindowRenderer.
+	//
+	// The shared frame is an actual D3D11 texture, so the
+	// perspective transformation needs to happen through D3D11.
+	//
+	// We'll implement this as a GPU grid/homography renderer.
+	//
 
-        topLeft,
-        topRight,
-        bottomRight,
-        bottomLeft
-    );
+	m_virtualWindowRenderer.RenderD3D11(
+		m_context,
+		frameRTV,
+		visualizerTexture,
 
-    // ---------------------------------------------------------
-    // Unbind visualizer SRV
-    // ---------------------------------------------------------
+		topLeft,
+		topRight,
+		bottomRight,
+		bottomLeft
+	);
 
-    ID3D11ShaderResourceView* nullSRV =
-        nullptr;
+	// ---------------------------------------------------------
+	// Unbind visualizer SRV
+	// ---------------------------------------------------------
 
-    m_context->PSSetShaderResources(
-        0,
-        1,
-        &nullSRV
-    );
+	ID3D11ShaderResourceView* nullSRV =
+		nullptr;
 
-    // ---------------------------------------------------------
-    // Release shared frame
-    // ---------------------------------------------------------
+	m_context->PSSetShaderResources(
+		0,
+		1,
+		&nullSRV
+	);
 
-    m_virtualCamera.ReleaseFrame();
+	// ---------------------------------------------------------
+	// Release shared frame
+	// ---------------------------------------------------------
 
-    // ---------------------------------------------------------
-    // Restore normal viewport
-    // ---------------------------------------------------------
+	m_virtualCamera.ReleaseFrame();
 
-    D3D11_VIEWPORT viewport{};
+	// ---------------------------------------------------------
+	// Restore normal viewport
+	// ---------------------------------------------------------
 
-    viewport.TopLeftX = 0.0f;
-    viewport.TopLeftY = 0.0f;
+	D3D11_VIEWPORT viewport{};
 
-    viewport.Width =
-        static_cast<float>(
-            m_statistics.renderWidth
-            );
+	viewport.TopLeftX = 0.0f;
+	viewport.TopLeftY = 0.0f;
 
-    viewport.Height =
-        static_cast<float>(
-            m_statistics.renderHeight
-            );
+	viewport.Width =
+		static_cast<float>(
+			m_statistics.renderWidth
+			);
 
-    viewport.MinDepth = 0.0f;
-    viewport.MaxDepth = 1.0f;
+	viewport.Height =
+		static_cast<float>(
+			m_statistics.renderHeight
+			);
 
-    m_context->RSSetViewports(
-        1,
-        &viewport
-    );
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+
+	m_context->RSSetViewports(
+		1,
+		&viewport
+	);
 }
 
 // =========================================================
@@ -3023,198 +3044,198 @@ void PianoVisualizer::RenderVirtualCameraVisualizer()
 
 void PianoVisualizer::RenderVirtualCameraFrame()
 {
-    if (!m_context)
-        return;
+	if (!m_context)
+		return;
 
-    if (!m_viewer)
-        return;
+	if (!m_viewer)
+		return;
 
-    if (!m_cameraOutputSRV)
-        return;
+	if (!m_cameraOutputSRV)
+		return;
 
-    if (!m_virtualCamera.IsActive())
-        return;
+	if (!m_virtualCamera.IsActive())
+		return;
 
-    ID3D11RenderTargetView* frameRTV =
-        m_virtualCamera.GetFrameRTV();
+	ID3D11RenderTargetView* frameRTV =
+		m_virtualCamera.GetFrameRTV();
 
-    if (!frameRTV)
-        return;
+	if (!frameRTV)
+		return;
 
-    if (!m_virtualCamera.AcquireFrame())
-        return;
+	if (!m_virtualCamera.AcquireFrame())
+		return;
 
-    constexpr UINT frameWidth = 1920;
-    constexpr UINT frameHeight = 1080;
+	constexpr UINT frameWidth = 1920;
+	constexpr UINT frameHeight = 1080;
 
-    // ---------------------------------------------------------
-    // Viewport
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Viewport
+	// ---------------------------------------------------------
 
-    D3D11_VIEWPORT viewport{};
+	D3D11_VIEWPORT viewport{};
 
-    viewport.TopLeftX = 0.0f;
-    viewport.TopLeftY = 0.0f;
+	viewport.TopLeftX = 0.0f;
+	viewport.TopLeftY = 0.0f;
 
-    viewport.Width =
-        static_cast<float>(
-            frameWidth
-            );
+	viewport.Width =
+		static_cast<float>(
+			frameWidth
+			);
 
-    viewport.Height =
-        static_cast<float>(
-            frameHeight
-            );
+	viewport.Height =
+		static_cast<float>(
+			frameHeight
+			);
 
-    viewport.MinDepth = 0.0f;
-    viewport.MaxDepth = 1.0f;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
 
-    m_context->RSSetViewports(
-        1,
-        &viewport
-    );
+	m_context->RSSetViewports(
+		1,
+		&viewport
+	);
 
-    // ---------------------------------------------------------
-    // Shared frame render target
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Shared frame render target
+	// ---------------------------------------------------------
 
-    constexpr float clearColor[4]{
-        0.0f,
-        0.0f,
-        0.0f,
-        1.0f
-    };
+	constexpr float clearColor[4]{
+		0.0f,
+		0.0f,
+		0.0f,
+		1.0f
+	};
 
-    m_context->OMSetRenderTargets(
-        1,
-        &frameRTV,
-        nullptr
-    );
+	m_context->OMSetRenderTargets(
+		1,
+		&frameRTV,
+		nullptr
+	);
 
-    m_context->ClearRenderTargetView(
-        frameRTV,
-        clearColor
-    );
+	m_context->ClearRenderTargetView(
+		frameRTV,
+		clearColor
+	);
 
-    // ---------------------------------------------------------
-    // Camera
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Camera
+	// ---------------------------------------------------------
 
-    m_viewer->getFullscreenQuad().draw(
-        m_context,
-        m_cameraOutputSRV.Get(),
-        0.0f
-    );
+	m_viewer->getFullscreenQuad().draw(
+		m_context,
+		m_cameraOutputSRV.Get(),
+		0.0f
+	);
 
-    // ---------------------------------------------------------
-    // Visualizer overlay
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Visualizer overlay
+	// ---------------------------------------------------------
 
-    RenderVirtualCameraVisualizer();
+	RenderVirtualCameraVisualizer();
 
-    // ---------------------------------------------------------
-    // Unbind SRV
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Unbind SRV
+	// ---------------------------------------------------------
 
-    ID3D11ShaderResourceView* nullSRV =
-        nullptr;
+	ID3D11ShaderResourceView* nullSRV =
+		nullptr;
 
-    m_context->PSSetShaderResources(
-        0,
-        1,
-        &nullSRV
-    );
+	m_context->PSSetShaderResources(
+		0,
+		1,
+		&nullSRV
+	);
 
-    // ---------------------------------------------------------
-    // Release shared frame
-    //
-    // Producer:
-    //     key 0 -> write
-    //     key 1 -> consumer may read
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Release shared frame
+	//
+	// Producer:
+	//     key 0 -> write
+	//     key 1 -> consumer may read
+	// ---------------------------------------------------------
 
-    m_virtualCamera.ReleaseFrame();
+	m_virtualCamera.ReleaseFrame();
 
-    // ---------------------------------------------------------
-    // Restore normal viewport
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Restore normal viewport
+	// ---------------------------------------------------------
 
-    D3D11_VIEWPORT mainViewport{};
+	D3D11_VIEWPORT mainViewport{};
 
-    mainViewport.TopLeftX = 0.0f;
-    mainViewport.TopLeftY = 0.0f;
+	mainViewport.TopLeftX = 0.0f;
+	mainViewport.TopLeftY = 0.0f;
 
-    mainViewport.Width =
-        static_cast<float>(
-            m_statistics.renderWidth
-            );
+	mainViewport.Width =
+		static_cast<float>(
+			m_statistics.renderWidth
+			);
 
-    mainViewport.Height =
-        static_cast<float>(
-            m_statistics.renderHeight
-            );
+	mainViewport.Height =
+		static_cast<float>(
+			m_statistics.renderHeight
+			);
 
-    mainViewport.MinDepth = 0.0f;
-    mainViewport.MaxDepth = 1.0f;
+	mainViewport.MinDepth = 0.0f;
+	mainViewport.MaxDepth = 1.0f;
 
-    m_context->RSSetViewports(
-        1,
-        &mainViewport
-    );
+	m_context->RSSetViewports(
+		1,
+		&mainViewport
+	);
 }
 
 void PianoVisualizer::RenderCameraErrorDialog()
 {
-    if (!m_showCameraError)
-        return;
+	if (!m_showCameraError)
+		return;
 
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImGuiViewport* viewport = ImGui::GetMainViewport();
 
-    ImGui::OpenPopup("Camera Error");
+	ImGui::OpenPopup("Camera Error");
 
-    ImGui::SetNextWindowPos(
-        ImVec2(
-            viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
-            viewport->WorkPos.y + viewport->WorkSize.y * 0.5f
-        ),
-        ImGuiCond_Always,
-        ImVec2(0.5f, 0.5f)
-    );
+	ImGui::SetNextWindowPos(
+		ImVec2(
+			viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+			viewport->WorkPos.y + viewport->WorkSize.y * 0.5f
+		),
+		ImGuiCond_Always,
+		ImVec2(0.5f, 0.5f)
+	);
 
-    if (ImGui::BeginPopupModal(
-        "Camera Error",
-        nullptr,
-        ImGuiWindowFlags_AlwaysAutoResize |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoTitleBar
-    ))
-    {
-        ImGui::TextWrapped(
-            "%s",
-            m_cameraErrorMessage.c_str()
-        );
+	if (ImGui::BeginPopupModal(
+		"Camera Error",
+		nullptr,
+		ImGuiWindowFlags_AlwaysAutoResize |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoTitleBar
+	))
+	{
+		ImGui::TextWrapped(
+			"%s",
+			m_cameraErrorMessage.c_str()
+		);
 
-        ImGui::Spacing();
+		ImGui::Spacing();
 
-        const float buttonWidth = 120.0f;
+		const float buttonWidth = 120.0f;
 
-        ImGui::SetCursorPosX(
-            (ImGui::GetWindowWidth() - buttonWidth) * 0.5f
-        );
+		ImGui::SetCursorPosX(
+			(ImGui::GetWindowWidth() - buttonWidth) * 0.5f
+		);
 
-        if (ImGui::Button(
-            "OK",
-            ImVec2(buttonWidth, 32.0f)
-        ))
-        {
-            m_showCameraError = false;
-            ImGui::CloseCurrentPopup();
-        }
+		if (ImGui::Button(
+			"OK",
+			ImVec2(buttonWidth, 32.0f)
+		))
+		{
+			m_showCameraError = false;
+			ImGui::CloseCurrentPopup();
+		}
 
-        ImGui::EndPopup();
-    }
+		ImGui::EndPopup();
+	}
 }
 
 // =========================================================
@@ -3223,325 +3244,324 @@ void PianoVisualizer::RenderCameraErrorDialog()
 
 void PianoVisualizer::RenderPianoOverlay()
 {
-    if (m_polygonPoints.size() != 4)
-        return;
+	if (m_polygonPoints.size() != 4)
+		return;
 
-    ImVec2 P1 =
-        m_polygonPoints[0];
+	ImVec2 P1 =
+		m_polygonPoints[0];
 
-    ImVec2 P2 =
-        m_polygonPoints[1];
+	ImVec2 P2 =
+		m_polygonPoints[1];
 
-    ImVec2 P3 =
-        m_polygonPoints[2];
+	ImVec2 P3 =
+		m_polygonPoints[2];
 
-    ImVec2 P4 =
-        m_polygonPoints[3];
+	ImVec2 P4 =
+		m_polygonPoints[3];
 
-    float cameraWidth = 0.0f;
-    float cameraHeight = 0.0f;
+	float cameraWidth = 0.0f;
+	float cameraHeight = 0.0f;
 
-    // ---------------------------------------------------------
-    // Draw camera output
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Draw camera output
+	// ---------------------------------------------------------
 
-    if (
-        m_viewer &&
-        m_viewer->isPlaybackLoaded()
-        )
-    {
-        cameraWidth =
-            static_cast<float>(
-                m_cameraVideoPlayer.GetWidth()
-                );
+	if (
+		m_viewer &&
+		m_viewer->isPlaybackLoaded()
+		)
+	{
+		cameraWidth =
+			static_cast<float>(
+				m_cameraVideoPlayer.GetWidth()
+				);
 
-        cameraHeight =
-            static_cast<float>(
-                m_cameraVideoPlayer.GetHeight()
-                );
-    }
-    else
-    {
-        cameraWidth =
-            static_cast<float>(
-                m_camera.GetWidth()
-                );
+		cameraHeight =
+			static_cast<float>(
+				m_cameraVideoPlayer.GetHeight()
+				);
+	}
+	else
+	{
+		cameraWidth =
+			static_cast<float>(
+				m_camera.GetWidth()
+				);
 
-        cameraHeight =
-            static_cast<float>(
-                m_camera.GetHeight()
-                );
-    }
+		cameraHeight =
+			static_cast<float>(
+				m_camera.GetHeight()
+				);
+	}
 
-    float intervalLeftFraction = 0.0f;
-    float intervalRightFraction = 0.0f;
+	float intervalLeftFraction = 0.0f;
+	float intervalRightFraction = 0.0f;
 
-    if (!PianoNoteRange::GetIntervalFractions(
-        m_intervalFirstMidi,
-        m_intervalLastMidi,
-        intervalLeftFraction,
-        intervalRightFraction
-    ))
-    {
-        m_virtualCamera.ReleaseFrame();
-        return;
-    }
+	if (!PianoNoteRange::GetIntervalFractions(
+		m_intervalFirstMidi,
+		m_intervalLastMidi,
+		intervalLeftFraction,
+		intervalRightFraction
+	))
+	{
+		m_virtualCamera.ReleaseFrame();
+		return;
+	}
 
-    const float visibleLeftX =
-        intervalLeftFraction * PianoNoteRange::FULL_PIANO_WIDTH;
 
-    const float visibleRightX =
-        intervalRightFraction * PianoNoteRange::FULL_PIANO_WIDTH;
+	PianoCameraPose pose =
+		CalculatePianoCameraPose(
+			P1,
+			P2,
+			P3,
+			P4,
+			cameraWidth,
+			cameraHeight,
+			intervalLeftFraction,
+			intervalRightFraction
+		);
 
-    PianoCameraPose pose =
-        CalculatePianoCameraPose(
-            P1,
-            P2,
-            P3,
-            P4,
-            cameraWidth,
-            cameraHeight,
-            intervalLeftFraction,
-            intervalRightFraction
-        );
+	if (!pose.valid)
+		return;
 
-    if (!pose.valid)
-        return;
+	const float visibleLeftX =
+		intervalLeftFraction * pose.pianoWidth;
 
-    float surfaceHeight = 0.0f;
+	const float visibleRightX =
+		intervalRightFraction * pose.pianoWidth;
 
-    if (!CalculateSurfaceHeightToTop(
-        pose,
-        m_planePivot,
-        visibleLeftX,
-        visibleRightX,
-        surfaceHeight
-    ))
-    {
-        return;
-    }
+	float surfaceHeight = 0.0f;
 
-    float angleRadians =
-        m_planePivot *
-        3.14159265358979323846f /
-        180.0f;
+	if (!CalculateSurfaceHeightToTop(
+		pose,
+		m_planePivot,
+		surfaceHeight
+	))
+	{
+		return;
+	}
 
-    // ---------------------------------------------------------
-    // Rotate the virtual surface around the X axis.
-    //
-    // 90° = current vertical orientation
-    //  0° = flat along the piano
-    //
-    // The surface extends in local +Y / -Z.
-    // ---------------------------------------------------------
+	float angleRadians =
+		m_planePivot *
+		3.14159265358979323846f /
+		180.0f;
 
-    float rotatedY =
-        surfaceHeight *
-        std::cos(angleRadians);
+	// ---------------------------------------------------------
+	// Rotate the virtual surface around the X axis.
+	//
+	// 90° = current vertical orientation
+	//  0° = flat along the piano
+	//
+	// The surface extends in local +Y / -Z.
+	// ---------------------------------------------------------
 
-    float rotatedZ =
-        -surfaceHeight *
-        std::sin(angleRadians);
+	float rotatedY =
+		surfaceHeight *
+		std::cos(angleRadians);
 
-    float x1, y1;
-    float x2, y2;
-    float x3, y3;
-    float x4, y4;
+	float rotatedZ =
+		-surfaceHeight *
+		std::sin(angleRadians);
 
-    const float w = PianoNoteRange::FULL_PIANO_WIDTH;
+	float x1, y1;
+	float x2, y2;
+	float x3, y3;
+	float x4, y4;
 
-    bool valid1 =
-        ProjectPianoPoint(
-            pose,
-            0.f,
-            0.f,
-            0.f,
-            x1,
-            y1
-        );
+	const float w = pose.pianoWidth;
 
-    bool valid2 =
-        ProjectPianoPoint(
-            pose,
-            w,
-            0.f,
-            0.f,
-            x2,
-            y2
-        );
+	bool valid1 =
+		ProjectPianoPoint(
+			pose,
+			0.f,
+			0.f,
+			0.f,
+			x1,
+			y1
+		);
 
-    bool valid3 =
-        ProjectPianoPoint(
-            pose,
-            w,
-            rotatedY,
-            rotatedZ,
-            x3,
-            y3
-        );
+	bool valid2 =
+		ProjectPianoPoint(
+			pose,
+			w,
+			0.f,
+			0.f,
+			x2,
+			y2
+		);
 
-    bool valid4 =
-        ProjectPianoPoint(
-            pose,
-            0.f,
-            rotatedY,
-            rotatedZ,
-            x4,
-            y4
-        );
+	bool valid3 =
+		ProjectPianoPoint(
+			pose,
+			w,
+			rotatedY,
+			rotatedZ,
+			x3,
+			y3
+		);
 
-    if (
-        !valid1 ||
-        !valid2 ||
-        !valid3 ||
-        !valid4
-        )
-    {
-        return;
-    }
+	bool valid4 =
+		ProjectPianoPoint(
+			pose,
+			0.f,
+			rotatedY,
+			rotatedZ,
+			x4,
+			y4
+		);
 
-    // ---------------------------------------------------------
-    // Convert to screen coordinates
-    // ---------------------------------------------------------
+	if (
+		!valid1 ||
+		!valid2 ||
+		!valid3 ||
+		!valid4
+		)
+	{
+		return;
+	}
 
-    ImVec2 imagePos =
-        ImGui::GetItemRectMin();
+	// ---------------------------------------------------------
+	// Convert to screen coordinates
+	// ---------------------------------------------------------
 
-    ImVec2 imageSize =
-        ImGui::GetItemRectSize();
+	ImVec2 imagePos =
+		ImGui::GetItemRectMin();
 
-    auto CameraToScreen =
-        [&](float cameraX, float cameraY)
-        {
-            return ImVec2(
-                imagePos.x +
-                cameraX *
-                (imageSize.x / cameraWidth),
+	ImVec2 imageSize =
+		ImGui::GetItemRectSize();
 
-                imagePos.y +
-                cameraY *
-                (imageSize.y / cameraHeight)
-            );
-        };
+	auto CameraToScreen =
+		[&](float cameraX, float cameraY)
+		{
+			return ImVec2(
+				imagePos.x +
+				cameraX *
+				(imageSize.x / cameraWidth),
 
-    ImVec2 bottomLeft =
-        CameraToScreen(
-            x1,
-            y1
-        );
+				imagePos.y +
+				cameraY *
+				(imageSize.y / cameraHeight)
+			);
+		};
 
-    ImVec2 bottomRight =
-        CameraToScreen(
-            x2,
-            y2
-        );
+	ImVec2 bottomLeft =
+		CameraToScreen(
+			x1,
+			y1
+		);
 
-    ImVec2 topRight =
-        CameraToScreen(
-            x3,
-            y3
-        );
+	ImVec2 bottomRight =
+		CameraToScreen(
+			x2,
+			y2
+		);
 
-    ImVec2 topLeft =
-        CameraToScreen(
-            x4,
-            y4
-        );
+	ImVec2 topRight =
+		CameraToScreen(
+			x3,
+			y3
+		);
 
-    // ---------------------------------------------------------
-    // Select texture
-    // ---------------------------------------------------------
+	ImVec2 topLeft =
+		CameraToScreen(
+			x4,
+			y4
+		);
 
-    ID3D11ShaderResourceView* texture =
-        nullptr;
+	// ---------------------------------------------------------
+	// Select texture
+	// ---------------------------------------------------------
 
-    if (
-        gui::renderer ==
-        gui::VisualizerRenderer::OtherVisualizer
-        )
-    {
-        m_windowCapture.Update();
+	ID3D11ShaderResourceView* texture =
+		nullptr;
 
-        texture =
-            m_windowCapture.GetTexture();
-    }
-    else if (
-        gui::renderer ==
-        gui::VisualizerRenderer::BuiltInVisualizer
-        )
-    {
-        m_drawVisualizer = true;
+	if (
+		gui::renderer ==
+		gui::VisualizerRenderer::OtherVisualizer
+		)
+	{
+		m_windowCapture.Update();
 
-        if (m_viewer)
-        {
-            texture =
-                m_viewer->getTexture();
-        }
-    }
+		texture =
+			m_windowCapture.GetTexture();
+	}
+	else if (
+		gui::renderer ==
+		gui::VisualizerRenderer::BuiltInVisualizer
+		)
+	{
+		m_drawVisualizer = true;
 
-    if (!texture)
-        return;
+		if (m_viewer)
+		{
+			texture =
+				m_viewer->getTexture();
+		}
+	}
 
-    ImTextureID textureId =
-        reinterpret_cast<ImTextureID>(
-            texture
-            );
+	if (!texture)
+		return;
 
-    VirtualWindowRenderer::Settings settings;
+	ImTextureID textureId =
+		reinterpret_cast<ImTextureID>(
+			texture
+			);
 
-    settings.gridX = 64;
-    settings.gridY = 36;
+	VirtualWindowRenderer::Settings settings;
 
-    settings.drawDebugLines =
-        gui::showDebugLines;
+	settings.gridX = 64;
+	settings.gridY = 36;
 
-    ImDrawList* drawList =
-        ImGui::GetWindowDrawList();
+	settings.drawDebugLines =
+		gui::showDebugLines;
 
-    m_virtualWindowRenderer.Render(
-        drawList,
-        textureId,
+	ImDrawList* drawList =
+		ImGui::GetWindowDrawList();
 
-        topLeft,
-        topRight,
-        bottomRight,
-        bottomLeft,
+	m_virtualWindowRenderer.Render(
+		drawList,
+		textureId,
 
-        settings
-    );
+		topLeft,
+		topRight,
+		bottomRight,
+		bottomLeft,
 
-    // ---------------------------------------------------------
-    // Debug outline
-    // ---------------------------------------------------------
+		settings
+	);
 
-    if (!gui::showDebugLines)
-        return;
+	// ---------------------------------------------------------
+	// Debug outline
+	// ---------------------------------------------------------
 
-    ImVec2 virtualWindow[4] =
-    {
-        topLeft,
-        topRight,
-        bottomRight,
-        bottomLeft
-    };
+	if (!gui::showDebugLines)
+		return;
 
-    for (int i = 0; i < 4; ++i)
-    {
-        int next =
-            (i + 1) % 4;
+	ImVec2 virtualWindow[4] =
+	{
+		topLeft,
+		topRight,
+		bottomRight,
+		bottomLeft
+	};
 
-        drawList->AddLine(
-            virtualWindow[i],
-            virtualWindow[next],
-            IM_COL32(
-                0,
-                150,
-                255,
-                230
-            ),
-            2.0f
-        );
-    }
+	for (int i = 0; i < 4; ++i)
+	{
+		int next =
+			(i + 1) % 4;
+
+		drawList->AddLine(
+			virtualWindow[i],
+			virtualWindow[next],
+			IM_COL32(
+				0,
+				150,
+				255,
+				230
+			),
+			2.0f
+		);
+	}
 }
 
 
@@ -3550,276 +3570,276 @@ void PianoVisualizer::RenderPianoOverlay()
 // =========================================================
 
 void PianoVisualizer::DrawSelectedPolygon(
-    ImDrawList* drawList,
-    const std::function<ImVec2(float, float)>& cameraToScreen,
-    const std::function<ImVec2(float, float)>& screenToCamera
+	ImDrawList* drawList,
+	const std::function<ImVec2(float, float)>& cameraToScreen,
+	const std::function<ImVec2(float, float)>& screenToCamera
 )
 {
-    if (!gui::showDebugLines && !gui::choosingPoints)
-        return;
+	if (!gui::showDebugLines && !gui::choosingPoints)
+		return;
 
-    if (m_polygonPoints.size() < 2)
-        return;
+	if (m_polygonPoints.size() < 2)
+		return;
 
-    ImVec2 points[4];
+	ImVec2 points[4];
 
-    for (
-        size_t i = 0;
-        i < m_polygonPoints.size() &&
-        i < 4;
-        ++i
-        )
-    {
-        points[i] =
-            cameraToScreen(
-                m_polygonPoints[i].x,
-                m_polygonPoints[i].y
-            );
-    }
+	for (
+		size_t i = 0;
+		i < m_polygonPoints.size() &&
+		i < 4;
+		++i
+		)
+	{
+		points[i] =
+			cameraToScreen(
+				m_polygonPoints[i].x,
+				m_polygonPoints[i].y
+			);
+	}
 
-    // ---------------------------------------------------------
-    // Handle point interaction
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Handle point interaction
+	// ---------------------------------------------------------
 
-    ImGuiIO& io = ImGui::GetIO();
+	ImGuiIO& io = ImGui::GetIO();
 
-    static int draggingPoint = -1;
+	static int draggingPoint = -1;
 
-    for (
-        size_t i = 0;
-        i < m_polygonPoints.size() &&
-        i < 4;
-        ++i
-        )
-    {
-        const float dx =
-            io.MousePos.x - points[i].x;
+	for (
+		size_t i = 0;
+		i < m_polygonPoints.size() &&
+		i < 4;
+		++i
+		)
+	{
+		const float dx =
+			io.MousePos.x - points[i].x;
 
-        const float dy =
-            io.MousePos.y - points[i].y;
+		const float dy =
+			io.MousePos.y - points[i].y;
 
-        const float distanceSquared =
-            dx * dx +
-            dy * dy;
+		const float distanceSquared =
+			dx * dx +
+			dy * dy;
 
-        const float hoverRadius = 10.0f;
+		const float hoverRadius = 10.0f;
 
-        const bool hovered =
-            distanceSquared <=
-            hoverRadius * hoverRadius;
+		const bool hovered =
+			distanceSquared <=
+			hoverRadius * hoverRadius;
 
-        // -----------------------------------------------------
-        // Start dragging
-        // -----------------------------------------------------
+		// -----------------------------------------------------
+		// Start dragging
+		// -----------------------------------------------------
 
-        if (
-            hovered &&
-            ImGui::IsMouseClicked(ImGuiMouseButton_Left)
-            )
-        {
-            draggingPoint =
-                static_cast<int>(i);
-        }
+		if (
+			hovered &&
+			ImGui::IsMouseClicked(ImGuiMouseButton_Left)
+			)
+		{
+			draggingPoint =
+				static_cast<int>(i);
+		}
 
-        // -----------------------------------------------------
-        // Move point while dragging
-        // -----------------------------------------------------
+		// -----------------------------------------------------
+		// Move point while dragging
+		// -----------------------------------------------------
 
-        if (
-            draggingPoint ==
-            static_cast<int>(i)
-            )
-        {
-            if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
-            {
-                ImVec2 cameraPosition =
-                    screenToCamera(
-                        io.MousePos.x,
-                        io.MousePos.y
-                    );
+		if (
+			draggingPoint ==
+			static_cast<int>(i)
+			)
+		{
+			if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+			{
+				ImVec2 cameraPosition =
+					screenToCamera(
+						io.MousePos.x,
+						io.MousePos.y
+					);
 
-                m_polygonPoints[i].x =
-                    cameraPosition.x;
+				m_polygonPoints[i].x =
+					cameraPosition.x;
 
-                m_polygonPoints[i].y =
-                    cameraPosition.y;
+				m_polygonPoints[i].y =
+					cameraPosition.y;
 
-                // Recalculate screen position
-                points[i] =
-                    cameraToScreen(
-                        m_polygonPoints[i].x,
-                        m_polygonPoints[i].y
-                    );
-            }
-            else
-            {
-                draggingPoint = -1;
-            }
-        }
-    }
+				// Recalculate screen position
+				points[i] =
+					cameraToScreen(
+						m_polygonPoints[i].x,
+						m_polygonPoints[i].y
+					);
+			}
+			else
+			{
+				draggingPoint = -1;
+			}
+		}
+	}
 
-    // ---------------------------------------------------------
-    // Filled polygon
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Filled polygon
+	// ---------------------------------------------------------
 
-    if (m_polygonPoints.size() >= 3)
-    {
-        drawList->AddConvexPolyFilled(
-            points,
-            static_cast<int>(
-                m_polygonPoints.size()
-                ),
-            IM_COL32(
-                0,
-                255,
-                0,
-                80
-            )
-        );
-    }
+	if (m_polygonPoints.size() >= 3)
+	{
+		drawList->AddConvexPolyFilled(
+			points,
+			static_cast<int>(
+				m_polygonPoints.size()
+				),
+			IM_COL32(
+				0,
+				255,
+				0,
+				80
+			)
+		);
+	}
 
-    // ---------------------------------------------------------
-    // Polygon outline
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Polygon outline
+	// ---------------------------------------------------------
 
-    for (
-        size_t i = 0;
-        i < m_polygonPoints.size();
-        ++i
-        )
-    {
-        size_t next =
-            (i + 1) %
-            m_polygonPoints.size();
+	for (
+		size_t i = 0;
+		i < m_polygonPoints.size();
+		++i
+		)
+	{
+		size_t next =
+			(i + 1) %
+			m_polygonPoints.size();
 
-        drawList->AddLine(
-            points[i],
-            points[next],
-            IM_COL32(
-                0,
-                255,
-                0,
-                255
-            ),
-            2.0f
-        );
-    }
+		drawList->AddLine(
+			points[i],
+			points[next],
+			IM_COL32(
+				0,
+				255,
+				0,
+				255
+			),
+			2.0f
+		);
+	}
 
-    // ---------------------------------------------------------
-    // Polygon points
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Polygon points
+	// ---------------------------------------------------------
 
-    for (
-        size_t i = 0;
-        i < m_polygonPoints.size();
-        ++i
-        )
-    {
-        const float dx =
-            io.MousePos.x - points[i].x;
+	for (
+		size_t i = 0;
+		i < m_polygonPoints.size();
+		++i
+		)
+	{
+		const float dx =
+			io.MousePos.x - points[i].x;
 
-        const float dy =
-            io.MousePos.y - points[i].y;
+		const float dy =
+			io.MousePos.y - points[i].y;
 
-        const bool hovered =
-            dx * dx + dy * dy <=
-            10.0f * 10.0f;
+		const bool hovered =
+			dx * dx + dy * dy <=
+			10.0f * 10.0f;
 
-        const bool dragging =
-            draggingPoint ==
-            static_cast<int>(i);
+		const bool dragging =
+			draggingPoint ==
+			static_cast<int>(i);
 
-        ImU32 pointColor;
+		ImU32 pointColor;
 
-        if (dragging)
-        {
-            pointColor =
-                IM_COL32(
-                    100,
-                    200,
-                    255,
-                    255
-                );
-        }
-        else if (hovered)
-        {
-            pointColor =
-                IM_COL32(
-                    200,
-                    230,
-                    255,
-                    255
-                );
-        }
-        else
-        {
-            pointColor =
-                IM_COL32(
-                    255,
-                    255,
-                    255,
-                    255
-                );
-        }
+		if (dragging)
+		{
+			pointColor =
+				IM_COL32(
+					100,
+					200,
+					255,
+					255
+				);
+		}
+		else if (hovered)
+		{
+			pointColor =
+				IM_COL32(
+					200,
+					230,
+					255,
+					255
+				);
+		}
+		else
+		{
+			pointColor =
+				IM_COL32(
+					255,
+					255,
+					255,
+					255
+				);
+		}
 
-        drawList->AddCircleFilled(
-            points[i],
-            7.0f,
-            pointColor
-        );
+		drawList->AddCircleFilled(
+			points[i],
+			7.0f,
+			pointColor
+		);
 
-        drawList->AddCircle(
-            points[i],
-            8.0f,
-            IM_COL32(
-                0,
-                0,
-                0,
-                255
-            ),
-            16,
-            1.5f
-        );
+		drawList->AddCircle(
+			points[i],
+			8.0f,
+			IM_COL32(
+				0,
+				0,
+				0,
+				255
+			),
+			16,
+			1.5f
+		);
 
-        // -----------------------------------------------------
-        // Point label
-        // -----------------------------------------------------
+		// -----------------------------------------------------
+		// Point label
+		// -----------------------------------------------------
 
-        const char* label = "";
+		const char* label = "";
 
-        switch (i)
-        {
-        case 0:
-            label = "P1 - Top Left";
-            break;
+		switch (i)
+		{
+		case 0:
+			label = "P1 - Top Left";
+			break;
 
-        case 1:
-            label = "P2 - Bottom Left";
-            break;
+		case 1:
+			label = "P2 - Bottom Left";
+			break;
 
-        case 2:
-            label = "P3 - Bottom Right";
-            break;
+		case 2:
+			label = "P3 - Bottom Right";
+			break;
 
-        case 3:
-            label = "P4 - Top Right";
-            break;
-        }
+		case 3:
+			label = "P4 - Top Right";
+			break;
+		}
 
-        drawList->AddText(
-            ImVec2(
-                points[i].x + 10.0f,
-                points[i].y - 10.0f
-            ),
-            IM_COL32(
-                255,
-                255,
-                255,
-                255
-            ),
-            label
-        );
-    }
+		drawList->AddText(
+			ImVec2(
+				points[i].x + 10.0f,
+				points[i].y - 10.0f
+			),
+			IM_COL32(
+				255,
+				255,
+				255,
+				255
+			),
+			label
+		);
+	}
 }
 
 
@@ -3828,153 +3848,153 @@ void PianoVisualizer::DrawSelectedPolygon(
 // =========================================================
 
 void PianoVisualizer::HandlePolygonPointSelection(
-    const ImVec2& imagePos,
-    float width,
-    float height,
-    float cameraWidth,
-    float cameraHeight
+	const ImVec2& imagePos,
+	float width,
+	float height,
+	float cameraWidth,
+	float cameraHeight
 )
 {
-    if (!m_choosingPolygonPoints)
-        return;
+	if (!m_choosingPolygonPoints)
+		return;
 
-    if (!ImGui::IsItemHovered())
-        return;
+	if (!ImGui::IsItemHovered())
+		return;
 
-    if (!ImGui::IsMouseClicked(
-        ImGuiMouseButton_Left
-    ))
-    {
-        return;
-    }
+	if (!ImGui::IsMouseClicked(
+		ImGuiMouseButton_Left
+	))
+	{
+		return;
+	}
 
-    ImVec2 mousePos =
-        ImGui::GetMousePos();
+	ImVec2 mousePos =
+		ImGui::GetMousePos();
 
-    // ---------------------------------------------------------
-    // Screen -> displayed image coordinates
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Screen -> displayed image coordinates
+	// ---------------------------------------------------------
 
-    float imageX =
-        mousePos.x -
-        imagePos.x;
+	float imageX =
+		mousePos.x -
+		imagePos.x;
 
-    float imageY =
-        mousePos.y -
-        imagePos.y;
+	float imageY =
+		mousePos.y -
+		imagePos.y;
 
-    // ---------------------------------------------------------
-    // Displayed image -> camera coordinates
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Displayed image -> camera coordinates
+	// ---------------------------------------------------------
 
-    float scaleX =
-        cameraWidth /
-        width;
+	float scaleX =
+		cameraWidth /
+		width;
 
-    float scaleY =
-        cameraHeight /
-        height;
+	float scaleY =
+		cameraHeight /
+		height;
 
-    float cameraX =
-        imageX *
-        scaleX;
+	float cameraX =
+		imageX *
+		scaleX;
 
-    float cameraY =
-        imageY *
-        scaleY;
+	float cameraY =
+		imageY *
+		scaleY;
 
-    // ---------------------------------------------------------
-    // Clamp
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Clamp
+	// ---------------------------------------------------------
 
-    cameraX =
-        std::clamp(
-            cameraX,
-            0.0f,
-            cameraWidth - 1.0f
-        );
+	cameraX =
+		std::clamp(
+			cameraX,
+			0.0f,
+			cameraWidth - 1.0f
+		);
 
-    cameraY =
-        std::clamp(
-            cameraY,
-            0.0f,
-            cameraHeight - 1.0f
-        );
+	cameraY =
+		std::clamp(
+			cameraY,
+			0.0f,
+			cameraHeight - 1.0f
+		);
 
-    // ---------------------------------------------------------
-    // Add point
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Add point
+	// ---------------------------------------------------------
 
-    if (m_polygonPoints.size() >= 4)
-        return;
+	if (m_polygonPoints.size() >= 4)
+		return;
 
-    m_polygonPoints.push_back(
-        ImVec2(
-            cameraX,
-            cameraY
-        )
-    );
+	m_polygonPoints.push_back(
+		ImVec2(
+			cameraX,
+			cameraY
+		)
+	);
 
-    m_polygonClickCount++;
+	m_polygonClickCount++;
 
-    const char* pointName = "";
+	const char* pointName = "";
 
-    switch (m_polygonClickCount)
-    {
-    case 1:
-        pointName = "Top-left";
-        break;
+	switch (m_polygonClickCount)
+	{
+	case 1:
+		pointName = "Top-left";
+		break;
 
-    case 2:
-        pointName = "Bottom-left";
-        break;
+	case 2:
+		pointName = "Bottom-left";
+		break;
 
-    case 3:
-        pointName = "Bottom-right";
-        break;
+	case 3:
+		pointName = "Bottom-right";
+		break;
 
-    case 4:
-        pointName = "Top-right";
-        break;
-    }
+	case 4:
+		pointName = "Top-right";
+		break;
+	}
 
-    Logger::Log(
-        "P" +
-        std::to_string(
-            m_polygonClickCount
-        ) +
-        " (" +
-        std::string(pointName) +
-        "): (" +
-        std::to_string(
-            static_cast<int>(cameraX)
-        ) +
-        ", " +
-        std::to_string(
-            static_cast<int>(cameraY)
-        ) +
-        ")\n"
-    );
+	Logger::Log(
+		"P" +
+		std::to_string(
+			m_polygonClickCount
+		) +
+		" (" +
+		std::string(pointName) +
+		"): (" +
+		std::to_string(
+			static_cast<int>(cameraX)
+		) +
+		", " +
+		std::to_string(
+			static_cast<int>(cameraY)
+		) +
+		")\n"
+	);
 
-    // ---------------------------------------------------------
-    // Finished
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Finished
+	// ---------------------------------------------------------
 
-    if (m_polygonPoints.size() >= 4)
-    {
-        m_choosingPolygonPoints =
-            false;
+	if (m_polygonPoints.size() >= 4)
+	{
+		m_choosingPolygonPoints =
+			false;
 
-        if (m_temporaryPerspectiveScene)
-        {
-            m_pianoScene = PianoScene::PianoRoll;
-            m_temporaryPerspectiveScene = false;
-        }
+		if (m_temporaryPerspectiveScene)
+		{
+			m_pianoScene = PianoScene::PianoRoll;
+			m_temporaryPerspectiveScene = false;
+		}
 
-        Logger::Log(
-            "Piano corner selection complete.\n"
-        );
-    }
+		Logger::Log(
+			"Piano corner selection complete.\n"
+		);
+	}
 }
 
 
@@ -3984,490 +4004,490 @@ void PianoVisualizer::HandlePolygonPointSelection(
 
 void PianoVisualizer::RenderDisplayTab()
 {
-    ImGui::Checkbox(
-        "Fullscreen (F)",
-        &gui::fullscreen
-    );
-
-    if (ImGui::IsItemDeactivatedAfterEdit())
-    {
-        m_queueFullscreenCall = true;
-    }
-
-    ImGui::Checkbox(
-        "Show Selection",
-        &gui::showDebugLines
-    );
-
-    // =====================================================
-    // Setup
-    // =====================================================
-
-    ImGui::SeparatorText(
-        "Scene"
-    );
-
-    ImGui::Spacing();
-
-    const char* sceneName =
-        nullptr;
-
-    switch (m_pianoScene)
-    {
-    case PianoScene::Perspective:
-        sceneName =
-            "Perspective";
-        break;
-
-    case PianoScene::PianoRoll:
-        sceneName =
-            "Piano Roll";
-        break;
-
-    default:
-        sceneName =
-            "Unknown";
-        break;
-    }
-
-    if (ImGui::BeginCombo(
-        "Scene",
-        sceneName
-    ))
-    {
-        if (ImGui::Selectable(
-            "Perspective",
-            m_pianoScene ==
-            PianoScene::Perspective
-        ))
-        {
-            m_pianoScene =
-                PianoScene::Perspective;
-        }
-
-        if (ImGui::Selectable(
-            "Piano Roll",
-            m_pianoScene ==
-            PianoScene::PianoRoll
-        ))
-        {
-            m_pianoScene =
-                PianoScene::PianoRoll;
-        }
-
-        ImGui::EndCombo();
-    }
-
-    const char* rendererName =
-        nullptr;
-
-    switch (gui::renderer)
-    {
-    case gui::VisualizerRenderer::BuiltInVisualizer:
-        rendererName =
-            "Built-in visualizer";
-        break;
-
-    case gui::VisualizerRenderer::OtherVisualizer:
-        rendererName =
-            "Capture other visualizer";
-        break;
-
-    default:
-        rendererName =
-            "Unknown";
-        break;
-    }
-
-    if (ImGui::BeginCombo(
-        "Renderer",
-        rendererName
-    ))
-    {
-        if (ImGui::Selectable(
-            "Built-in visualizer",
-            gui::renderer ==
-            gui::VisualizerRenderer::BuiltInVisualizer
-        ))
-        {
-            gui::renderer =
-                gui::VisualizerRenderer::BuiltInVisualizer;
-        }
-
-        if (ImGui::Selectable(
-            "Capture other visualizer",
-            gui::renderer ==
-            gui::VisualizerRenderer::OtherVisualizer
-        ))
-        {
-            gui::renderer =
-                gui::VisualizerRenderer::OtherVisualizer;
-        }
-
-        ImGui::EndCombo();
-    }
-
-
-    // =====================================================
-    // Window Capture
-    // =====================================================
-
-    if (
-        gui::renderer ==
-        gui::VisualizerRenderer::OtherVisualizer
-        )
-    {
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        ImGui::SeparatorText(
-            "Capture Window"
-        );
-
-        ImGui::Spacing();
-
-        if (ImGui::Button(
-            "Refresh Windows",
-            ImVec2(-1.0f, 32.0f)
-        ))
-        {
-            RefreshCaptureWindows();
-        }
-
-        ImGui::Spacing();
-
-        const char* selectedName =
-            "Select a window";
-
-        int selectedWindowIndex =
-            gui::selectedCaptureWindowIndex;
-
-        std::string selectedTitle;
-
-        if (
-            selectedWindowIndex >= 0 &&
-            selectedWindowIndex <
-            static_cast<int>(
-                gui::captureWindows.size()
-                )
-            )
-        {
-            const std::wstring& ws =
-                gui::captureWindows[
-                    selectedWindowIndex
-                ].title;
-
-            if (!ws.empty())
-            {
-                int size =
-                    WideCharToMultiByte(
-                        CP_UTF8,
-                        0,
-                        ws.data(),
-                        static_cast<int>(
-                            ws.size()
-                            ),
-                        nullptr,
-                        0,
-                        nullptr,
-                        nullptr
-                    );
-
-                selectedTitle.resize(
-                    size
-                );
-
-                WideCharToMultiByte(
-                    CP_UTF8,
-                    0,
-                    ws.data(),
-                    static_cast<int>(
-                        ws.size()
-                        ),
-                    selectedTitle.data(),
-                    size,
-                    nullptr,
-                    nullptr
-                );
-            }
-
-            selectedName =
-                selectedTitle.c_str();
-        }
-
-        if (ImGui::BeginCombo(
-            "Window",
-            selectedName
-        ))
-        {
-            for (
-                int i = 0;
-                i <
-                static_cast<int>(
-                    gui::captureWindows.size()
-                    );
-                    ++i
-                )
-            {
-                std::string title(
-                    gui::captureWindows[i]
-                    .title
-                    .begin(),
-                    gui::captureWindows[i]
-                    .title
-                    .end()
-                );
-
-                bool selected =
-                    selectedWindowIndex == i;
-
-                if (ImGui::Selectable(
-                    title.c_str(),
-                    selected
-                ))
-                {
-                    gui::selectedCaptureWindowIndex =
-                        i;
-
-                    gui::selectedCaptureWindow =
-                        gui::captureWindows[i]
-                        .hwnd;
-                }
-
-                if (selected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-
-            ImGui::EndCombo();
-        }
-    }
-
-    // =================================================
-    // Piano Surface
-    // =================================================
-
-    if (m_pianoScene == PianoScene::Perspective && !m_temporaryPerspectiveScene)
-    {
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        ImGui::SeparatorText(
-            "Piano Surface"
-        );
-
-        ImGui::Spacing();
-
-        if (!m_choosingPolygonPoints)
-        {
-            ImGui::Text("Visible Interval");
-
-            ImGui::SetNextItemWidth(100.0f);
-            ImGui::InputText(
-                "First note",
-                m_intervalFirstInput,
-                sizeof(m_intervalFirstInput)
-            );
-
-            ImGui::SameLine();
-
-            ImGui::SetNextItemWidth(100.0f);
-            ImGui::InputText(
-                "Last note",
-                m_intervalLastInput,
-                sizeof(m_intervalLastInput)
-            );
-
-            if (ImGui::Button("Apply Interval"))
-            {
-                int firstMidi = 0;
-                int lastMidi = 0;
-
-                const bool validFirst =
-                    PianoNoteRange::TryParseNote(
-                        m_intervalFirstInput,
-                        firstMidi
-                    );
-
-                const bool validLast =
-                    PianoNoteRange::TryParseNote(
-                        m_intervalLastInput,
-                        lastMidi
-                    );
-
-                if (!validFirst || !validLast)
-                {
-                    m_intervalMessage =
-                        "Invalid note. Example: C2, A#3, Eb5.";
-                }
-                else if (firstMidi >= lastMidi)
-                {
-                    m_intervalMessage =
-                        "The first note must be lower than the last.";
-                }
-                else
-                {
-                    m_intervalFirstMidi = firstMidi;
-                    m_intervalLastMidi = lastMidi;
-
-                    m_intervalMessage =
-                        "Interval applied successfully.";
-                }
-            }
-
-            if (!m_intervalMessage.empty())
-            {
-                ImGui::TextDisabled(
-                    "%s",
-                    m_intervalMessage.c_str()
-                );
-            }
-
-            if (ImGui::Button(
-                "Choose Piano Corners",
-                ImVec2(-1.0f, 36.0f)
-            ))
-            {
-                m_savedPolygonPoints =
-                    m_polygonPoints;
-
-                m_polygonPoints.clear();
-
-                m_polygonClickCount = 0;
-
-                m_choosingPolygonPoints =
-                    true;
-
-                Logger::Log(
-                    "[Piano Visualizer] Waiting for 4 piano corner points...\n"
-                );
-            }
-        }
-        else
-        {
-            ImGui::PushStyleColor(
-                ImGuiCol_Button,
-                ImVec4(
-                    0.20f,
-                    0.45f,
-                    0.75f,
-                    1.0f
-                )
-            );
-
-            ImGui::Button(
-                "Click 4 piano corners...",
-                ImVec2(-1.0f, 36.0f)
-            );
-
-            ImGui::PopStyleColor();
-        }
-
-        ImGui::Spacing();
-
-        ImGui::SliderFloat(
-            "Plane Pivot",
-            &m_planePivot,
-            0.0f,
-            180.0f,
-            "%.1f°"
-        );
-    }
-
-    // =================================================
-    // Piano Roll
-    // =================================================
-
-    else
-    {
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        ImGui::SeparatorText(
-            "Piano Surface"
-        );
-
-        ImGui::Spacing();
-
-        if (!m_choosingPolygonPoints)
-        {
-            if (ImGui::Button(
-                "Choose Piano Corners",
-                ImVec2(-1.0f, 36.0f)
-            ))
-            {
-                m_savedPolygonPoints =
-                    m_polygonPoints;
-
-                m_polygonPoints.clear();
-
-                m_polygonClickCount = 0;
-
-                m_choosingPolygonPoints =
-                    true;
-
-                m_temporaryPerspectiveScene =
-                    true;
-
-                m_pianoScene = PianoScene::Perspective;
-
-                Logger::Log(
-                    "[Piano Visualizer] Waiting for 4 piano corner points...\n"
-                );
-            }
-        }
-        else
-        {
-            ImGui::PushStyleColor(
-                ImGuiCol_Button,
-                ImVec4(
-                    0.20f,
-                    0.45f,
-                    0.75f,
-                    1.0f
-                )
-            );
-
-            ImGui::Button(
-                "Click 4 piano corners...",
-                ImVec2(-1.0f, 36.0f)
-            );
-
-            ImGui::PopStyleColor();
-        }
-
-        ImGui::TextDisabled(
-            "Piano Roll"
-        );
-
-        ImGui::Spacing();
-
-        ImGui::SliderFloat(
-            "Visualizer Height",
-            &m_pianoRollVisualizerHeight,
-            0.0f,
-            1.0f,
-            "%.2f"
-        );
-
-        ImGui::helpTooltip("How much of the camera region the visualizer should occupy\n0.0 means only piano roll, camera stops updating");
-
-        ImGui::Spacing();
-
-        ImGui::SliderFloat(
-            "Camera Scale",
-            &m_pianoRollCameraSourceScale,
-            1.0f,
-            5.0f,
-            "%.2f"
-        );
-
-        ImGui::helpTooltip("Use to also capture what is infront of the piano");
-    }
+	ImGui::Checkbox(
+		"Fullscreen (F)",
+		&gui::fullscreen
+	);
+
+	if (ImGui::IsItemDeactivatedAfterEdit())
+	{
+		m_queueFullscreenCall = true;
+	}
+
+	ImGui::Checkbox(
+		"Show Selection",
+		&gui::showDebugLines
+	);
+
+	// =====================================================
+	// Setup
+	// =====================================================
+
+	ImGui::SeparatorText(
+		"Scene"
+	);
+
+	ImGui::Spacing();
+
+	const char* sceneName =
+		nullptr;
+
+	switch (m_pianoScene)
+	{
+	case PianoScene::Perspective:
+		sceneName =
+			"Perspective";
+		break;
+
+	case PianoScene::PianoRoll:
+		sceneName =
+			"Piano Roll";
+		break;
+
+	default:
+		sceneName =
+			"Unknown";
+		break;
+	}
+
+	if (ImGui::BeginCombo(
+		"Scene",
+		sceneName
+	))
+	{
+		if (ImGui::Selectable(
+			"Perspective",
+			m_pianoScene ==
+			PianoScene::Perspective
+		))
+		{
+			m_pianoScene =
+				PianoScene::Perspective;
+		}
+
+		if (ImGui::Selectable(
+			"Piano Roll",
+			m_pianoScene ==
+			PianoScene::PianoRoll
+		))
+		{
+			m_pianoScene =
+				PianoScene::PianoRoll;
+		}
+
+		ImGui::EndCombo();
+	}
+
+	const char* rendererName =
+		nullptr;
+
+	switch (gui::renderer)
+	{
+	case gui::VisualizerRenderer::BuiltInVisualizer:
+		rendererName =
+			"Built-in visualizer";
+		break;
+
+	case gui::VisualizerRenderer::OtherVisualizer:
+		rendererName =
+			"Capture other visualizer";
+		break;
+
+	default:
+		rendererName =
+			"Unknown";
+		break;
+	}
+
+	if (ImGui::BeginCombo(
+		"Renderer",
+		rendererName
+	))
+	{
+		if (ImGui::Selectable(
+			"Built-in visualizer",
+			gui::renderer ==
+			gui::VisualizerRenderer::BuiltInVisualizer
+		))
+		{
+			gui::renderer =
+				gui::VisualizerRenderer::BuiltInVisualizer;
+		}
+
+		if (ImGui::Selectable(
+			"Capture other visualizer",
+			gui::renderer ==
+			gui::VisualizerRenderer::OtherVisualizer
+		))
+		{
+			gui::renderer =
+				gui::VisualizerRenderer::OtherVisualizer;
+		}
+
+		ImGui::EndCombo();
+	}
+
+
+	// =====================================================
+	// Window Capture
+	// =====================================================
+
+	if (
+		gui::renderer ==
+		gui::VisualizerRenderer::OtherVisualizer
+		)
+	{
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::SeparatorText(
+			"Capture Window"
+		);
+
+		ImGui::Spacing();
+
+		if (ImGui::Button(
+			"Refresh Windows",
+			ImVec2(-1.0f, 32.0f)
+		))
+		{
+			RefreshCaptureWindows();
+		}
+
+		ImGui::Spacing();
+
+		const char* selectedName =
+			"Select a window";
+
+		int selectedWindowIndex =
+			gui::selectedCaptureWindowIndex;
+
+		std::string selectedTitle;
+
+		if (
+			selectedWindowIndex >= 0 &&
+			selectedWindowIndex <
+			static_cast<int>(
+				gui::captureWindows.size()
+				)
+			)
+		{
+			const std::wstring& ws =
+				gui::captureWindows[
+					selectedWindowIndex
+				].title;
+
+			if (!ws.empty())
+			{
+				int size =
+					WideCharToMultiByte(
+						CP_UTF8,
+						0,
+						ws.data(),
+						static_cast<int>(
+							ws.size()
+							),
+						nullptr,
+						0,
+						nullptr,
+						nullptr
+					);
+
+				selectedTitle.resize(
+					size
+				);
+
+				WideCharToMultiByte(
+					CP_UTF8,
+					0,
+					ws.data(),
+					static_cast<int>(
+						ws.size()
+						),
+					selectedTitle.data(),
+					size,
+					nullptr,
+					nullptr
+				);
+			}
+
+			selectedName =
+				selectedTitle.c_str();
+		}
+
+		if (ImGui::BeginCombo(
+			"Window",
+			selectedName
+		))
+		{
+			for (
+				int i = 0;
+				i <
+				static_cast<int>(
+					gui::captureWindows.size()
+					);
+					++i
+				)
+			{
+				std::string title(
+					gui::captureWindows[i]
+					.title
+					.begin(),
+					gui::captureWindows[i]
+					.title
+					.end()
+				);
+
+				bool selected =
+					selectedWindowIndex == i;
+
+				if (ImGui::Selectable(
+					title.c_str(),
+					selected
+				))
+				{
+					gui::selectedCaptureWindowIndex =
+						i;
+
+					gui::selectedCaptureWindow =
+						gui::captureWindows[i]
+						.hwnd;
+				}
+
+				if (selected)
+				{
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+
+			ImGui::EndCombo();
+		}
+	}
+
+	// =================================================
+	// Piano Surface
+	// =================================================
+
+	if (m_pianoScene == PianoScene::Perspective && !m_temporaryPerspectiveScene)
+	{
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::SeparatorText(
+			"Piano Surface"
+		);
+
+		ImGui::Spacing();
+
+		if (!m_choosingPolygonPoints)
+		{
+			ImGui::Text("Visible Interval");
+
+			ImGui::SetNextItemWidth(100.0f);
+			ImGui::InputText(
+				"First note",
+				m_intervalFirstInput,
+				sizeof(m_intervalFirstInput)
+			);
+
+			ImGui::SameLine();
+
+			ImGui::SetNextItemWidth(100.0f);
+			ImGui::InputText(
+				"Last note",
+				m_intervalLastInput,
+				sizeof(m_intervalLastInput)
+			);
+
+			if (ImGui::Button("Apply Interval"))
+			{
+				int firstMidi = 0;
+				int lastMidi = 0;
+
+				const bool validFirst =
+					PianoNoteRange::TryParseNote(
+						m_intervalFirstInput,
+						firstMidi
+					);
+
+				const bool validLast =
+					PianoNoteRange::TryParseNote(
+						m_intervalLastInput,
+						lastMidi
+					);
+
+				if (!validFirst || !validLast)
+				{
+					m_intervalMessage =
+						"Invalid note. Example: C2, A#3, Eb5.";
+				}
+				else if (firstMidi >= lastMidi)
+				{
+					m_intervalMessage =
+						"The first note must be lower than the last.";
+				}
+				else
+				{
+					m_intervalFirstMidi = firstMidi;
+					m_intervalLastMidi = lastMidi;
+
+					m_intervalMessage =
+						"Interval applied successfully.";
+				}
+			}
+
+			if (!m_intervalMessage.empty())
+			{
+				ImGui::TextDisabled(
+					"%s",
+					m_intervalMessage.c_str()
+				);
+			}
+
+			if (ImGui::Button(
+				"Choose Piano Corners",
+				ImVec2(-1.0f, 36.0f)
+			))
+			{
+				m_savedPolygonPoints =
+					m_polygonPoints;
+
+				m_polygonPoints.clear();
+
+				m_polygonClickCount = 0;
+
+				m_choosingPolygonPoints =
+					true;
+
+				Logger::Log(
+					"[Piano Visualizer] Waiting for 4 piano corner points...\n"
+				);
+			}
+		}
+		else
+		{
+			ImGui::PushStyleColor(
+				ImGuiCol_Button,
+				ImVec4(
+					0.20f,
+					0.45f,
+					0.75f,
+					1.0f
+				)
+			);
+
+			ImGui::Button(
+				"Click 4 piano corners...",
+				ImVec2(-1.0f, 36.0f)
+			);
+
+			ImGui::PopStyleColor();
+		}
+
+		ImGui::Spacing();
+
+		ImGui::SliderFloat(
+			"Plane Pivot",
+			&m_planePivot,
+			0.0f,
+			180.0f,
+			"%.1f°"
+		);
+	}
+
+	// =================================================
+	// Piano Roll
+	// =================================================
+
+	else
+	{
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::SeparatorText(
+			"Piano Surface"
+		);
+
+		ImGui::Spacing();
+
+		if (!m_choosingPolygonPoints)
+		{
+			if (ImGui::Button(
+				"Choose Piano Corners",
+				ImVec2(-1.0f, 36.0f)
+			))
+			{
+				m_savedPolygonPoints =
+					m_polygonPoints;
+
+				m_polygonPoints.clear();
+
+				m_polygonClickCount = 0;
+
+				m_choosingPolygonPoints =
+					true;
+
+				m_temporaryPerspectiveScene =
+					true;
+
+				m_pianoScene = PianoScene::Perspective;
+
+				Logger::Log(
+					"[Piano Visualizer] Waiting for 4 piano corner points...\n"
+				);
+			}
+		}
+		else
+		{
+			ImGui::PushStyleColor(
+				ImGuiCol_Button,
+				ImVec4(
+					0.20f,
+					0.45f,
+					0.75f,
+					1.0f
+				)
+			);
+
+			ImGui::Button(
+				"Click 4 piano corners...",
+				ImVec2(-1.0f, 36.0f)
+			);
+
+			ImGui::PopStyleColor();
+		}
+
+		ImGui::TextDisabled(
+			"Piano Roll"
+		);
+
+		ImGui::Spacing();
+
+		ImGui::SliderFloat(
+			"Visualizer Height",
+			&m_pianoRollVisualizerHeight,
+			0.0f,
+			1.0f,
+			"%.2f"
+		);
+
+		ImGui::helpTooltip("How much of the camera region the visualizer should occupy\n0.0 means only piano roll, camera stops updating");
+
+		ImGui::Spacing();
+
+		ImGui::SliderFloat(
+			"Camera Scale",
+			&m_pianoRollCameraSourceScale,
+			1.0f,
+			5.0f,
+			"%.2f"
+		);
+
+		ImGui::helpTooltip("Use to also capture what is infront of the piano");
+	}
 }
 
 // =========================================================
@@ -4476,10 +4496,10 @@ void PianoVisualizer::RenderDisplayTab()
 
 void PianoVisualizer::RenderVisualizerTab()
 {
-    if (!m_viewer)
-        return;
+	if (!m_viewer)
+		return;
 
-    m_viewer->drawGUI(System::time());
+	m_viewer->drawGUI(System::time());
 }
 
 // =====================================================
@@ -4488,1985 +4508,2075 @@ void PianoVisualizer::RenderVisualizerTab()
 
 void PianoVisualizer::RenderCameraTab()
 {
-    const std::vector<Camera::CameraDevice>& cameras =
-        m_camera.GetAvailableCameras();
-
-    if (!cameras.empty())
-    {
-        int selectedCamera =
-            m_camera.GetCameraIndex();
-
-        const char* preview =
-            selectedCamera >= 0 &&
-            selectedCamera <
-            static_cast<int>(cameras.size())
-            ? cameras[selectedCamera].name.c_str()
-            : "Select camera";
-
-        ImGui::SeparatorText(
-            "Selected Camera"
-        );
-
-        if (ImGui::BeginCombo(
-            "##CameraDevice",
-            preview
-        ))
-        {
-            m_camera.EnumerateCameras();
-
-            // Re-read the camera list after refreshing.
-            const std::vector<Camera::CameraDevice>& refreshedCameras =
-                m_camera.GetAvailableCameras();
-
-            selectedCamera =
-                m_camera.GetCameraIndex();
-
-            for (
-                int i = 0;
-                i < static_cast<int>(refreshedCameras.size());
-                ++i
-                )
-            {
-                const bool selected =
-                    i == selectedCamera;
-
-                if (ImGui::Selectable(
-                    refreshedCameras[i].name.c_str(),
-                    selected
-                ))
-                {
-                    if (i != selectedCamera)
-                    {
-                        if (m_camera.OpenCamera(i))
-                        {
-                            m_cameraSettingsWidth = 0;
-                            m_cameraSettingsHeight = 0;
-                            m_cameraSettingsFPSNumerator = 0;
-                            m_cameraSettingsFPSDenominator = 1;
-                        }
-                        else
-                        {
-                            const std::string cameraError =
-                                m_camera.GetLastError();
-
-                            if (!cameraError.empty())
-                            {
-                                const std::string message =
-                                    "Error: Failed to initialize camera \"" +
-                                    cameraError +
-                                    "\"";
-
-                                MessageBoxA(
-                                    nullptr,
-                                    message.c_str(),
-                                    "Piano Visualizer",
-                                    MB_OK | MB_ICONWARNING
-                                );
-
-                                m_camera.ClearLastError();
-                            }
-                        }
-                    }
-                }
-
-                if (selected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-
-            ImGui::EndCombo();
-        }
-    }
-
-    // =====================================================
-    // Camera not currently open
-    // =====================================================
-
-    if (!m_camera.IsOpen())
-    {
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        ImGui::TextDisabled(
-            cameras.empty()
-            ? "No camera available."
-            : "Select a camera to continue."
-        );
-
-        return;
-    }
-
-    ImGui::SeparatorText("Format");
-
-    // =====================================================
-    // Resolution / FPS
-    // =====================================================
-
-    const std::vector<Camera::CameraMode>& modes =
-        m_camera.GetAvailableModes();
-
-    if (!modes.empty())
-    {
-        const int currentWidth =
-            m_camera.GetWidth();
-
-        const int currentHeight =
-            m_camera.GetHeight();
-
-        const Camera::CameraStatistics statistics =
-            m_camera.GetStatistics();
-
-        const UINT32 currentFPSNumerator =
-            statistics.fpsNumerator;
-
-        const UINT32 currentFPSDenominator =
-            statistics.fpsDenominator;
-
-        // -------------------------------------------------
-        // Synchronize UI state with actual camera state
-        // -------------------------------------------------
-
-        if (
-            m_cameraSettingsWidth != currentWidth ||
-            m_cameraSettingsHeight != currentHeight
-            )
-        {
-            m_cameraSettingsWidth =
-                currentWidth;
-
-            m_cameraSettingsHeight =
-                currentHeight;
-        }
-
-        if (
-            m_cameraSettingsFPSNumerator !=
-            currentFPSNumerator ||
-            m_cameraSettingsFPSDenominator !=
-            currentFPSDenominator
-            )
-        {
-            m_cameraSettingsFPSNumerator =
-                currentFPSNumerator;
-
-            m_cameraSettingsFPSDenominator =
-                currentFPSDenominator;
-        }
-
-        // -------------------------------------------------
-        // Build unique resolutions
-        // -------------------------------------------------
-
-        std::vector<std::pair<int, int>> resolutions;
-
-        for (const Camera::CameraMode& mode : modes)
-        {
-            bool alreadyExists = false;
-
-            for (
-                const auto& resolution :
-                resolutions
-                )
-            {
-                if (
-                    resolution.first ==
-                    mode.width &&
-                    resolution.second ==
-                    mode.height
-                    )
-                {
-                    alreadyExists = true;
-                    break;
-                }
-            }
-
-            if (!alreadyExists)
-            {
-                resolutions.emplace_back(
-                    mode.width,
-                    mode.height
-                );
-            }
-        }
-
-        // -------------------------------------------------
-        // Build unique FPS values
-        // -------------------------------------------------
-
-        std::vector<Camera::CameraMode> uniqueFPSModes;
-
-        for (const Camera::CameraMode& mode : modes)
-        {
-            bool alreadyExists = false;
-
-            for (
-                const Camera::CameraMode& existing :
-                uniqueFPSModes
-                )
-            {
-                if (
-                    static_cast<UINT64>(
-                        mode.fpsNumerator
-                        ) *
-                    static_cast<UINT64>(
-                        existing.fpsDenominator
-                        ) ==
-                    static_cast<UINT64>(
-                        existing.fpsNumerator
-                        ) *
-                    static_cast<UINT64>(
-                        mode.fpsDenominator
-                        )
-                    )
-                {
-                    alreadyExists = true;
-                    break;
-                }
-            }
-
-            if (!alreadyExists)
-            {
-                uniqueFPSModes.push_back(
-                    mode
-                );
-            }
-        }
-
-        // -------------------------------------------------
-        // Two-column layout
-        // -------------------------------------------------
-
-        ImGui::Columns(
-            3,
-            "##CameraFormatResolutionFPS",
-            false
-        );
-
-        // -------------------------------------------------
-        // Format
-        // -------------------------------------------------
-
-        ImGui::Text(
-            "Camera Format"
-        );
-
-        Camera::CameraFormat currentFormat =
-            m_camera.GetFormat();
-
-        const char* formatName =
-            currentFormat == Camera::CameraFormat::NV12
-            ? "NV12"
-            : currentFormat == Camera::CameraFormat::MJPG
-            ? "MJPG"
-            : "None";
-
-        if (ImGui::BeginCombo(
-            "##CameraFormat",
-            formatName
-        ))
-        {
-            bool isNV12 =
-                currentFormat ==
-                Camera::CameraFormat::NV12;
-
-            if (ImGui::Selectable(
-                "NV12",
-                isNV12
-            ))
-            {
-                if (!isNV12)
-                {
-                    m_camera.SetFormat(
-                        Camera::CameraFormat::NV12
-                    );
-
-                    m_cameraSettingsWidth = 0;
-                    m_cameraSettingsHeight = 0;
-                    m_cameraSettingsFPSNumerator = 0;
-                    m_cameraSettingsFPSDenominator = 1;
-                }
-            }
-
-            if (isNV12)
-            {
-                ImGui::SetItemDefaultFocus();
-            }
-
-            bool isMJPG =
-                currentFormat ==
-                Camera::CameraFormat::MJPG;
-
-            if (ImGui::Selectable(
-                "MJPG",
-                isMJPG
-            ))
-            {
-                if (!isMJPG)
-                {
-                    m_camera.SetFormat(
-                        Camera::CameraFormat::MJPG
-                    );
-
-                    m_cameraSettingsWidth = 0;
-                    m_cameraSettingsHeight = 0;
-                    m_cameraSettingsFPSNumerator = 0;
-                    m_cameraSettingsFPSDenominator = 1;
-                }
-            }
-
-            if (isMJPG)
-            {
-                ImGui::SetItemDefaultFocus();
-            }
-
-            ImGui::EndCombo();
-        }
-
-        ImGui::NextColumn();
-
-        // =================================================
-        // Resolution
-        // =================================================
-
-        ImGui::Text(
-            "Resolution"
-        );
-
-        int selectedResolutionIndex = -1;
-
-        for (
-            int i = 0;
-            i < static_cast<int>(resolutions.size());
-            ++i
-            )
-        {
-            if (
-                resolutions[i].first ==
-                m_cameraSettingsWidth &&
-                resolutions[i].second ==
-                m_cameraSettingsHeight
-                )
-            {
-                selectedResolutionIndex = i;
-                break;
-            }
-        }
-
-        char resolutionPreview[64];
-
-        if (selectedResolutionIndex >= 0)
-        {
-            std::snprintf(
-                resolutionPreview,
-                sizeof(resolutionPreview),
-                "%d x %d",
-                resolutions[
-                    selectedResolutionIndex
-                ].first,
-                resolutions[
-                    selectedResolutionIndex
-                ].second
-                        );
-        }
-        else
-        {
-            std::snprintf(
-                resolutionPreview,
-                sizeof(resolutionPreview),
-                "%d x %d",
-                currentWidth,
-                currentHeight
-            );
-        }
-
-        if (ImGui::BeginCombo(
-            "##CameraResolution",
-            resolutionPreview
-        ))
-        {
-            for (
-                int i = 0;
-                i < static_cast<int>(resolutions.size());
-                ++i
-                )
-            {
-                bool selected =
-                    i == selectedResolutionIndex;
-
-                char label[64];
-
-                std::snprintf(
-                    label,
-                    sizeof(label),
-                    "%d x %d",
-                    resolutions[i].first,
-                    resolutions[i].second
-                );
-
-                if (ImGui::Selectable(
-                    label,
-                    selected
-                ))
-                {
-                    const int newWidth =
-                        resolutions[i].first;
-
-                    const int newHeight =
-                        resolutions[i].second;
-
-                    // -------------------------------------
-                    // Keep current FPS if possible.
-                    // -------------------------------------
-
-                    bool currentFPSAvailable = false;
-
-                    for (
-                        const Camera::CameraMode& mode :
-                        modes
-                        )
-                    {
-                        if (
-                            mode.width ==
-                            newWidth &&
-                            mode.height ==
-                            newHeight &&
-                            mode.fpsNumerator ==
-                            m_cameraSettingsFPSNumerator &&
-                            mode.fpsDenominator ==
-                            m_cameraSettingsFPSDenominator
-                            )
-                        {
-                            currentFPSAvailable = true;
-                            break;
-                        }
-                    }
-
-                    UINT32 newFPSNumerator =
-                        m_cameraSettingsFPSNumerator;
-
-                    UINT32 newFPSDenominator =
-                        m_cameraSettingsFPSDenominator;
-
-                    // -------------------------------------
-                    // If unavailable, use highest FPS.
-                    // -------------------------------------
-
-                    if (!currentFPSAvailable)
-                    {
-                        bool foundMode = false;
-
-                        Camera::CameraMode bestMode;
-
-                        for (
-                            const Camera::CameraMode& mode :
-                            modes
-                            )
-                        {
-                            if (
-                                mode.width != newWidth ||
-                                mode.height != newHeight
-                                )
-                            {
-                                continue;
-                            }
-
-                            if (!foundMode)
-                            {
-                                bestMode = mode;
-                                foundMode = true;
-                                continue;
-                            }
-
-                            if (
-                                static_cast<UINT64>(
-                                    mode.fpsNumerator
-                                    ) *
-                                static_cast<UINT64>(
-                                    bestMode.fpsDenominator
-                                    ) >
-                                static_cast<UINT64>(
-                                    bestMode.fpsNumerator
-                                    ) *
-                                static_cast<UINT64>(
-                                    mode.fpsDenominator
-                                    )
-                                )
-                            {
-                                bestMode = mode;
-                            }
-                        }
-
-                        if (foundMode)
-                        {
-                            newFPSNumerator =
-                                bestMode.fpsNumerator;
-
-                            newFPSDenominator =
-                                bestMode.fpsDenominator;
-                        }
-                    }
-
-                    if (
-                        m_camera.SetMode(
-                            newWidth,
-                            newHeight,
-                            newFPSNumerator,
-                            newFPSDenominator
-                        )
-                        )
-                    {
-                        m_cameraSettingsWidth =
-                            newWidth;
-
-                        m_cameraSettingsHeight =
-                            newHeight;
-
-                        m_cameraSettingsFPSNumerator =
-                            newFPSNumerator;
-
-                        m_cameraSettingsFPSDenominator =
-                            newFPSDenominator;
-                    }
-                }
-
-                if (selected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-
-            ImGui::EndCombo();
-        }
-
-        // =================================================
-        // FPS
-        // =================================================
-
-        ImGui::NextColumn();
-
-        ImGui::Text(
-            "Frame Rate"
-        );
-
-        const Camera::CameraMode* currentMode =
-            nullptr;
-
-        for (
-            const Camera::CameraMode& mode :
-            modes
-            )
-        {
-            if (
-                mode.width ==
-                m_cameraSettingsWidth &&
-                mode.height ==
-                m_cameraSettingsHeight &&
-                mode.fpsNumerator ==
-                m_cameraSettingsFPSNumerator &&
-                mode.fpsDenominator ==
-                m_cameraSettingsFPSDenominator
-                )
-            {
-                currentMode = &mode;
-                break;
-            }
-        }
-
-        char fpsPreview[64];
-
-        if (currentMode != nullptr)
-        {
-            std::snprintf(
-                fpsPreview,
-                sizeof(fpsPreview),
-                "%.3g FPS",
-                currentMode->GetFPS()
-            );
-        }
-        else
-        {
-            std::snprintf(
-                fpsPreview,
-                sizeof(fpsPreview),
-                "Unknown"
-            );
-        }
-
-        if (ImGui::BeginCombo(
-            "##CameraFPS",
-            fpsPreview
-        ))
-        {
-            for (
-                const Camera::CameraMode& fpsMode :
-                uniqueFPSModes
-                )
-            {
-                bool available = false;
-
-                Camera::CameraMode availableMode;
-
-                for (
-                    const Camera::CameraMode& mode :
-                    modes
-                    )
-                {
-                    if (
-                        mode.width !=
-                        m_cameraSettingsWidth ||
-                        mode.height !=
-                        m_cameraSettingsHeight
-                        )
-                    {
-                        continue;
-                    }
-
-                    if (
-                        static_cast<UINT64>(
-                            mode.fpsNumerator
-                            ) *
-                        static_cast<UINT64>(
-                            fpsMode.fpsDenominator
-                            ) ==
-                        static_cast<UINT64>(
-                            fpsMode.fpsNumerator
-                            ) *
-                        static_cast<UINT64>(
-                            mode.fpsDenominator
-                            )
-                        )
-                    {
-                        available = true;
-                        availableMode = mode;
-                        break;
-                    }
-                }
-
-                bool selected =
-                    fpsMode.fpsNumerator ==
-                    m_cameraSettingsFPSNumerator &&
-                    fpsMode.fpsDenominator ==
-                    m_cameraSettingsFPSDenominator;
-
-                char label[64];
-
-                std::snprintf(
-                    label,
-                    sizeof(label),
-                    "%.3g FPS",
-                    fpsMode.GetFPS()
-                );
-
-                if (!available)
-                {
-                    ImGui::BeginDisabled();
-                }
-
-                if (ImGui::Selectable(
-                    label,
-                    selected
-                ))
-                {
-                    if (
-                        m_camera.SetMode(
-                            availableMode.width,
-                            availableMode.height,
-                            availableMode.fpsNumerator,
-                            availableMode.fpsDenominator
-                        )
-                        )
-                    {
-                        m_cameraSettingsFPSNumerator =
-                            availableMode.fpsNumerator;
-
-                        m_cameraSettingsFPSDenominator =
-                            availableMode.fpsDenominator;
-                    }
-                }
-
-                if (!available)
-                {
-                    ImGui::EndDisabled();
-                }
-
-                if (selected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-
-            ImGui::EndCombo();
-        }
-
-        ImGui::Columns(
-            1
-        );
-    }
-
-    ImGui::SeparatorText("Image");
-
-    auto DrawAutoControl =
-        [&](const char* autoLabel,
-            const char* valueLabel,
-            auto getAuto,
-            auto setAuto,
-            auto getRange,
-            auto getValue,
-            auto setValue)
-        {
-            bool autoEnabled = false;
-
-            if (!getAuto(autoEnabled))
-                return;
-
-            if (ImGui::Checkbox(autoLabel, &autoEnabled))
-                setAuto(autoEnabled);
-
-            if (!autoEnabled)
-            {
-                int valueMin = 0;
-                int valueMax = 0;
-                int valueStep = 1;
-
-                if (!getRange(valueMin, valueMax, valueStep))
-                    return;
-
-                int value = 0;
-
-                if (!getValue(value))
-                    return;
-
-                if (ImGui::SliderInt(valueLabel, &value, valueMin, valueMax))
-                {
-                    if (valueStep > 1)
-                    {
-                        value =
-                            valueMin +
-                            ((value - valueMin + valueStep / 2) / valueStep) *
-                            valueStep;
-
-                        value = std::clamp(value, valueMin, valueMax);
-                    }
-
-                    setValue(value);
-                }
-            }
-        };
-
-    // =====================================================
-    // Exposure
-    // =====================================================
-
-    DrawAutoControl(
-        "Auto Exposure",
-        "Exposure",
-        [&](bool& value) {
-            return m_camera.Controls().GetAutoExposure(value);
-        },
-        [&](bool value) {
-            m_camera.Controls().SetAutoExposure(value);
-        },
-        [&](int& min, int& max, int& step) {
-            return m_camera.Controls().GetExposureRange(min, max, step);
-        },
-        [&](int& value) {
-            return m_camera.Controls().GetExposure(value);
-        },
-        [&](int value) {
-            m_camera.Controls().SetExposure(value);
-        }
-    );
-
-    // =====================================================
-    // Low Light Compensation
-    // =====================================================
-
-    bool lowLightCompensation = false;
-
-    if (m_camera.Controls().GetLowLightCompensation(lowLightCompensation))
-    {
-        if (ImGui::Checkbox("Low Light Compensation", &lowLightCompensation))
-            m_camera.Controls().SetLowLightCompensation(lowLightCompensation);
-    }
-
-    // =====================================================
-    // Focus
-    // =====================================================
-
-    DrawAutoControl(
-        "Auto Focus",
-        "Focus",
-        [&](bool& value) {
-            return m_camera.Controls().GetAutoFocus(value);
-        },
-        [&](bool value) {
-            m_camera.Controls().SetAutoFocus(value);
-        },
-        [&](int& min, int& max, int& step) {
-            return m_camera.Controls().GetFocusRange(min, max, step);
-        },
-        [&](int& value) {
-            return m_camera.Controls().GetFocus(value);
-        },
-        [&](int value) {
-            m_camera.Controls().SetFocus(value);
-        }
-    );
-
-    // ---------------------------------------------------------
-    // Brightness
-    // ---------------------------------------------------------
-
-    ImGui::TextDisabled("Adjustments");
-
-    auto DrawAdjustment =
-        [&](const char* label,
-            auto getRange,
-            auto getValue,
-            auto setValue)
-        {
-            int minimum = 0;
-            int maximum = 0;
-            int step = 1;
-
-            if (!getRange(minimum, maximum, step))
-                return;
-
-            int value = 0;
-
-            if (!getValue(value))
-                return;
-
-            if (ImGui::SliderInt(
-                label,
-                &value,
-                minimum,
-                maximum
-            ))
-            {
-                if (step > 1)
-                {
-                    value =
-                        minimum +
-                        ((value - minimum + step / 2) / step) * step;
-
-                    value = std::clamp(value, minimum, maximum);
-                }
-
-                setValue(value);
-            }
-        };
-
-
-    DrawAdjustment(
-        "Brightness",
-        [&](int& min, int& max, int& step) {
-            return m_camera.Controls().GetBrightnessRange(min, max, step);
-        },
-        [&](int& value) {
-            return m_camera.Controls().GetBrightness(value);
-        },
-        [&](int value) {
-            m_camera.Controls().SetBrightness(value);
-        }
-    );
-
-    DrawAdjustment(
-        "Contrast",
-        [&](int& min, int& max, int& step) {
-            return m_camera.Controls().GetContrastRange(min, max, step);
-        },
-        [&](int& value) {
-            return m_camera.Controls().GetContrast(value);
-        },
-        [&](int value) {
-            m_camera.Controls().SetContrast(value);
-        }
-    );
-
-    DrawAdjustment(
-        "Saturation",
-        [&](int& min, int& max, int& step) {
-            return m_camera.Controls().GetSaturationRange(min, max, step);
-        },
-        [&](int& value) {
-            return m_camera.Controls().GetSaturation(value);
-        },
-        [&](int value) {
-            m_camera.Controls().SetSaturation(value);
-        }
-    );
-
-    DrawAdjustment(
-        "Sharpness",
-        [&](int& min, int& max, int& step) {
-            return m_camera.Controls().GetSharpnessRange(min, max, step);
-        },
-        [&](int& value) {
-            return m_camera.Controls().GetSharpness(value);
-        },
-        [&](int value) {
-            m_camera.Controls().SetSharpness(value);
-        }
-    );
-
-    // =====================================================
-    // Virtual Camera
-    // =====================================================
-
-    ImGui::SeparatorText(
-        "Virtual Camera"
-    );
-
-    const bool virtualCameraAvailable =
-        m_virtualCamera.IsAvailable();
-
-    const bool virtualCameraActive =
-        m_virtualCamera.IsActive();
-
-    if (!virtualCameraAvailable)
-    {
-        ImGui::PushStyleVar(
-            ImGuiStyleVar_Alpha,
-            ImGui::GetStyle().Alpha * 0.5f
-        );
-    }
-
-    bool clicked =
-        ImGui::Button(
-            virtualCameraAvailable
-            ? (virtualCameraActive
-                ? "Stop Virtual Camera"
-                : "Start Virtual Camera")
-            : "Start Virtual Camera (Extension Required)"
-        );
-
-    if (!virtualCameraAvailable)
-    {
-        ImGui::PopStyleVar();
-    }
-
-    // ---------------------------------------------------------
-    // Button action
-    // ---------------------------------------------------------
-
-    if (clicked)
-    {
-        if (virtualCameraAvailable)
-        {
-            if (!virtualCameraActive)
-            {
-                if (m_virtualCamera.RegisterExtension())
-                {
-                    if (!m_virtualCamera.StartVirtualCamera())
-                    {
-                        m_virtualCamera.UnregisterExtension();
-                    }
-                }
-            }
-            else
-            {
-                if (m_virtualCamera.StopVirtualCamera())
-                {
-                    m_virtualCamera.UnregisterExtension();
-                }
-            }
-        }
-        else
-        {
-            ShellExecuteA(
-                nullptr,
-                "open",
-                "https://github.com/Ominus-tch/Piano-Visualizer",
-                nullptr,
-                nullptr,
-                SW_SHOWNORMAL
-            );
-        }
-    }
-
-    // ---------------------------------------------------------
-    // Tooltip
-    // ---------------------------------------------------------
-
-    if (ImGui::IsItemHovered())
-    {
-        ImGui::SetTooltip(virtualCameraAvailable ?
-            "The virtual camera outputs the visualizer to other applications.\n"
-            "Click to start or stop the virtual camera."
-            :
-            "Virtual Camera extension not found.\n"
-            "Download the extension to enable this feature.\n"
-            "Click to visit the download page."
-        );
-    }
+	const std::vector<Camera::CameraDevice>& cameras =
+		m_camera.GetAvailableCameras();
+
+	if (!cameras.empty())
+	{
+		int selectedCamera =
+			m_camera.GetCameraIndex();
+
+		const char* preview =
+			selectedCamera >= 0 &&
+			selectedCamera <
+			static_cast<int>(cameras.size())
+			? cameras[selectedCamera].name.c_str()
+			: "Select camera";
+
+		ImGui::SeparatorText(
+			"Selected Camera"
+		);
+
+		if (ImGui::BeginCombo(
+			"##CameraDevice",
+			preview
+		))
+		{
+			m_camera.EnumerateCameras();
+
+			// Re-read the camera list after refreshing.
+			const std::vector<Camera::CameraDevice>& refreshedCameras =
+				m_camera.GetAvailableCameras();
+
+			selectedCamera =
+				m_camera.GetCameraIndex();
+
+			for (
+				int i = 0;
+				i < static_cast<int>(refreshedCameras.size());
+				++i
+				)
+			{
+				const bool selected =
+					i == selectedCamera;
+
+				if (ImGui::Selectable(
+					refreshedCameras[i].name.c_str(),
+					selected
+				))
+				{
+					if (i != selectedCamera)
+					{
+						if (m_camera.OpenCamera(i))
+						{
+							m_cameraSettingsWidth = 0;
+							m_cameraSettingsHeight = 0;
+							m_cameraSettingsFPSNumerator = 0;
+							m_cameraSettingsFPSDenominator = 1;
+						}
+						else
+						{
+							const std::string cameraError =
+								m_camera.GetLastError();
+
+							if (!cameraError.empty())
+							{
+								const std::string message =
+									"Error: Failed to initialize camera \"" +
+									cameraError +
+									"\"";
+
+								MessageBoxA(
+									nullptr,
+									message.c_str(),
+									"Piano Visualizer",
+									MB_OK | MB_ICONWARNING
+								);
+
+								m_camera.ClearLastError();
+							}
+						}
+					}
+				}
+
+				if (selected)
+				{
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+
+			ImGui::EndCombo();
+		}
+	}
+
+	// =====================================================
+	// Camera not currently open
+	// =====================================================
+
+	if (!m_camera.IsOpen())
+	{
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::TextDisabled(
+			cameras.empty()
+			? "No camera available."
+			: "Select a camera to continue."
+		);
+
+		return;
+	}
+
+	ImGui::SeparatorText("Format");
+
+	// =====================================================
+	// Resolution / FPS
+	// =====================================================
+
+	const std::vector<Camera::CameraMode>& modes =
+		m_camera.GetAvailableModes();
+
+	if (!modes.empty())
+	{
+		const int currentWidth =
+			m_camera.GetWidth();
+
+		const int currentHeight =
+			m_camera.GetHeight();
+
+		const Camera::CameraStatistics statistics =
+			m_camera.GetStatistics();
+
+		const UINT32 currentFPSNumerator =
+			statistics.fpsNumerator;
+
+		const UINT32 currentFPSDenominator =
+			statistics.fpsDenominator;
+
+		// -------------------------------------------------
+		// Synchronize UI state with actual camera state
+		// -------------------------------------------------
+
+		if (
+			m_cameraSettingsWidth != currentWidth ||
+			m_cameraSettingsHeight != currentHeight
+			)
+		{
+			m_cameraSettingsWidth =
+				currentWidth;
+
+			m_cameraSettingsHeight =
+				currentHeight;
+		}
+
+		if (
+			m_cameraSettingsFPSNumerator !=
+			currentFPSNumerator ||
+			m_cameraSettingsFPSDenominator !=
+			currentFPSDenominator
+			)
+		{
+			m_cameraSettingsFPSNumerator =
+				currentFPSNumerator;
+
+			m_cameraSettingsFPSDenominator =
+				currentFPSDenominator;
+		}
+
+		// -------------------------------------------------
+		// Build unique resolutions
+		// -------------------------------------------------
+
+		std::vector<std::pair<int, int>> resolutions;
+
+		for (const Camera::CameraMode& mode : modes)
+		{
+			bool alreadyExists = false;
+
+			for (
+				const auto& resolution :
+				resolutions
+				)
+			{
+				if (
+					resolution.first ==
+					mode.width &&
+					resolution.second ==
+					mode.height
+					)
+				{
+					alreadyExists = true;
+					break;
+				}
+			}
+
+			if (!alreadyExists)
+			{
+				resolutions.emplace_back(
+					mode.width,
+					mode.height
+				);
+			}
+		}
+
+		// -------------------------------------------------
+		// Build unique FPS values
+		// -------------------------------------------------
+
+		std::vector<Camera::CameraMode> uniqueFPSModes;
+
+		for (const Camera::CameraMode& mode : modes)
+		{
+			bool alreadyExists = false;
+
+			for (
+				const Camera::CameraMode& existing :
+				uniqueFPSModes
+				)
+			{
+				if (
+					static_cast<UINT64>(
+						mode.fpsNumerator
+						) *
+					static_cast<UINT64>(
+						existing.fpsDenominator
+						) ==
+					static_cast<UINT64>(
+						existing.fpsNumerator
+						) *
+					static_cast<UINT64>(
+						mode.fpsDenominator
+						)
+					)
+				{
+					alreadyExists = true;
+					break;
+				}
+			}
+
+			if (!alreadyExists)
+			{
+				uniqueFPSModes.push_back(
+					mode
+				);
+			}
+		}
+
+		// -------------------------------------------------
+		// Two-column layout
+		// -------------------------------------------------
+
+		ImGui::Columns(
+			3,
+			"##CameraFormatResolutionFPS",
+			false
+		);
+
+		// -------------------------------------------------
+		// Format
+		// -------------------------------------------------
+
+		ImGui::Text(
+			"Camera Format"
+		);
+
+		Camera::CameraFormat currentFormat =
+			m_camera.GetFormat();
+
+		const char* formatName =
+			currentFormat == Camera::CameraFormat::NV12
+			? "NV12"
+			: currentFormat == Camera::CameraFormat::MJPG
+			? "MJPG"
+			: "None";
+
+		if (ImGui::BeginCombo(
+			"##CameraFormat",
+			formatName
+		))
+		{
+			bool isNV12 =
+				currentFormat ==
+				Camera::CameraFormat::NV12;
+
+			if (ImGui::Selectable(
+				"NV12",
+				isNV12
+			))
+			{
+				if (!isNV12)
+				{
+					m_camera.SetFormat(
+						Camera::CameraFormat::NV12
+					);
+
+					m_cameraSettingsWidth = 0;
+					m_cameraSettingsHeight = 0;
+					m_cameraSettingsFPSNumerator = 0;
+					m_cameraSettingsFPSDenominator = 1;
+				}
+			}
+
+			if (isNV12)
+			{
+				ImGui::SetItemDefaultFocus();
+			}
+
+			bool isMJPG =
+				currentFormat ==
+				Camera::CameraFormat::MJPG;
+
+			if (ImGui::Selectable(
+				"MJPG",
+				isMJPG
+			))
+			{
+				if (!isMJPG)
+				{
+					m_camera.SetFormat(
+						Camera::CameraFormat::MJPG
+					);
+
+					m_cameraSettingsWidth = 0;
+					m_cameraSettingsHeight = 0;
+					m_cameraSettingsFPSNumerator = 0;
+					m_cameraSettingsFPSDenominator = 1;
+				}
+			}
+
+			if (isMJPG)
+			{
+				ImGui::SetItemDefaultFocus();
+			}
+
+			ImGui::EndCombo();
+		}
+
+		ImGui::NextColumn();
+
+		// =================================================
+		// Resolution
+		// =================================================
+
+		ImGui::Text(
+			"Resolution"
+		);
+
+		int selectedResolutionIndex = -1;
+
+		for (
+			int i = 0;
+			i < static_cast<int>(resolutions.size());
+			++i
+			)
+		{
+			if (
+				resolutions[i].first ==
+				m_cameraSettingsWidth &&
+				resolutions[i].second ==
+				m_cameraSettingsHeight
+				)
+			{
+				selectedResolutionIndex = i;
+				break;
+			}
+		}
+
+		char resolutionPreview[64];
+
+		if (selectedResolutionIndex >= 0)
+		{
+			std::snprintf(
+				resolutionPreview,
+				sizeof(resolutionPreview),
+				"%d x %d",
+				resolutions[
+					selectedResolutionIndex
+				].first,
+				resolutions[
+					selectedResolutionIndex
+				].second
+						);
+		}
+		else
+		{
+			std::snprintf(
+				resolutionPreview,
+				sizeof(resolutionPreview),
+				"%d x %d",
+				currentWidth,
+				currentHeight
+			);
+		}
+
+		if (ImGui::BeginCombo(
+			"##CameraResolution",
+			resolutionPreview
+		))
+		{
+			for (
+				int i = 0;
+				i < static_cast<int>(resolutions.size());
+				++i
+				)
+			{
+				bool selected =
+					i == selectedResolutionIndex;
+
+				char label[64];
+
+				std::snprintf(
+					label,
+					sizeof(label),
+					"%d x %d",
+					resolutions[i].first,
+					resolutions[i].second
+				);
+
+				if (ImGui::Selectable(
+					label,
+					selected
+				))
+				{
+					const int newWidth =
+						resolutions[i].first;
+
+					const int newHeight =
+						resolutions[i].second;
+
+					// -------------------------------------
+					// Keep current FPS if possible.
+					// -------------------------------------
+
+					bool currentFPSAvailable = false;
+
+					for (
+						const Camera::CameraMode& mode :
+						modes
+						)
+					{
+						if (
+							mode.width ==
+							newWidth &&
+							mode.height ==
+							newHeight &&
+							mode.fpsNumerator ==
+							m_cameraSettingsFPSNumerator &&
+							mode.fpsDenominator ==
+							m_cameraSettingsFPSDenominator
+							)
+						{
+							currentFPSAvailable = true;
+							break;
+						}
+					}
+
+					UINT32 newFPSNumerator =
+						m_cameraSettingsFPSNumerator;
+
+					UINT32 newFPSDenominator =
+						m_cameraSettingsFPSDenominator;
+
+					// -------------------------------------
+					// If unavailable, use highest FPS.
+					// -------------------------------------
+
+					if (!currentFPSAvailable)
+					{
+						bool foundMode = false;
+
+						Camera::CameraMode bestMode;
+
+						for (
+							const Camera::CameraMode& mode :
+							modes
+							)
+						{
+							if (
+								mode.width != newWidth ||
+								mode.height != newHeight
+								)
+							{
+								continue;
+							}
+
+							if (!foundMode)
+							{
+								bestMode = mode;
+								foundMode = true;
+								continue;
+							}
+
+							if (
+								static_cast<UINT64>(
+									mode.fpsNumerator
+									) *
+								static_cast<UINT64>(
+									bestMode.fpsDenominator
+									) >
+								static_cast<UINT64>(
+									bestMode.fpsNumerator
+									) *
+								static_cast<UINT64>(
+									mode.fpsDenominator
+									)
+								)
+							{
+								bestMode = mode;
+							}
+						}
+
+						if (foundMode)
+						{
+							newFPSNumerator =
+								bestMode.fpsNumerator;
+
+							newFPSDenominator =
+								bestMode.fpsDenominator;
+						}
+					}
+
+					if (
+						m_camera.SetMode(
+							newWidth,
+							newHeight,
+							newFPSNumerator,
+							newFPSDenominator
+						)
+						)
+					{
+						m_cameraSettingsWidth =
+							newWidth;
+
+						m_cameraSettingsHeight =
+							newHeight;
+
+						m_cameraSettingsFPSNumerator =
+							newFPSNumerator;
+
+						m_cameraSettingsFPSDenominator =
+							newFPSDenominator;
+					}
+				}
+
+				if (selected)
+				{
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+
+			ImGui::EndCombo();
+		}
+
+		// =================================================
+		// FPS
+		// =================================================
+
+		ImGui::NextColumn();
+
+		ImGui::Text(
+			"Frame Rate"
+		);
+
+		const Camera::CameraMode* currentMode =
+			nullptr;
+
+		for (
+			const Camera::CameraMode& mode :
+			modes
+			)
+		{
+			if (
+				mode.width ==
+				m_cameraSettingsWidth &&
+				mode.height ==
+				m_cameraSettingsHeight &&
+				mode.fpsNumerator ==
+				m_cameraSettingsFPSNumerator &&
+				mode.fpsDenominator ==
+				m_cameraSettingsFPSDenominator
+				)
+			{
+				currentMode = &mode;
+				break;
+			}
+		}
+
+		char fpsPreview[64];
+
+		if (currentMode != nullptr)
+		{
+			std::snprintf(
+				fpsPreview,
+				sizeof(fpsPreview),
+				"%.3g FPS",
+				currentMode->GetFPS()
+			);
+		}
+		else
+		{
+			std::snprintf(
+				fpsPreview,
+				sizeof(fpsPreview),
+				"Unknown"
+			);
+		}
+
+		if (ImGui::BeginCombo(
+			"##CameraFPS",
+			fpsPreview
+		))
+		{
+			for (
+				const Camera::CameraMode& fpsMode :
+				uniqueFPSModes
+				)
+			{
+				bool available = false;
+
+				Camera::CameraMode availableMode;
+
+				for (
+					const Camera::CameraMode& mode :
+					modes
+					)
+				{
+					if (
+						mode.width !=
+						m_cameraSettingsWidth ||
+						mode.height !=
+						m_cameraSettingsHeight
+						)
+					{
+						continue;
+					}
+
+					if (
+						static_cast<UINT64>(
+							mode.fpsNumerator
+							) *
+						static_cast<UINT64>(
+							fpsMode.fpsDenominator
+							) ==
+						static_cast<UINT64>(
+							fpsMode.fpsNumerator
+							) *
+						static_cast<UINT64>(
+							mode.fpsDenominator
+							)
+						)
+					{
+						available = true;
+						availableMode = mode;
+						break;
+					}
+				}
+
+				bool selected =
+					fpsMode.fpsNumerator ==
+					m_cameraSettingsFPSNumerator &&
+					fpsMode.fpsDenominator ==
+					m_cameraSettingsFPSDenominator;
+
+				char label[64];
+
+				std::snprintf(
+					label,
+					sizeof(label),
+					"%.3g FPS",
+					fpsMode.GetFPS()
+				);
+
+				if (!available)
+				{
+					ImGui::BeginDisabled();
+				}
+
+				if (ImGui::Selectable(
+					label,
+					selected
+				))
+				{
+					if (
+						m_camera.SetMode(
+							availableMode.width,
+							availableMode.height,
+							availableMode.fpsNumerator,
+							availableMode.fpsDenominator
+						)
+						)
+					{
+						m_cameraSettingsFPSNumerator =
+							availableMode.fpsNumerator;
+
+						m_cameraSettingsFPSDenominator =
+							availableMode.fpsDenominator;
+					}
+				}
+
+				if (!available)
+				{
+					ImGui::EndDisabled();
+				}
+
+				if (selected)
+				{
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+
+			ImGui::EndCombo();
+		}
+
+		ImGui::Columns(
+			1
+		);
+	}
+
+	ImGui::SeparatorText("Image");
+
+	auto DrawAutoControl =
+		[&](const char* autoLabel,
+			const char* valueLabel,
+			auto getAuto,
+			auto setAuto,
+			auto getRange,
+			auto getValue,
+			auto setValue)
+		{
+			bool autoEnabled = false;
+
+			if (!getAuto(autoEnabled))
+				return;
+
+			if (ImGui::Checkbox(autoLabel, &autoEnabled))
+				setAuto(autoEnabled);
+
+			if (!autoEnabled)
+			{
+				int valueMin = 0;
+				int valueMax = 0;
+				int valueStep = 1;
+
+				if (!getRange(valueMin, valueMax, valueStep))
+					return;
+
+				int value = 0;
+
+				if (!getValue(value))
+					return;
+
+				if (ImGui::SliderInt(valueLabel, &value, valueMin, valueMax))
+				{
+					if (valueStep > 1)
+					{
+						value =
+							valueMin +
+							((value - valueMin + valueStep / 2) / valueStep) *
+							valueStep;
+
+						value = std::clamp(value, valueMin, valueMax);
+					}
+
+					setValue(value);
+				}
+			}
+		};
+
+	// =====================================================
+	// Exposure
+	// =====================================================
+
+	DrawAutoControl(
+		"Auto Exposure",
+		"Exposure",
+		[&](bool& value) {
+			return m_camera.Controls().GetAutoExposure(value);
+		},
+		[&](bool value) {
+			m_camera.Controls().SetAutoExposure(value);
+		},
+		[&](int& min, int& max, int& step) {
+			return m_camera.Controls().GetExposureRange(min, max, step);
+		},
+		[&](int& value) {
+			return m_camera.Controls().GetExposure(value);
+		},
+		[&](int value) {
+			m_camera.Controls().SetExposure(value);
+		}
+	);
+
+	// =====================================================
+	// Low Light Compensation
+	// =====================================================
+
+	bool lowLightCompensation = false;
+
+	if (m_camera.Controls().GetLowLightCompensation(lowLightCompensation))
+	{
+		if (ImGui::Checkbox("Low Light Compensation", &lowLightCompensation))
+			m_camera.Controls().SetLowLightCompensation(lowLightCompensation);
+	}
+
+	// =====================================================
+	// Focus
+	// =====================================================
+
+	DrawAutoControl(
+		"Auto Focus",
+		"Focus",
+		[&](bool& value) {
+			return m_camera.Controls().GetAutoFocus(value);
+		},
+		[&](bool value) {
+			m_camera.Controls().SetAutoFocus(value);
+		},
+		[&](int& min, int& max, int& step) {
+			return m_camera.Controls().GetFocusRange(min, max, step);
+		},
+		[&](int& value) {
+			return m_camera.Controls().GetFocus(value);
+		},
+		[&](int value) {
+			m_camera.Controls().SetFocus(value);
+		}
+	);
+
+	// ---------------------------------------------------------
+	// Brightness
+	// ---------------------------------------------------------
+
+	ImGui::TextDisabled("Adjustments");
+
+	auto DrawAdjustment =
+		[&](const char* label,
+			auto getRange,
+			auto getValue,
+			auto setValue)
+		{
+			int minimum = 0;
+			int maximum = 0;
+			int step = 1;
+
+			if (!getRange(minimum, maximum, step))
+				return;
+
+			int value = 0;
+
+			if (!getValue(value))
+				return;
+
+			if (ImGui::SliderInt(
+				label,
+				&value,
+				minimum,
+				maximum
+			))
+			{
+				if (step > 1)
+				{
+					value =
+						minimum +
+						((value - minimum + step / 2) / step) * step;
+
+					value = std::clamp(value, minimum, maximum);
+				}
+
+				setValue(value);
+			}
+		};
+
+
+	DrawAdjustment(
+		"Brightness",
+		[&](int& min, int& max, int& step) {
+			return m_camera.Controls().GetBrightnessRange(min, max, step);
+		},
+		[&](int& value) {
+			return m_camera.Controls().GetBrightness(value);
+		},
+		[&](int value) {
+			m_camera.Controls().SetBrightness(value);
+		}
+	);
+
+	DrawAdjustment(
+		"Contrast",
+		[&](int& min, int& max, int& step) {
+			return m_camera.Controls().GetContrastRange(min, max, step);
+		},
+		[&](int& value) {
+			return m_camera.Controls().GetContrast(value);
+		},
+		[&](int value) {
+			m_camera.Controls().SetContrast(value);
+		}
+	);
+
+	DrawAdjustment(
+		"Saturation",
+		[&](int& min, int& max, int& step) {
+			return m_camera.Controls().GetSaturationRange(min, max, step);
+		},
+		[&](int& value) {
+			return m_camera.Controls().GetSaturation(value);
+		},
+		[&](int value) {
+			m_camera.Controls().SetSaturation(value);
+		}
+	);
+
+	DrawAdjustment(
+		"Sharpness",
+		[&](int& min, int& max, int& step) {
+			return m_camera.Controls().GetSharpnessRange(min, max, step);
+		},
+		[&](int& value) {
+			return m_camera.Controls().GetSharpness(value);
+		},
+		[&](int value) {
+			m_camera.Controls().SetSharpness(value);
+		}
+	);
+
+	// =====================================================
+	// Virtual Camera
+	// =====================================================
+
+	ImGui::SeparatorText(
+		"Virtual Camera"
+	);
+
+	const bool virtualCameraAvailable =
+		m_virtualCamera.IsAvailable();
+
+	const bool virtualCameraActive =
+		m_virtualCamera.IsActive();
+
+	if (!virtualCameraAvailable)
+	{
+		ImGui::PushStyleVar(
+			ImGuiStyleVar_Alpha,
+			ImGui::GetStyle().Alpha * 0.5f
+		);
+	}
+
+	bool clicked =
+		ImGui::Button(
+			virtualCameraAvailable
+			? (virtualCameraActive
+				? "Stop Virtual Camera"
+				: "Start Virtual Camera")
+			: "Start Virtual Camera (Extension Required)"
+		);
+
+	if (!virtualCameraAvailable)
+	{
+		ImGui::PopStyleVar();
+	}
+
+	// ---------------------------------------------------------
+	// Button action
+	// ---------------------------------------------------------
+
+	if (clicked)
+	{
+		if (virtualCameraAvailable)
+		{
+			if (!virtualCameraActive)
+			{
+				if (m_virtualCamera.RegisterExtension())
+				{
+					if (!m_virtualCamera.StartVirtualCamera())
+					{
+						m_virtualCamera.UnregisterExtension();
+					}
+				}
+			}
+			else
+			{
+				if (m_virtualCamera.StopVirtualCamera())
+				{
+					m_virtualCamera.UnregisterExtension();
+				}
+			}
+		}
+		else
+		{
+			ShellExecuteA(
+				nullptr,
+				"open",
+				"https://github.com/Ominus-tch/Piano-Visualizer",
+				nullptr,
+				nullptr,
+				SW_SHOWNORMAL
+			);
+		}
+	}
+
+	// ---------------------------------------------------------
+	// Tooltip
+	// ---------------------------------------------------------
+
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip(virtualCameraAvailable ?
+			"The virtual camera outputs the visualizer to other applications.\n"
+			"Click to start or stop the virtual camera."
+			:
+			"Virtual Camera extension not found.\n"
+			"Download the extension to enable this feature.\n"
+			"Click to visit the download page."
+		);
+	}
 }
 
 void PianoVisualizer::RenderAudioTab()
 {
-    if (!m_audioEngine)
-    {
-        ImGui::TextDisabled(
-            "Audio engine is not available."
-        );
-
-        return;
-    }
-
-    audio::AudioOutput* output =
-        m_audioEngine->output();
-
-    if (!output)
-    {
-        ImGui::TextDisabled(
-            "Audio output is not initialized."
-        );
-
-        return;
-    }
-
-    // =========================================================
-    // OUTPUT DEVICE
-    // =========================================================
-
-    ImGui::SeparatorText("Output");
-
-    const auto devices =
-        m_audioEngine->enumerateOutputDevices();
-
-    auto configuration =
-        m_audioEngine->outputConfiguration();
-
-    int selectedDevice = -1;
-
-    for (int i = 0;
-        i < static_cast<int>(devices.size());
-        ++i)
-    {
-        if (devices[i].id == configuration.deviceId)
-        {
-            selectedDevice = i;
-            break;
-        }
-    }
-
-    // Empty device ID means Windows default device.
-    if (configuration.deviceId.empty())
-    {
-        for (int i = 0;
-            i < static_cast<int>(devices.size());
-            ++i)
-        {
-            if (devices[i].isDefault)
-            {
-                selectedDevice = i;
-                break;
-            }
-        }
-    }
-
-    std::string selectedDeviceName =
-        "Default";
-
-    if (selectedDevice >= 0 &&
-        selectedDevice < static_cast<int>(devices.size()))
-    {
-        selectedDeviceName =
-            std::string(
-                devices[selectedDevice].name.begin(),
-                devices[selectedDevice].name.end()
-            );
-    }
-
-    if (ImGui::BeginCombo(
-        "Device",
-        selectedDeviceName.c_str()))
-    {
-        // -----------------------------------------------------
-        // Default device
-        // -----------------------------------------------------
-
-        const bool isDefaultSelected =
-            configuration.deviceId.empty();
-
-        if (ImGui::Selectable(
-            "Default",
-            isDefaultSelected))
-        {
-            if (!isDefaultSelected)
-            {
-                m_audioEngine->setOutputDevice(
-                    L""
-                );
-            }
-        }
-
-        if (isDefaultSelected)
-            ImGui::SetItemDefaultFocus();
-
-        // -----------------------------------------------------
-        // Enumerated devices
-        // -----------------------------------------------------
-
-        for (int i = 0;
-            i < static_cast<int>(devices.size());
-            ++i)
-        {
-            const std::string deviceName(
-                devices[i].name.begin(),
-                devices[i].name.end()
-            );
-
-            const bool selected =
-                selectedDevice == i;
-
-            if (ImGui::Selectable(
-                deviceName.c_str(),
-                selected))
-            {
-                m_audioEngine->setOutputDevice(
-                    devices[i].id
-                );
-            }
-
-            if (selected)
-                ImGui::SetItemDefaultFocus();
-        }
-
-        ImGui::EndCombo();
-    }
-
-    // ---------------------------------------------------------
-    // Current device information
-    // ---------------------------------------------------------
-
-    ImGui::Text(
-        "Active device: %ls",
-        output->deviceName().c_str()
-    );
-
-    ImGui::Text(
-        "Channels: %d",
-        output->channels()
-    );
-
-    ImGui::Text(
-        "Sample rate: %.0f Hz",
-        output->sampleRate()
-    );
-
-    // =========================================================
-    // SAMPLE RATE
-    // =========================================================
-
-    ImGui::SeparatorText("Format");
-
-    const double currentSampleRate =
-        configuration.sampleRate;
-
-    int sampleRateIndex = 0;
-
-    if (currentSampleRate == 0.0)
-        sampleRateIndex = 0;
-    else if (currentSampleRate == 44100.0)
-        sampleRateIndex = 1;
-    else if (currentSampleRate == 48000.0)
-        sampleRateIndex = 2;
-    else if (currentSampleRate == 88200.0)
-        sampleRateIndex = 3;
-    else if (currentSampleRate == 96000.0)
-        sampleRateIndex = 4;
-    else
-        sampleRateIndex = 5;
-
-    const char* sampleRateNames[] =
-    {
-        "Device default",
-        "44.1 kHz",
-        "48 kHz",
-        "88.2 kHz",
-        "96 kHz",
-        "Custom"
-    };
-
-    if (ImGui::Combo(
-        "Sample rate",
-        &sampleRateIndex,
-        sampleRateNames,
-        IM_ARRAYSIZE(sampleRateNames)))
-    {
-        double newSampleRate = 0.0;
-
-        switch (sampleRateIndex)
-        {
-        case 0:
-            newSampleRate = 0.0;
-            break;
-
-        case 1:
-            newSampleRate = 44100.0;
-            break;
-
-        case 2:
-            newSampleRate = 48000.0;
-            break;
-
-        case 3:
-            newSampleRate = 88200.0;
-            break;
-
-        case 4:
-            newSampleRate = 96000.0;
-            break;
-
-        default:
-            newSampleRate = currentSampleRate;
-            break;
-        }
-
-        if (sampleRateIndex != 5 &&
-            newSampleRate != currentSampleRate)
-        {
-            m_audioEngine->setOutputSampleRate(
-                newSampleRate
-            );
-        }
-    }
-
-    // Custom sample rate
-    if (sampleRateIndex == 5)
-    {
-        double customSampleRate =
-            currentSampleRate > 0.0
-            ? currentSampleRate
-            : 48000.0;
-
-        if (ImGui::InputDouble(
-            "Custom sample rate",
-            &customSampleRate,
-            100.0,
-            1000.0,
-            "%.0f"))
-        {
-            if (customSampleRate >= 8000.0)
-            {
-                m_audioEngine->setOutputSampleRate(
-                    customSampleRate
-                );
-            }
-        }
-    }
-
-    // =========================================================
-    // BUFFER
-    // =========================================================
-
-    constexpr double minBufferDuration = 2.0;
-    constexpr double maxBufferDuration = 100.0;
-
-    ImGui::SliderScalar(
-        "Buffer duration",
-        ImGuiDataType_Double,
-        &m_bufferDuration,
-        &minBufferDuration,
-        &maxBufferDuration,
-        "%.1f ms");
-
-    if (ImGui::IsItemDeactivatedAfterEdit())
-    {
-        m_audioEngine->setOutputBufferDuration(
-            m_bufferDuration
-        );
-    }
-
-    ImGui::TextDisabled(
-        "Lower values reduce latency but increase CPU usage."
-    );
-
-
-    // =========================================================
-    // VOLUME
-    // =========================================================
-
-    ImGui::SeparatorText("Volume");
-
-    float volume =
-        m_audioEngine->outputVolume();
-
-    float volumeNormalized = volume * 100.f;
-
-    if (ImGui::SliderFloat(
-        "Volume",
-        &volumeNormalized,
-        0.0f,
-        400.0f,
-        "%.0f%%",
-        ImGuiSliderFlags_AlwaysClamp))
-    {
-        m_audioEngine->setOutputVolume(
-            volumeNormalized / 100.f
-        );
-    }
-
-    bool muted =
-        m_audioEngine->outputMuted();
-
-    if (ImGui::Checkbox(
-        "Mute",
-        &muted))
-    {
-        m_audioEngine->setOutputMuted(
-            muted
-        );
-    }
-
-
-    // =========================================================
-    // DEVICE FALLBACK
-    // =========================================================
-
-    ImGui::SeparatorText("Behavior");
-
-    bool fallback =
-        configuration.fallbackToDefaultDevice;
-
-    if (ImGui::Checkbox(
-        "Fallback to default device",
-        &fallback))
-    {
-        if (!m_audioEngine->setOutputFallbackToDefaultDevice(fallback))
-        {
-            Logger::Log("[Audio] Failed to update fallback behavior.\n");
-        }
-    }
-
-    ImGui::TextDisabled(
-        "Used if the selected output device disappears."
-    );
-
-
-    // =========================================================
-    // STATUS
-    // =========================================================
-
-    ImGui::SeparatorText("Status");
-
-    ImGui::Text(
-        "Output: %s",
-        output->isRunning()
-        ? "Running"
-        : "Stopped"
-    );
-
-    ImGui::Text(
-        "Engine: %s",
-        m_audioEngine->isRunning()
-        ? "Running"
-        : "Stopped"
-    );
+	if (!m_audioEngine)
+	{
+		ImGui::TextDisabled(
+			"Audio engine is not available."
+		);
+
+		return;
+	}
+
+	audio::AudioOutput* output =
+		m_audioEngine->output();
+
+	if (!output)
+	{
+		ImGui::TextDisabled(
+			"Audio output is not initialized."
+		);
+
+		return;
+	}
+
+	// =========================================================
+	// OUTPUT DEVICE
+	// =========================================================
+
+	ImGui::SeparatorText("Output");
+
+	const auto devices =
+		m_audioEngine->enumerateOutputDevices();
+
+	auto configuration =
+		m_audioEngine->outputConfiguration();
+
+	int selectedDevice = -1;
+
+	for (int i = 0;
+		i < static_cast<int>(devices.size());
+		++i)
+	{
+		if (devices[i].id == configuration.deviceId)
+		{
+			selectedDevice = i;
+			break;
+		}
+	}
+
+	// Empty device ID means Windows default device.
+	if (configuration.deviceId.empty())
+	{
+		for (int i = 0;
+			i < static_cast<int>(devices.size());
+			++i)
+		{
+			if (devices[i].isDefault)
+			{
+				selectedDevice = i;
+				break;
+			}
+		}
+	}
+
+	std::string selectedDeviceName =
+		"Default";
+
+	if (selectedDevice >= 0 &&
+		selectedDevice < static_cast<int>(devices.size()))
+	{
+		selectedDeviceName =
+			std::string(
+				devices[selectedDevice].name.begin(),
+				devices[selectedDevice].name.end()
+			);
+	}
+
+	if (ImGui::BeginCombo(
+		"Device",
+		selectedDeviceName.c_str()))
+	{
+		// -----------------------------------------------------
+		// Default device
+		// -----------------------------------------------------
+
+		const bool isDefaultSelected =
+			configuration.deviceId.empty();
+
+		if (ImGui::Selectable(
+			"Default",
+			isDefaultSelected))
+		{
+			if (!isDefaultSelected)
+			{
+				m_audioEngine->setOutputDevice(
+					L""
+				);
+			}
+		}
+
+		if (isDefaultSelected)
+			ImGui::SetItemDefaultFocus();
+
+		// -----------------------------------------------------
+		// Enumerated devices
+		// -----------------------------------------------------
+
+		for (int i = 0;
+			i < static_cast<int>(devices.size());
+			++i)
+		{
+			const std::string deviceName(
+				devices[i].name.begin(),
+				devices[i].name.end()
+			);
+
+			const bool selected =
+				selectedDevice == i;
+
+			if (ImGui::Selectable(
+				deviceName.c_str(),
+				selected))
+			{
+				m_audioEngine->setOutputDevice(
+					devices[i].id
+				);
+			}
+
+			if (selected)
+				ImGui::SetItemDefaultFocus();
+		}
+
+		ImGui::EndCombo();
+	}
+
+	// ---------------------------------------------------------
+	// Current device information
+	// ---------------------------------------------------------
+
+	ImGui::Text(
+		"Active device: %ls",
+		output->deviceName().c_str()
+	);
+
+	ImGui::Text(
+		"Channels: %d",
+		output->channels()
+	);
+
+	ImGui::Text(
+		"Sample rate: %.0f Hz",
+		output->sampleRate()
+	);
+
+	// =========================================================
+	// SAMPLE RATE
+	// =========================================================
+
+	ImGui::SeparatorText("Format");
+
+	const double currentSampleRate =
+		configuration.sampleRate;
+
+	int sampleRateIndex = 0;
+
+	if (currentSampleRate == 0.0)
+		sampleRateIndex = 0;
+	else if (currentSampleRate == 44100.0)
+		sampleRateIndex = 1;
+	else if (currentSampleRate == 48000.0)
+		sampleRateIndex = 2;
+	else if (currentSampleRate == 88200.0)
+		sampleRateIndex = 3;
+	else if (currentSampleRate == 96000.0)
+		sampleRateIndex = 4;
+	else
+		sampleRateIndex = 5;
+
+	const char* sampleRateNames[] =
+	{
+		"Device default",
+		"44.1 kHz",
+		"48 kHz",
+		"88.2 kHz",
+		"96 kHz",
+		"Custom"
+	};
+
+	if (ImGui::Combo(
+		"Sample rate",
+		&sampleRateIndex,
+		sampleRateNames,
+		IM_ARRAYSIZE(sampleRateNames)))
+	{
+		double newSampleRate = 0.0;
+
+		switch (sampleRateIndex)
+		{
+		case 0:
+			newSampleRate = 0.0;
+			break;
+
+		case 1:
+			newSampleRate = 44100.0;
+			break;
+
+		case 2:
+			newSampleRate = 48000.0;
+			break;
+
+		case 3:
+			newSampleRate = 88200.0;
+			break;
+
+		case 4:
+			newSampleRate = 96000.0;
+			break;
+
+		default:
+			newSampleRate = currentSampleRate;
+			break;
+		}
+
+		if (sampleRateIndex != 5 &&
+			newSampleRate != currentSampleRate)
+		{
+			m_audioEngine->setOutputSampleRate(
+				newSampleRate
+			);
+		}
+	}
+
+	// Custom sample rate
+	if (sampleRateIndex == 5)
+	{
+		double customSampleRate =
+			currentSampleRate > 0.0
+			? currentSampleRate
+			: 48000.0;
+
+		if (ImGui::InputDouble(
+			"Custom sample rate",
+			&customSampleRate,
+			100.0,
+			1000.0,
+			"%.0f"))
+		{
+			if (customSampleRate >= 8000.0)
+			{
+				m_audioEngine->setOutputSampleRate(
+					customSampleRate
+				);
+			}
+		}
+	}
+
+	// =========================================================
+	// BUFFER
+	// =========================================================
+
+	constexpr double minBufferDuration = 2.0;
+	constexpr double maxBufferDuration = 100.0;
+
+	ImGui::SliderScalar(
+		"Buffer duration",
+		ImGuiDataType_Double,
+		&m_bufferDuration,
+		&minBufferDuration,
+		&maxBufferDuration,
+		"%.1f ms");
+
+	if (ImGui::IsItemDeactivatedAfterEdit())
+	{
+		m_audioEngine->setOutputBufferDuration(
+			m_bufferDuration
+		);
+	}
+
+	ImGui::TextDisabled(
+		"Lower values reduce latency but increase CPU usage."
+	);
+
+
+	// =========================================================
+	// VOLUME
+	// =========================================================
+
+	ImGui::SeparatorText("Volume");
+
+	float volume =
+		m_audioEngine->outputVolume();
+
+	float volumeNormalized = volume * 100.f;
+
+	if (ImGui::SliderFloat(
+		"Volume",
+		&volumeNormalized,
+		0.0f,
+		400.0f,
+		"%.0f%%",
+		ImGuiSliderFlags_AlwaysClamp))
+	{
+		m_audioEngine->setOutputVolume(
+			volumeNormalized / 100.f
+		);
+	}
+
+	bool muted =
+		m_audioEngine->outputMuted();
+
+	if (ImGui::Checkbox(
+		"Mute",
+		&muted))
+	{
+		m_audioEngine->setOutputMuted(
+			muted
+		);
+	}
+
+
+	// =========================================================
+	// DEVICE FALLBACK
+	// =========================================================
+
+	ImGui::SeparatorText("Behavior");
+
+	bool fallback =
+		configuration.fallbackToDefaultDevice;
+
+	if (ImGui::Checkbox(
+		"Fallback to default device",
+		&fallback))
+	{
+		if (!m_audioEngine->setOutputFallbackToDefaultDevice(fallback))
+		{
+			Logger::Log("[Audio] Failed to update fallback behavior.\n");
+		}
+	}
+
+	ImGui::TextDisabled(
+		"Used if the selected output device disappears."
+	);
+
+
+	// =========================================================
+	// STATUS
+	// =========================================================
+
+	ImGui::SeparatorText("Status");
+
+	ImGui::Text(
+		"Output: %s",
+		output->isRunning()
+		? "Running"
+		: "Stopped"
+	);
+
+	ImGui::Text(
+		"Engine: %s",
+		m_audioEngine->isRunning()
+		? "Running"
+		: "Stopped"
+	);
 }
 
 void PianoVisualizer::RenderPluginsTab()
 {
-    if (m_audioEngine)
-    {
-        const std::string& pluginName =
-            m_audioEngine->pluginName();
+	if (m_audioEngine)
+	{
+		const std::string& pluginName =
+			m_audioEngine->pluginName();
 
-        if (!pluginName.empty())
-        {
-            ImGui::Text(
-                "Loaded plugin:"
-            );
+		if (!pluginName.empty())
+		{
+			ImGui::Text(
+				"Loaded plugin:"
+			);
 
-            ImGui::SameLine();
+			ImGui::SameLine();
 
-            ImGui::TextDisabled(
-                "%s",
-                pluginName.c_str()
-            );
-        }
-        else
-        {
-            ImGui::Text(
-                "No plugin loaded"
-            );
+			ImGui::TextDisabled(
+				"%s",
+				pluginName.c_str()
+			);
+		}
+		else
+		{
+			ImGui::Text(
+				"No plugin loaded"
+			);
 
-            ImGui::TextDisabled(
-                "Drop a .vst3 plugin into the window"
-            );
-        }
-    }
-    else
-    {
-        ImGui::Text(
-            "Audio engine unavailable"
-        );
-    }
+			ImGui::TextDisabled(
+				"Drop a .vst3 plugin into the window"
+			);
+		}
+	}
+	else
+	{
+		ImGui::Text(
+			"Audio engine unavailable"
+		);
+	}
 
-    // -----------------------------------------------------
-    // Recent plugins
-    // -----------------------------------------------------
+	// -----------------------------------------------------
+	// Recent plugins
+	// -----------------------------------------------------
 
-    if (!m_recentVSTPlugins.empty())
-    {
-        ImGui::SeparatorText(
-            "Recent Plugins"
-        );
+	if (!m_recentVSTPlugins.empty())
+	{
+		ImGui::SeparatorText(
+			"Recent Plugins"
+		);
 
-        for (const auto& path : m_recentVSTPlugins)
-        {
-            if (!std::filesystem::exists(path))
-                continue;
+		for (const auto& path : m_recentVSTPlugins)
+		{
+			if (!std::filesystem::exists(path))
+				continue;
 
-            std::string filename =
-                path.filename().string();
+			std::string filename =
+				path.filename().string();
 
-            // Remove .vst3 from display name.
-            if (
-                filename.size() > 5 &&
-                filename.ends_with(".vst3")
-                )
-            {
-                filename.erase(
-                    filename.size() - 5
-                );
-            }
+			// Remove .vst3 from display name.
+			if (
+				filename.size() > 5 &&
+				filename.ends_with(".vst3")
+				)
+			{
+				filename.erase(
+					filename.size() - 5
+				);
+			}
 
-            if (
-                m_audioEngine &&
-                m_audioEngine->pluginName() != filename
-                )
-            {
-                std::string strPath =
-                    path.string();
+			if (
+				m_audioEngine &&
+				m_audioEngine->pluginName() != filename
+				)
+			{
+				std::string strPath =
+					path.string();
 
-                if (ImGui::Button(
-                    filename.c_str(),
-                    ImVec2(-1.0f, 32.0f)
-                ))
-                {
-                    LoadRecentVST(path);
-                }
+				if (ImGui::Button(
+					filename.c_str(),
+					ImVec2(-1.0f, 32.0f)
+				))
+				{
+					LoadRecentVST(path);
+				}
 
-                if (ImGui::IsItemHovered())
-                {
-                    ImGui::SetTooltip(
-                        "%s",
-                        strPath.c_str()
-                    );
-                }
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(
+						"%s",
+						strPath.c_str()
+					);
+				}
 
-                ImGui::Spacing();
-            }
-        }
-    }
+				ImGui::Spacing();
+			}
+		}
+	}
 
-    ImGui::Separator();
-    ImGui::Spacing();
+	ImGui::Separator();
+	ImGui::Spacing();
 
 
-    // -----------------------------------------------------
-    // Plugin editor
-    // -----------------------------------------------------
+	// -----------------------------------------------------
+	// Plugin editor
+	// -----------------------------------------------------
 
-    if (
-        m_audioEngine &&
-        m_audioEngine->plugin()
-        )
-    {
-        if (
-            !m_audioEngine->plugin()
-            ->hasEditor()
-            )
-        {
-            if (ImGui::Button(
-                "Open Plugin Editor",
-                ImVec2(-1.0f, 32.0f)
-            ))
-            {
-                if (
-                    !m_audioEngine->plugin()
-                    ->createEditor(m_instance)
-                    )
-                {
-                    Logger::Log(
-                        "Failed to create plugin editor!\n"
-                    );
-                }
-            }
-        }
-        else
-        {
-            if (ImGui::Button(
-                "Close Plugin Editor",
-                ImVec2(-1.0f, 32.0f)
-            ))
-            {
-                m_audioEngine->plugin()
-                    ->destroyEditor();
-            }
-        }
+	if (
+		m_audioEngine &&
+		m_audioEngine->plugin()
+		)
+	{
+		if (
+			!m_audioEngine->plugin()
+			->hasEditor()
+			)
+		{
+			if (ImGui::Button(
+				"Open Plugin Editor",
+				ImVec2(-1.0f, 32.0f)
+			))
+			{
+				if (
+					!m_audioEngine->plugin()
+					->createEditor(m_instance)
+					)
+				{
+					Logger::Log(
+						"Failed to create plugin editor!\n"
+					);
+				}
+			}
+		}
+		else
+		{
+			if (ImGui::Button(
+				"Close Plugin Editor",
+				ImVec2(-1.0f, 32.0f)
+			))
+			{
+				m_audioEngine->plugin()
+					->destroyEditor();
+			}
+		}
 
-        ImGui::Spacing();
+		ImGui::Spacing();
 
-        if (ImGui::Button(
-            "Remove Plugin",
-            ImVec2(-1.0f, 32.0f)
-        ))
-        {
-            UnloadVST();
-        }
-    }
+		if (ImGui::Button(
+			"Remove Plugin",
+			ImVec2(-1.0f, 32.0f)
+		))
+		{
+			UnloadVST();
+		}
+	}
 
-    ImGui::Spacing();
+	ImGui::Spacing();
 
-    if (
-        std::filesystem::is_directory(
-            m_vst3FolderPath
-        )
-        )
-    {
-        if (ImGui::Button(
-            "Open VST3 Folder",
-            ImVec2(-1.0f, 32.0f)
-        ))
-        {
-            ShellExecuteW(
-                nullptr,
-                L"open",
-                m_vst3FolderPath.c_str(),
-                nullptr,
-                nullptr,
-                SW_SHOWNORMAL
-            );
-        }
-    }
-    else
-    {
-        if (ImGui::Button(
-            "Select VST3 Folder",
-            ImVec2(-1.0f, 32.0f)
-        ))
-        {
-            auto fldr =
-                gui::OpenFolderDialog();
+	if (
+		std::filesystem::is_directory(
+			m_vst3FolderPath
+		)
+		)
+	{
+		if (ImGui::Button(
+			"Open VST3 Folder",
+			ImVec2(-1.0f, 32.0f)
+		))
+		{
+			ShellExecuteW(
+				nullptr,
+				L"open",
+				m_vst3FolderPath.c_str(),
+				nullptr,
+				nullptr,
+				SW_SHOWNORMAL
+			);
+		}
+	}
+	else
+	{
+		if (ImGui::Button(
+			"Select VST3 Folder",
+			ImVec2(-1.0f, 32.0f)
+		))
+		{
+			auto fldr =
+				gui::OpenFolderDialog();
 
-            if (!fldr.empty())
-            {
-                m_vst3FolderPath =
-                    fldr;
-            }
-        }
-    }
+			if (!fldr.empty())
+			{
+				m_vst3FolderPath =
+					fldr;
+			}
+		}
+	}
 }
 
 void PianoVisualizer::RenderFunTab()
 {
-    const auto saveFunSettings =
-        [this]()
-        {
-            if (m_viewer)
-            {
-                m_viewer->setLiveEchoSettings(m_liveEchoSettings);
-                m_viewer->setLiveKeybinds(m_funKeybinds);
-            }
+	const auto saveFunSettings =
+		[this]()
+		{
+			if (m_viewer)
+			{
+				m_viewer->setLiveEchoSettings(m_liveEchoSettings);
+				m_viewer->setLiveKeybinds(m_funKeybinds);
+			}
 
-            Config::SaveFunConfig(
-                m_liveEchoSettings.enabled,
-                m_liveEchoSettings.repetitions,
-                m_liveEchoSettings.delaySeconds,
-                m_liveEchoSettings.velocityDropoff,
-                m_liveEchoSettings.recordInRecording,
-                m_liveEchoSettings.transposeSemitones,
-                m_funKeybinds
-            );
-        };
+			Config::SaveFunConfig(
+				m_liveEchoSettings.enabled,
+				m_liveEchoSettings.repetitions,
+				m_liveEchoSettings.delaySeconds,
+				m_liveEchoSettings.velocityDropoff,
+				m_liveEchoSettings.recordInRecording,
+				m_liveEchoSettings.transposeSemitones,
+				m_funKeybinds
+			);
+		};
 
-    ImGui::TextWrapped(
-        "Live performance effects are applied only to MIDI input. "
-        "They do not alter recording playback or the MIDI saved to a recording."
-    );
+	ImGui::SeparatorText("Note Echo");
 
-    ImGui::SeparatorText("Note Echo");
+	bool changed = ImGui::Checkbox(
+		"Enable note echo",
+		&m_liveEchoSettings.enabled
+	);
 
-    bool changed = ImGui::Checkbox(
-        "Enable note echo",
-        &m_liveEchoSettings.enabled
-    );
+	ImGui::BeginDisabled(!m_liveEchoSettings.enabled);
 
-    ImGui::BeginDisabled(!m_liveEchoSettings.enabled);
+	changed |= ImGui::SliderInt(
+		"Repetitions",
+		&m_liveEchoSettings.repetitions,
+		1,
+		64
+	);
 
-    changed |= ImGui::SliderInt(
-        "Repetitions",
-        &m_liveEchoSettings.repetitions,
-        1,
-        64
-    );
+	changed |= ImGui::SliderFloat(
+		"Delay",
+		&m_liveEchoSettings.delaySeconds,
+		0.02f,
+		30.0f,
+		"%.2f s",
+		ImGuiSliderFlags_Logarithmic
+	);
 
-    changed |= ImGui::SliderFloat(
-        "Delay",
-        &m_liveEchoSettings.delaySeconds,
-        0.02f,
-        30.0f,
-        "%.2f s",
-        ImGuiSliderFlags_Logarithmic
-    );
+	changed |= ImGui::Checkbox(
+		"Record echoed notes",
+		&m_liveEchoSettings.recordInRecording
+	);
 
-    changed |= ImGui::Checkbox(
-        "Record echoed notes",
-        &m_liveEchoSettings.recordInRecording
-    );
+	changed |= ImGui::SliderFloat(
+		"Velocity drop-off",
+		&m_liveEchoSettings.velocityDropoff,
+		0.0f,
+		1.0f,
+		"%.2f"
+	);
 
-    changed |= ImGui::SliderFloat(
-        "Velocity drop-off",
-        &m_liveEchoSettings.velocityDropoff,
-        0.0f,
-        1.0f,
-        "%.2f"
-    );
+	ImGui::EndDisabled();
 
-    ImGui::EndDisabled();
+	ImGui::Spacing();
+	ImGui::Text("Keyboard transpose");
+	if (ImGui::Button("-##transpose"))
+	{
+		m_liveEchoSettings.transposeSemitones =
+			(std::max)(-48, m_liveEchoSettings.transposeSemitones - 1);
+		changed = true;
+	}
+	ImGui::SameLine();
+	ImGui::Text("%+d semitones", m_liveEchoSettings.transposeSemitones);
+	ImGui::SameLine();
+	if (ImGui::Button("+##transpose"))
+	{
+		m_liveEchoSettings.transposeSemitones =
+			(std::min)(48, m_liveEchoSettings.transposeSemitones + 1);
+		changed = true;
+	}
 
-    ImGui::Spacing();
-    ImGui::Text("Keyboard transpose");
-    if (ImGui::Button("-##transpose"))
-    {
-        m_liveEchoSettings.transposeSemitones =
-            (std::max)(-48, m_liveEchoSettings.transposeSemitones - 1);
-        changed = true;
-    }
-    ImGui::SameLine();
-    ImGui::Text("%+d semitones", m_liveEchoSettings.transposeSemitones);
-    ImGui::SameLine();
-    if (ImGui::Button("+##transpose"))
-    {
-        m_liveEchoSettings.transposeSemitones =
-            (std::min)(48, m_liveEchoSettings.transposeSemitones + 1);
-        changed = true;
-    }
+	if (changed)
+	{
+		saveFunSettings();
+	}
 
-    if (changed)
-    {
-        saveFunSettings();
-    }
+	ImGui::Spacing();
+	ImGui::TextUnformatted("Looper");
 
-    ImGui::Spacing();
-    ImGui::SeparatorText("Keybinds");
-    ImGui::TextDisabled(
-        "Bind keyboard shortcuts or piano notes. MIDI keys used here are not played or recorded."
-    );
+	std::shared_ptr<MIDISceneLive> liveScene;
 
-    if (ImGui::Button("+ Add keybind"))
-    {
-        m_funKeybinds.push_back({});
-        saveFunSettings();
-    }
+	if (m_viewer)
+	{
+		liveScene = std::dynamic_pointer_cast<MIDISceneLive>(
+			m_viewer->scene()
+		);
+	}
 
-    static constexpr const char* actionNames[] = {
-        "Toggle note echo",
-        "Increase repetitions",
-        "Decrease repetitions",
-        "Transpose up",
-        "Transpose down"
-    };
+	if (!liveScene)
+	{
+		ImGui::TextDisabled("Connect a live MIDI device to use the looper.");
+	}
+	else
+	{
+		if (liveScene->isLooperRecording())
+		{
+			if (ImGui::Button("End recording & start looping"))
+			{
+				liveScene->stopLooperRecordingAndStart();
+			}
+		}
+		else
+		{
+			if (ImGui::Button("Start looper recording"))
+			{
+				liveScene->startLooperRecording();
+			}
+		}
 
-    const auto keyName = [](int key)
-    {
-        if (key >= 'A' && key <= 'Z')
-            return std::string(1, static_cast<char>(key));
-        if (key >= '0' && key <= '9')
-            return std::string(1, static_cast<char>(key));
-        if (key >= VK_NUMPAD0 && key <= VK_NUMPAD9)
-            return std::string("NUMPAD ") + std::to_string(key - VK_NUMPAD0);
+		ImGui::SameLine();
 
-        char name[64]{};
-        const LONG scanCode = static_cast<LONG>(
-            MapVirtualKeyW(static_cast<UINT>(key), MAPVK_VK_TO_VSC) << 16);
-        if (GetKeyNameTextA(scanCode, name, static_cast<int>(sizeof(name))) > 0)
-            return std::string(name);
-        return std::string("Key ") + std::to_string(key);
-    };
+		ImGui::BeginDisabled(
+			!liveScene->hasLooperRecording() ||
+			liveScene->isLooperRecording() ||
+			liveScene->isLooperPlaying()
+		);
 
-    const auto bindingName = [&keyName](const Config::FunKeybind& binding)
-    {
-        if (binding.key == 0)
-            return std::string("Unbound");
-        if (binding.source == 1)
-            return std::string("PIANO NOTE ") + std::to_string(binding.key);
+		if (ImGui::Button("Start looper playback"))
+		{
+			liveScene->startLooperPlayback();
+		}
 
-        std::string name;
-        if ((binding.modifiers & 1) != 0) name += "CTRL + ";
-        if ((binding.modifiers & 2) != 0) name += "SHIFT + ";
-        if ((binding.modifiers & 4) != 0) name += "ALT + ";
-        return name + keyName(binding.key);
-    };
+		ImGui::EndDisabled();
 
-    for (size_t index = 0; index < m_funKeybinds.size();)
-    {
-        auto& binding = m_funKeybinds[index];
-        ImGui::PushID(static_cast<int>(index));
-        ImGui::Separator();
-        ImGui::Spacing();
+		ImGui::SameLine();
 
-        bool keybindChanged = false;
-        ImGui::SetNextItemWidth(210.0f);
-        if (ImGui::BeginCombo(
-            "##action",
-            actionNames[static_cast<int>(binding.action)]))
-        {
-            for (int action = 0; action < 5; ++action)
-            {
-                const bool selected =
-                    static_cast<int>(binding.action) == action;
-                if (ImGui::Selectable(actionNames[action], selected))
-                {
-                    binding.action =
-                        static_cast<Config::FunKeybindAction>(action);
-                    keybindChanged = true;
-                }
-                if (selected)
-                    ImGui::SetItemDefaultFocus();
-            }
-            ImGui::EndCombo();
-        }
+		ImGui::BeginDisabled(!liveScene->isLooperPlaying());
 
-        ImGui::SameLine();
-        const bool capturing = m_viewer && m_viewer->isCapturingLiveKeybind(index);
-        const std::string bindLabel = capturing
-            ? "Listening...##bind"
-            : bindingName(binding) + "##bind";
-        if (ImGui::Button(bindLabel.c_str(), ImVec2(175.0f, 0.0f)) && m_viewer)
-        {
-            m_viewer->beginLiveKeybindCapture(index);
-        }
+		if (ImGui::Button("Stop looper playback"))
+		{
+			liveScene->stopLooperPlayback();
+		}
 
-        ImGui::SameLine();
-        if (ImGui::Button(capturing ? "Cancel" : "Edit", ImVec2(64.0f, 0.0f)) && m_viewer)
-        {
-            if (capturing)
-                m_viewer->cancelLiveKeybindCapture();
-            else
-                m_viewer->beginLiveKeybindCapture(index);
-        }
+		ImGui::EndDisabled();
 
-        ImGui::SameLine();
-        keybindChanged |= ImGui::Checkbox("Enabled", &binding.enabled);
+		ImGui::SameLine();
 
-        ImGui::SameLine();
-        const bool remove = ImGui::SmallButton("Remove");
+		ImGui::BeginDisabled(
+			!liveScene->hasLooperRecording() &&
+			!liveScene->isLooperRecording() &&
+			!liveScene->isLooperPlaying()
+		);
 
-        if (capturing)
-            ImGui::TextDisabled("Press a keyboard shortcut or a piano key to bind this action.");
+		if (ImGui::Button("Clear looper recording"))
+		{
+			liveScene->clearLooperRecording();
+		}
 
-        ImGui::PopID();
+		ImGui::EndDisabled();
 
-        if (remove)
-        {
-            m_funKeybinds.erase(m_funKeybinds.begin() + static_cast<std::ptrdiff_t>(index));
-            saveFunSettings();
-            continue;
-        }
+		if (liveScene->isLooperRecording())
+		{
+			ImGui::TextDisabled("Recording MIDI input...");
+		}
+		else if (liveScene->hasLooperRecording())
+		{
+			ImGui::Text(
+				"Loop length: %.2f seconds",
+				liveScene->looperLength()
+			);
+		}
+		else
+		{
+			ImGui::TextDisabled("No loop recorded.");
+		}
+	}
 
-        if (keybindChanged)
-            saveFunSettings();
+	ImGui::Spacing();
+	ImGui::SeparatorText("Keybinds");
+	ImGui::TextDisabled(
+		"Bind keyboard shortcuts or piano notes. MIDI keys used here are not played or recorded."
+	);
 
-        ++index;
-    }
+	if (ImGui::Button("+ Add keybind"))
+	{
+		m_funKeybinds.push_back({});
+		saveFunSettings();
+	}
+
+	static constexpr const char* actionNames[] = {
+		"Toggle note echo",
+		"Increase repetitions",
+		"Decrease repetitions",
+		"Transpose up",
+		"Transpose down",
+		"Start looper recording",
+		"End recording & start looping"
+	};
+
+	const auto keyName = [](int key)
+	{
+		if (key >= 'A' && key <= 'Z')
+			return std::string(1, static_cast<char>(key));
+		if (key >= '0' && key <= '9')
+			return std::string(1, static_cast<char>(key));
+		if (key >= VK_NUMPAD0 && key <= VK_NUMPAD9)
+			return std::string("NUMPAD ") + std::to_string(key - VK_NUMPAD0);
+
+		char name[64]{};
+		const LONG scanCode = static_cast<LONG>(
+			MapVirtualKeyW(static_cast<UINT>(key), MAPVK_VK_TO_VSC) << 16);
+		if (GetKeyNameTextA(scanCode, name, static_cast<int>(sizeof(name))) > 0)
+			return std::string(name);
+		return std::string("Key ") + std::to_string(key);
+	};
+
+	const auto bindingName = [&keyName](const Config::FunKeybind& binding)
+	{
+		if (binding.key == 0)
+			return std::string("Unbound");
+		if (binding.source == 1)
+			return std::string("PIANO NOTE ") + std::to_string(binding.key);
+
+		std::string name;
+		if ((binding.modifiers & 1) != 0) name += "CTRL + ";
+		if ((binding.modifiers & 2) != 0) name += "SHIFT + ";
+		if ((binding.modifiers & 4) != 0) name += "ALT + ";
+		return name + keyName(binding.key);
+	};
+
+	for (size_t index = 0; index < m_funKeybinds.size();)
+	{
+		auto& binding = m_funKeybinds[index];
+		ImGui::PushID(static_cast<int>(index));
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		bool keybindChanged = false;
+		ImGui::SetNextItemWidth(210.0f);
+		if (ImGui::BeginCombo(
+			"##action",
+			actionNames[static_cast<int>(binding.action)]))
+		{
+			for (int action = 0; action < 7; ++action)
+			{
+				const bool selected =
+					static_cast<int>(binding.action) == action;
+				if (ImGui::Selectable(actionNames[action], selected))
+				{
+					binding.action =
+						static_cast<Config::FunKeybindAction>(action);
+					keybindChanged = true;
+				}
+				if (selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+
+		ImGui::SameLine();
+		const bool capturing = m_viewer && m_viewer->isCapturingLiveKeybind(index);
+		const std::string bindLabel = capturing
+			? "Listening...##bind"
+			: bindingName(binding) + "##bind";
+		if (ImGui::Button(bindLabel.c_str(), ImVec2(175.0f, 0.0f)) && m_viewer)
+		{
+			m_viewer->beginLiveKeybindCapture(index);
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button(capturing ? "Cancel" : "Edit", ImVec2(64.0f, 0.0f)) && m_viewer)
+		{
+			if (capturing)
+				m_viewer->cancelLiveKeybindCapture();
+			else
+				m_viewer->beginLiveKeybindCapture(index);
+		}
+
+		ImGui::SameLine();
+		keybindChanged |= ImGui::Checkbox("Enabled", &binding.enabled);
+
+		ImGui::SameLine();
+		const bool remove = ImGui::SmallButton("Remove");
+
+		if (capturing)
+			ImGui::TextDisabled("Press a keyboard shortcut or a piano key to bind this action.");
+
+		ImGui::PopID();
+
+		if (remove)
+		{
+			m_funKeybinds.erase(m_funKeybinds.begin() + static_cast<std::ptrdiff_t>(index));
+			saveFunSettings();
+			continue;
+		}
+
+		if (keybindChanged)
+			saveFunSettings();
+
+		++index;
+	}
 }
 
 
 void PianoVisualizer::RenderConfigurationTab()
 {
-    const float buttonWidth =
-        (ImGui::GetContentRegionAvail().x - 8.0f) *
-        0.5f;
+	const float buttonWidth =
+		(ImGui::GetContentRegionAvail().x - 8.0f) *
+		0.5f;
 
-    if (ImGui::Button(
-        "Save Configuration",
-        ImVec2(buttonWidth, 36.0f)
-    ))
-    {
-        SavePianoConfiguration();
+	if (ImGui::Button(
+		"Save Configuration",
+		ImVec2(buttonWidth, 36.0f)
+	))
+	{
+		SavePianoConfiguration();
 
-        m_savedConfiguration =
-            GetCurrentConfiguration();
+		m_savedConfiguration =
+			GetCurrentConfiguration();
 
-        m_configSaveMessage =
-            "Configuration saved!";
-    }
+		m_configSaveMessage =
+			"Configuration saved!";
+	}
 
-    ImGui::SameLine();
+	ImGui::SameLine();
 
-    if (ImGui::Button(
-        "Load Configuration",
-        ImVec2(buttonWidth, 36.0f)
-    ))
-    {
-        int _scene = 0;
+	if (ImGui::Button(
+		"Load Configuration",
+		ImVec2(buttonWidth, 36.0f)
+	))
+	{
+		int _scene = 0;
 
-        if (
-            Config::LoadPianoConfig(
-                m_polygonPoints,
-                _scene,
-                m_planePivot,
-                m_pianoRollVisualizerHeight,
-                m_pianoRollCameraSourceScale
-            )
-            )
-        {
-            m_pianoScene =
-                static_cast<PianoScene>(_scene);
+		if (
+			Config::LoadPianoConfig(
+				m_polygonPoints,
+				_scene,
+				m_planePivot,
+				m_pianoRollVisualizerHeight,
+				m_pianoRollCameraSourceScale,
+				m_intervalFirstMidi,
+				m_intervalLastMidi
+			)
+			)
+		{
+			m_pianoScene =
+				static_cast<PianoScene>(_scene);
 
-            m_polygonClickCount = 4;
+			m_polygonClickCount = 4;
 
-            m_savedConfiguration =
-                GetCurrentConfiguration();
+			m_savedConfiguration =
+				GetCurrentConfiguration();
 
-            m_configSaveMessage =
-                "Configuration loaded!";
-        }
-        else
-        {
-            m_configSaveMessage =
-                "No valid configuration found!";
-        }
-    }
+			m_configSaveMessage =
+				"Configuration loaded!";
+		}
+		else
+		{
+			m_configSaveMessage =
+				"No valid configuration found!";
+		}
+	}
 
-    ImGui::Spacing();
+	ImGui::Spacing();
 
-    if (HasUnsavedChanges())
-    {
-        ImGui::TextDisabled(
-            "You have unsaved changes."
-        );
-    }
-    else
-    {
-        ImGui::TextDisabled(
-            "Configuration is up to date."
-        );
-    }
+	if (HasUnsavedChanges())
+	{
+		ImGui::TextDisabled(
+			"You have unsaved changes."
+		);
+	}
+	else
+	{
+		ImGui::TextDisabled(
+			"Configuration is up to date."
+		);
+	}
 
-    if (!m_configSaveMessage.empty())
-    {
-        ImGui::Spacing();
+	if (!m_configSaveMessage.empty())
+	{
+		ImGui::Spacing();
 
-        ImGui::TextDisabled(
-            "%s",
-            m_configSaveMessage.c_str()
-        );
-    }
+		ImGui::TextDisabled(
+			"%s",
+			m_configSaveMessage.c_str()
+		);
+	}
 }
 
 void PianoVisualizer::RenderStatusTab()
 {
-    auto Status = [](const char* label, bool ready, const char* readyText, const char* missingText)
-        {
-            ImGui::TextUnformatted(label);
-            ImGui::SameLine(180.0f);
-            ImGui::TextColored(
-                ready ? ImVec4(0.35f, 0.85f, 0.45f, 1.0f) : ImVec4(0.95f, 0.55f, 0.25f, 1.0f),
-                "%s",
-                ready ? readyText : missingText);
-        };
+	auto Status = [](const char* label, bool ready, const char* readyText, const char* missingText)
+		{
+			ImGui::TextUnformatted(label);
+			ImGui::SameLine(180.0f);
+			ImGui::TextColored(
+				ready ? ImVec4(0.35f, 0.85f, 0.45f, 1.0f) : ImVec4(0.95f, 0.55f, 0.25f, 1.0f),
+				"%s",
+				ready ? readyText : missingText);
+		};
 
-    ImGui::TextDisabled("Readiness for a live session");
-    ImGui::Separator();
+	ImGui::TextDisabled("Readiness for a live session");
+	ImGui::Separator();
 
-    Status("MIDI visualizer", m_viewer != nullptr, "Ready", "Unavailable");
-    Status("Camera", m_camera.IsOpen(), "Connected", "No camera selected");
-    Status("Piano calibration", m_polygonPoints.size() == 4, "Four corners selected", "Choose four piano corners");
+	Status("MIDI visualizer", m_viewer != nullptr, "Ready", "Unavailable");
+	Status("Camera", m_camera.IsOpen(), "Connected", "No camera selected");
+	Status("Piano calibration", m_polygonPoints.size() == 4, "Four corners selected", "Choose four piano corners");
 
-    const bool audioReady =
-        m_audioEngine &&
-        m_audioEngine->output() &&
-        m_audioEngine->output()->isRunning();
-    Status("Audio output", audioReady, "Running", "Unavailable or stopped");
+	const bool audioReady =
+		m_audioEngine &&
+		m_audioEngine->output() &&
+		m_audioEngine->output()->isRunning();
+	Status("Audio output", audioReady, "Running", "Unavailable or stopped");
 
-    const bool pluginLoaded =
-        m_audioEngine &&
-        m_audioEngine->plugin();
-    Status("VST instrument", pluginLoaded, "Loaded", "No plugin loaded");
+	const bool pluginLoaded =
+		m_audioEngine &&
+		m_audioEngine->plugin();
+	Status("VST instrument", pluginLoaded, "Loaded", "No plugin loaded");
 
-    Status(
-        "Virtual camera",
-        m_virtualCamera.IsActive(),
-        "Streaming",
-        m_virtualCamera.IsAvailable() ? "Stopped" : "Extension unavailable");
+	Status(
+		"Virtual camera",
+		m_virtualCamera.IsActive(),
+		"Streaming",
+		m_virtualCamera.IsAvailable() ? "Stopped" : "Extension unavailable");
 
-    ImGui::Spacing();
-    ImGui::SeparatorText("Recording");
+	ImGui::Spacing();
+	ImGui::SeparatorText("Recording");
 
-    const bool recording = m_viewer && m_viewer->isRecording();
-    Status("Current state", recording, "Recording", "Idle");
+	const bool recording = m_viewer && m_viewer->isRecording();
+	Status("Current state", recording, "Recording", "Idle");
 
-    if (m_viewer && recording)
-    {
-        ImGui::TextDisabled(
-            "Take folder: %s",
-            m_viewer->recordingDirectory().string().c_str());
-    }
+	if (m_viewer && recording)
+	{
+		ImGui::TextDisabled(
+			"Take folder: %s",
+			m_viewer->recordingDirectory().string().c_str());
+	}
 
-    if (!m_recordingStatusMessage.empty())
-    {
-        ImGui::TextWrapped("%s", m_recordingStatusMessage.c_str());
-    }
+	if (!m_recordingStatusMessage.empty())
+	{
+		ImGui::TextWrapped("%s", m_recordingStatusMessage.c_str());
+	}
 
-    if (m_polygonPoints.size() != 4)
-    {
-        ImGui::Spacing();
-        ImGui::TextDisabled(
-            "Use Display > Choose Piano Corners before using perspective projection.");
-    }
+	if (m_polygonPoints.size() != 4)
+	{
+		ImGui::Spacing();
+		ImGui::TextDisabled(
+			"Use Display > Choose Piano Corners before using perspective projection.");
+	}
 }
 
 void PianoVisualizer::RenderHelpTab()
 {
-    ImGui::TextDisabled("Keyboard shortcuts");
-    ImGui::Separator();
+	ImGui::TextDisabled("Keyboard shortcuts");
+	ImGui::Separator();
 
-    const auto Row = [](const char* shortcut, const char* action)
-        {
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted(shortcut);
-            ImGui::TableSetColumnIndex(1);
-            ImGui::TextUnformatted(action);
-        };
+	const auto Row = [](const char* shortcut, const char* action)
+		{
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::TextUnformatted(shortcut);
+			ImGui::TableSetColumnIndex(1);
+			ImGui::TextUnformatted(action);
+		};
 
-    if (ImGui::BeginTable("Keybinds", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg))
-    {
-        ImGui::TableSetupColumn("Shortcut", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-        ImGui::TableSetupColumn("Action");
-        ImGui::TableHeadersRow();
+	if (ImGui::BeginTable("Keybinds", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg))
+	{
+		ImGui::TableSetupColumn("Shortcut", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+		ImGui::TableSetupColumn("Action");
+		ImGui::TableHeadersRow();
 
-        Row("I", "Show or hide the settings window");
-        Row("S", "Show or hide performance statistics");
-        Row("F", "Toggle fullscreen");
-        Row("Esc", "Cancel choosing piano corners and restore the previous selection");
+		Row("I", "Show or hide the settings window");
+		Row("S", "Show or hide performance statistics");
+		Row("F", "Toggle fullscreen");
+		Row("Esc", "Cancel choosing piano corners and restore the previous selection");
 
-        ImGui::TableNextRow();
-        ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(55, 55, 55, 255));
+		ImGui::TableNextRow();
+		ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(55, 55, 55, 255));
 
-        ImGui::TableSetColumnIndex(0);
-        ImGui::TextDisabled("MIDI Editor");
-        ImGui::TableSetColumnIndex(1);
+		ImGui::TableSetColumnIndex(0);
+		ImGui::TextDisabled("MIDI Editor");
+		ImGui::TableSetColumnIndex(1);
 
-        Row("Ctrl+S", "Save MIDI changes");
-        Row("Ctrl+Z", "Undo previous change");
-        Row("Ctrl+Y", "Redo previous change");
-        Row("Ctrl+C", "Copy selected notes");
-        Row("Ctrl+V", "Paste copied notes");
-        Row("Ctrl+X", "Delete selected notes");
+		Row("Ctrl+S", "Save MIDI changes");
+		Row("Ctrl+Z", "Undo previous change");
+		Row("Ctrl+Y", "Redo previous change");
+		Row("Ctrl+C", "Copy selected notes");
+		Row("Ctrl+V", "Paste copied notes");
+		Row("Ctrl+X", "Delete selected notes");
 
-        ImGui::EndTable();
-    }
+		ImGui::EndTable();
+	}
 
-    ImGui::Spacing();
-    ImGui::TextDisabled("Shortcuts are ignored while entering text in the visualizer.");
-    ImGui::TextDisabled("Playback and recording controls are shown in the Visualizer tab.");
+	ImGui::Spacing();
+	ImGui::TextDisabled("Shortcuts are ignored while entering text in the visualizer.");
+	ImGui::TextDisabled("Playback and recording controls are shown in the Visualizer tab.");
 }
 
 // =========================================================
@@ -6474,88 +6584,88 @@ void PianoVisualizer::RenderHelpTab()
 // =========================================================
 
 void PianoVisualizer::Resize(
-    UINT width,
-    UINT height
+	UINT width,
+	UINT height
 )
 {
-    if (!m_device)
-        return;
+	if (!m_device)
+		return;
 
-    if (!m_swapChain)
-        return;
+	if (!m_swapChain)
+		return;
 
-    if (width == 0 || height == 0)
-        return;
+	if (width == 0 || height == 0)
+		return;
 
-    Logger::Log(
-        "Resizing renderer to %ux%u.\n",
-        width,
-        height
-    );
+	Logger::Log(
+		"Resizing renderer to %ux%u.\n",
+		width,
+		height
+	);
 
-    m_statistics.renderWidth =
-        width;
+	m_statistics.renderWidth =
+		width;
 
-    m_statistics.renderHeight =
-        height;
+	m_statistics.renderHeight =
+		height;
 
-    CleanupRenderTarget();
+	CleanupRenderTarget();
 
-    HRESULT hr =
-        m_swapChain->ResizeBuffers(
-            0,
-            width,
-            height,
-            DXGI_FORMAT_UNKNOWN,
-            0
-        );
+	HRESULT hr =
+		m_swapChain->ResizeBuffers(
+			0,
+			width,
+			height,
+			DXGI_FORMAT_UNKNOWN,
+			0
+		);
 
-    if (FAILED(hr))
-    {
-        Logger::Log(
-            "Failed to resize swap chain! HRESULT: 0x%08X\n",
-            static_cast<unsigned int>(hr)
-        );
+	if (FAILED(hr))
+	{
+		Logger::Log(
+			"Failed to resize swap chain! HRESULT: 0x%08X\n",
+			static_cast<unsigned int>(hr)
+		);
 
-        return;
-    }
+		return;
+	}
 
-    CreateRenderTarget();
+	CreateRenderTarget();
 
-    // ---------------------------------------------------------
-    // Set viewport to new render resolution
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Set viewport to new render resolution
+	// ---------------------------------------------------------
 
-    D3D11_VIEWPORT viewport{};
+	D3D11_VIEWPORT viewport{};
 
-    viewport.TopLeftX = 0.0f;
-    viewport.TopLeftY = 0.0f;
+	viewport.TopLeftX = 0.0f;
+	viewport.TopLeftY = 0.0f;
 
-    viewport.Width =
-        static_cast<float>(width);
+	viewport.Width =
+		static_cast<float>(width);
 
-    viewport.Height =
-        static_cast<float>(height);
+	viewport.Height =
+		static_cast<float>(height);
 
-    viewport.MinDepth = 0.0f;
-    viewport.MaxDepth = 1.0f;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
 
-    m_context->RSSetViewports(
-        1,
-        &viewport
-    );
+	m_context->RSSetViewports(
+		1,
+		&viewport
+	);
 
-    // ---------------------------------------------------------
-    // Resize MIDI visualizer
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Resize MIDI visualizer
+	// ---------------------------------------------------------
 
-    if (m_viewer)
-    {
-        m_viewer->resize(
-            width,
-            height
-        );
-    }
+	if (m_viewer)
+	{
+		m_viewer->resize(
+			width,
+			height
+		);
+	}
 }
 
 
@@ -6564,69 +6674,69 @@ void PianoVisualizer::Resize(
 // =========================================================
 
 void PianoVisualizer::KeyPressed(
-    int key,
-    int state
+	int key,
+	int state
 )
 {
-    if (m_viewer)
-    {
-        m_viewer->keyPressed(
-            key,
-            state
-        );
-    }
+	if (m_viewer)
+	{
+		m_viewer->keyPressed(
+			key,
+			state
+		);
+	}
 }
 
 bool PianoVisualizer::OnExit()
 {
-    if (!HasUnsavedChanges())
-        return true;
+	if (!HasUnsavedChanges())
+		return true;
 
-    if (!m_exitPopupOpened)
-    {
-        ImGui::OpenPopup("Unsaved Changes");
-        m_exitPopupOpened = true;
-    }
+	if (!m_exitPopupOpened)
+	{
+		ImGui::OpenPopup("Unsaved Changes");
+		m_exitPopupOpened = true;
+	}
 
-    bool quit = false;
+	bool quit = false;
 
-    if (ImGui::BeginPopupModal(
-        "Unsaved Changes",
-        nullptr,
-        ImGuiWindowFlags_AlwaysAutoResize))
-    {
-        ImGui::Text(
-            "You have unsaved changes, are you sure you want to quit?"
-        );
+	if (ImGui::BeginPopupModal(
+		"Unsaved Changes",
+		nullptr,
+		ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::Text(
+			"You have unsaved changes, are you sure you want to quit?"
+		);
 
-        if (ImGui::Button("Save & Quit"))
-        {
-            SavePianoConfiguration();
-            quit = true;
-            ImGui::CloseCurrentPopup();
-        }
+		if (ImGui::Button("Save & Quit"))
+		{
+			SavePianoConfiguration();
+			quit = true;
+			ImGui::CloseCurrentPopup();
+		}
 
-        ImGui::SameLine();
+		ImGui::SameLine();
 
-        if (ImGui::Button("Quit"))
-        {
-            quit = true;
-            ImGui::CloseCurrentPopup();
-        }
+		if (ImGui::Button("Quit"))
+		{
+			quit = true;
+			ImGui::CloseCurrentPopup();
+		}
 
-        ImGui::SameLine();
+		ImGui::SameLine();
 
-        if (ImGui::Button("Cancel"))
-        {
-            m_exitRequested = false;
-            m_exitPopupOpened = false;
-            ImGui::CloseCurrentPopup();
-        }
+		if (ImGui::Button("Cancel"))
+		{
+			m_exitRequested = false;
+			m_exitPopupOpened = false;
+			ImGui::CloseCurrentPopup();
+		}
 
-        ImGui::EndPopup();
-    }
+		ImGui::EndPopup();
+	}
 
-    return quit;
+	return quit;
 }
 
 
@@ -6636,73 +6746,73 @@ bool PianoVisualizer::OnExit()
 
 void PianoVisualizer::CleanupRenderTarget()
 {
-    m_cameraOutputSRV.Reset();
-    m_cameraOutputRTV.Reset();
-    m_cameraOutputTexture.Reset();
+	m_cameraOutputSRV.Reset();
+	m_cameraOutputRTV.Reset();
+	m_cameraOutputTexture.Reset();
 
-    if (m_renderTargetView)
-    {
-        m_renderTargetView->Release();
+	if (m_renderTargetView)
+	{
+		m_renderTargetView->Release();
 
-        m_renderTargetView =
-            nullptr;
-    }
+		m_renderTargetView =
+			nullptr;
+	}
 }
 
 
 void PianoVisualizer::CreateRenderTarget()
 {
-    if (!m_swapChain)
-        return;
+	if (!m_swapChain)
+		return;
 
-    if (!m_device)
-        return;
+	if (!m_device)
+		return;
 
-    ID3D11Texture2D* backBuffer =
-        nullptr;
+	ID3D11Texture2D* backBuffer =
+		nullptr;
 
-    HRESULT hr =
-        m_swapChain->GetBuffer(
-            0,
-            IID_PPV_ARGS(&backBuffer)
-        );
+	HRESULT hr =
+		m_swapChain->GetBuffer(
+			0,
+			IID_PPV_ARGS(&backBuffer)
+		);
 
-    if (FAILED(hr) || !backBuffer)
-    {
-        Logger::Log(
-            "Failed to get swap chain back buffer!\n"
-        );
+	if (FAILED(hr) || !backBuffer)
+	{
+		Logger::Log(
+			"Failed to get swap chain back buffer!\n"
+		);
 
-        return;
-    }
+		return;
+	}
 
-    hr =
-        m_device->CreateRenderTargetView(
-            backBuffer,
-            nullptr,
-            &m_renderTargetView
-        );
+	hr =
+		m_device->CreateRenderTargetView(
+			backBuffer,
+			nullptr,
+			&m_renderTargetView
+		);
 
-    backBuffer->Release();
+	backBuffer->Release();
 
-    if (FAILED(hr))
-    {
-        Logger::Log(
-            "Failed to create render target view!\n"
-        );
+	if (FAILED(hr))
+	{
+		Logger::Log(
+			"Failed to create render target view!\n"
+		);
 
-        m_renderTargetView =
-            nullptr;
+		m_renderTargetView =
+			nullptr;
 
-        return;
-    }
+		return;
+	}
 
-    if (!InitializeCameraOutput())
-    {
-        Logger::Log(
-            "Failed to initialize camera output after render target creation!\n"
-        );
-    }
+	if (!InitializeCameraOutput())
+	{
+		Logger::Log(
+			"Failed to initialize camera output after render target creation!\n"
+		);
+	}
 }
 
 // =========================================================
@@ -6711,825 +6821,825 @@ void PianoVisualizer::CreateRenderTarget()
 
 void PianoVisualizer::UpdateStatistics()
 {
-    if (!m_initialized)
-        return;
+	if (!m_initialized)
+		return;
 
-    const auto now =
-        std::chrono::steady_clock::now();
+	const auto now =
+		std::chrono::steady_clock::now();
 
-    const double deltaTime =
-        std::chrono::duration<double>(
-            now - m_prevTime
-        ).count();
+	const double deltaTime =
+		std::chrono::duration<double>(
+			now - m_prevTime
+		).count();
 
-    m_statistics.frameTimeMs =
-        static_cast<float>(
-            deltaTime * 1000.0
-            );
+	m_statistics.frameTimeMs =
+		static_cast<float>(
+			deltaTime * 1000.0
+			);
 
-    m_statistics.frameCount++;
+	m_statistics.frameCount++;
 
-    m_statistics.fpsAccumulator +=
-        deltaTime;
+	m_statistics.fpsAccumulator +=
+		deltaTime;
 
-    m_statistics.fpsFrameCount++;
+	m_statistics.fpsFrameCount++;
 
-    m_statistics.cameraAccumulator +=
-        deltaTime;
+	m_statistics.cameraAccumulator +=
+		deltaTime;
 
-    m_statistics.cameraUpdateCount++;
+	m_statistics.cameraUpdateCount++;
 
-    m_statistics.uptimeSeconds =
-        std::chrono::duration<double>(
-            now - m_startTime
-        ).count();
+	m_statistics.uptimeSeconds =
+		std::chrono::duration<double>(
+			now - m_startTime
+		).count();
 
-    // ---------------------------------------------------------
-    // Calculate FPS once per second
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Calculate FPS once per second
+	// ---------------------------------------------------------
 
-    if (m_statistics.fpsAccumulator >= 1.0)
-    {
-        m_statistics.fps =
-            static_cast<float>(
-                m_statistics.fpsFrameCount /
-                m_statistics.fpsAccumulator
-                );
+	if (m_statistics.fpsAccumulator >= 1.0)
+	{
+		m_statistics.fps =
+			static_cast<float>(
+				m_statistics.fpsFrameCount /
+				m_statistics.fpsAccumulator
+				);
 
-        m_statistics.fpsFrameCount = 0;
-        m_statistics.fpsAccumulator = 0.0;
-    }
+		m_statistics.fpsFrameCount = 0;
+		m_statistics.fpsAccumulator = 0.0;
+	}
 
-    // ---------------------------------------------------------
-    // Camera update rate
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Camera update rate
+	// ---------------------------------------------------------
 
-    if (m_statistics.cameraAccumulator >= 1.0)
-    {
-        m_statistics.cameraUpdateFps =
-            static_cast<float>(
-                m_statistics.cameraUpdateCount /
-                m_statistics.cameraAccumulator
-                );
+	if (m_statistics.cameraAccumulator >= 1.0)
+	{
+		m_statistics.cameraUpdateFps =
+			static_cast<float>(
+				m_statistics.cameraUpdateCount /
+				m_statistics.cameraAccumulator
+				);
 
-        m_statistics.cameraUpdateCount = 0;
-        m_statistics.cameraAccumulator = 0.0;
-    }
+		m_statistics.cameraUpdateCount = 0;
+		m_statistics.cameraAccumulator = 0.0;
+	}
 
-    // ---------------------------------------------------------
-    // Frame time extremes
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Frame time extremes
+	// ---------------------------------------------------------
 
-    if (m_statistics.minFrameTimeMs <= 0.0f)
-    {
-        m_statistics.minFrameTimeMs =
-            m_statistics.frameTimeMs;
-    }
-    else
-    {
-        m_statistics.minFrameTimeMs =
-            std::min(
-                m_statistics.minFrameTimeMs,
-                m_statistics.frameTimeMs
-            );
-    }
+	if (m_statistics.minFrameTimeMs <= 0.0f)
+	{
+		m_statistics.minFrameTimeMs =
+			m_statistics.frameTimeMs;
+	}
+	else
+	{
+		m_statistics.minFrameTimeMs =
+			std::min(
+				m_statistics.minFrameTimeMs,
+				m_statistics.frameTimeMs
+			);
+	}
 
-    m_statistics.maxFrameTimeMs =
-        std::max(
-            m_statistics.maxFrameTimeMs,
-            m_statistics.frameTimeMs
-        );
+	m_statistics.maxFrameTimeMs =
+		std::max(
+			m_statistics.maxFrameTimeMs,
+			m_statistics.frameTimeMs
+		);
 
-    // ---------------------------------------------------------
-    // Camera
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Camera
+	// ---------------------------------------------------------
 
-    m_statistics.cameraWidth =
-        m_camera.GetWidth();
+	m_statistics.cameraWidth =
+		m_camera.GetWidth();
 
-    m_statistics.cameraHeight =
-        m_camera.GetHeight();
+	m_statistics.cameraHeight =
+		m_camera.GetHeight();
 
-    // ---------------------------------------------------------
-    // Process stats
-    // ---------------------------------------------------------
+	// ---------------------------------------------------------
+	// Process stats
+	// ---------------------------------------------------------
 
-    PROCESS_MEMORY_COUNTERS pmc{};
+	PROCESS_MEMORY_COUNTERS pmc{};
 
-    pmc.cb =
-        sizeof(PROCESS_MEMORY_COUNTERS);
+	pmc.cb =
+		sizeof(PROCESS_MEMORY_COUNTERS);
 
-    if (GetProcessMemoryInfo(
-        GetCurrentProcess(),
-        &pmc,
-        sizeof(pmc)
-    ))
-    {
-        m_statistics.processMemoryMB =
-            static_cast<uint64_t>(
-                pmc.WorkingSetSize /
-                (1024ull * 1024ull)
-                );
-    }
+	if (GetProcessMemoryInfo(
+		GetCurrentProcess(),
+		&pmc,
+		sizeof(pmc)
+	))
+	{
+		m_statistics.processMemoryMB =
+			static_cast<uint64_t>(
+				pmc.WorkingSetSize /
+				(1024ull * 1024ull)
+				);
+	}
 
 
-    //PROCESS_MEMORY_COUNTERS_EX pmc{};
-    //pmc.cb = sizeof(pmc);
+	//PROCESS_MEMORY_COUNTERS_EX pmc{};
+	//pmc.cb = sizeof(pmc);
 
-    //if (GetProcessMemoryInfo(
-    //    GetCurrentProcess(),
-    //    reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc),
-    //    sizeof(pmc)))
-    //{
-    //    Logger::Log(
-    //        "Memory: WorkingSet=%llu MB, PrivateUsage=%llu MB, "
-    //        "PeakWorkingSet=%llu MB, PagefileUsage=%llu MB\n",
-    //        pmc.WorkingSetSize / (1024ull * 1024ull),
-    //        pmc.PrivateUsage / (1024ull * 1024ull),
-    //        pmc.PeakWorkingSetSize / (1024ull * 1024ull),
-    //        pmc.PagefileUsage / (1024ull * 1024ull)
-    //    );
-    //}
+	//if (GetProcessMemoryInfo(
+	//    GetCurrentProcess(),
+	//    reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc),
+	//    sizeof(pmc)))
+	//{
+	//    Logger::Log(
+	//        "Memory: WorkingSet=%llu MB, PrivateUsage=%llu MB, "
+	//        "PeakWorkingSet=%llu MB, PagefileUsage=%llu MB\n",
+	//        pmc.WorkingSetSize / (1024ull * 1024ull),
+	//        pmc.PrivateUsage / (1024ull * 1024ull),
+	//        pmc.PeakWorkingSetSize / (1024ull * 1024ull),
+	//        pmc.PagefileUsage / (1024ull * 1024ull)
+	//    );
+	//}
 }
 
 void PianoVisualizer::RenderStatistics()
 {
-    if (!m_showStatistics)
-        return;
-
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
-
-    // ---------------------------------------------------------
-    // Position near bottom-right
-    // ---------------------------------------------------------
-
-    const float margin = 16.0f;
-
-    ImGui::SetNextWindowPos(
-        ImVec2(
-            viewport->WorkPos.x + viewport->WorkSize.x - margin,
-            viewport->WorkPos.y + viewport->WorkSize.y - margin
-        ),
-        ImGuiCond_FirstUseEver,
-        ImVec2(1.0f, 1.0f)
-    );
-
-    if (ImGui::Begin(
-        "Statistics",
-        &m_showStatistics,
-        ImGuiWindowFlags_AlwaysAutoResize
-    ))
-    {
-        // Compact 4-column layout:
-        // Label | Value | Label | Value
-        //
-        // This puts two statistics on each row, greatly reducing
-        // the vertical size of the window.
-
-        auto BeginStatsTable = []()
-            {
-                return ImGui::BeginTable(
-                    "##StatsTable",
-                    4,
-                    ImGuiTableFlags_SizingFixedFit |
-                    ImGuiTableFlags_NoSavedSettings
-                );
-            };
-
-        auto EndStatsTable = []()
-            {
-                ImGui::EndTable();
-            };
-
-        auto Stat = [](const char* label, const char* format, auto... args)
-            {
-                ImGui::TableNextColumn();
-                ImGui::TextDisabled("%s", label);
-
-                ImGui::TableNextColumn();
-                ImGui::Text(format, args...);
-            };
-
-        // =====================================================
-        // PERFORMANCE
-        // =====================================================
-
-        ImGui::SeparatorText("PERFORMANCE");
-
-        if (BeginStatsTable())
-        {
-            ImGui::TableNextRow();
-
-            Stat("FPS", "%.1f", m_statistics.fps);
-            Stat("Frame time", "%.3f ms", m_statistics.frameTimeMs);
-
-            ImGui::TableNextRow();
-
-            Stat("Min frame", "%.3f ms", m_statistics.minFrameTimeMs);
-            Stat("Max frame", "%.3f ms", m_statistics.maxFrameTimeMs);
-
-            ImGui::TableNextRow();
-
-            Stat(
-                "Frames",
-                "%llu",
-                static_cast<unsigned long long>(
-                    m_statistics.frameCount
-                    )
-            );
-
-            Stat("Uptime", "%.1f s", m_statistics.uptimeSeconds);
-
-            EndStatsTable();
-        }
-
-        // =====================================================
-        // DISPLAY
-        // =====================================================
-
-        ImGui::SeparatorText("DISPLAY");
-
-        if (BeginStatsTable())
-        {
-            ImGui::TableNextRow();
-
-            Stat(
-                "Resolution",
-                "%u x %u",
-                m_statistics.renderWidth,
-                m_statistics.renderHeight
-            );
-
-            Stat(
-                "Fullscreen",
-                "%s",
-                gui::fullscreen ? "Yes" : "No"
-            );
-
-            EndStatsTable();
-        }
-
-        // =====================================================
-        // CAMERA / VIDEO PLAYER
-        // =====================================================
-
-        const bool playback =
-            m_viewer &&
-            m_viewer->isPlaybackLoaded();
-
-        ImGui::SeparatorText(
-            playback
-            ? "VIDEO PLAYER"
-            : "CAMERA"
-        );
-
-        if (playback)
-        {
-            const CameraVideoPlayerStatistics videoStats =
-                m_cameraVideoPlayer.GetStatistics();
-
-            const double frameSizeMB =
-                static_cast<double>(videoStats.frameBytes) /
-                (1024.0 * 1024.0);
-
-            if (BeginStatsTable())
-            {
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Status",
-                    "%s",
-                    videoStats.open ? "Open" : "Closed"
-                );
-
-                Stat(
-                    "Thread",
-                    "%s",
-                    videoStats.threadRunning
-                    ? "Running"
-                    : "Stopped"
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Resolution",
-                    "%d x %d",
-                    videoStats.width,
-                    videoStats.height
-                );
-
-                Stat(
-                    "Video FPS",
-                    "%.2f FPS",
-                    videoStats.videoFps
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Decoded FPS",
-                    "%.2f FPS",
-                    videoStats.decodeFps
-                );
-
-                Stat(
-                    "Uploaded FPS",
-                    "%.2f FPS",
-                    videoStats.uploadFps
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Decode",
-                    "%.3f ms",
-                    videoStats.decodeFrameTimeMs
-                );
-
-                Stat(
-                    "D3D11 upload",
-                    "%.3f ms",
-                    videoStats.uploadFrameTimeMs
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Frames decoded",
-                    "%llu",
-                    static_cast<unsigned long long>(
-                        videoStats.framesDecoded
-                        )
-                );
-
-                Stat(
-                    "Frames uploaded",
-                    "%llu",
-                    static_cast<unsigned long long>(
-                        videoStats.framesUploaded
-                        )
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Frames dropped",
-                    "%llu",
-                    static_cast<unsigned long long>(
-                        videoStats.framesDropped
-                        )
-                );
-
-                Stat(
-                    "Queued frames",
-                    "%zu",
-                    videoStats.queuedFrames
-                );
-                
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Buffered",
-                    "%.1f ms",
-                    videoStats.bufferedTimeMs
-                );
-
-                Stat(
-                    "Decoder lead",
-                    "%.1f ms",
-                    videoStats.decoderLeadMs
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Current time",
-                    "%.3f s",
-                    videoStats.currentFrameTime
-                );
-
-                Stat(
-                    "Target time",
-                    "%.3f s",
-                    videoStats.targetTime
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Frame size",
-                    "%.2f MB",
-                    frameSizeMB
-                );
-
-                Stat(
-                    "End of stream",
-                    "%s",
-                    videoStats.endOfStream
-                    ? "Yes"
-                    : "No"
-                );
-
-                EndStatsTable();
-            }
-        }
-        else
-        {
-            const Camera::CameraStatistics cameraStats =
-                m_camera.GetStatistics();
-
-            double configuredCameraFps = 0.0;
-
-            if (cameraStats.fpsDenominator != 0)
-            {
-                configuredCameraFps =
-                    static_cast<double>(
-                        cameraStats.fpsNumerator
-                        ) /
-                    static_cast<double>(
-                        cameraStats.fpsDenominator
-                        );
-            }
-
-            const double frameSizeMB =
-                static_cast<double>(cameraStats.frameBytes) /
-                (1024.0 * 1024.0);
-
-            if (BeginStatsTable())
-            {
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Status",
-                    "%s",
-                    cameraStats.open
-                    ? "Open"
-                    : "Closed"
-                );
-
-                Stat(
-                    "Thread",
-                    "%s",
-                    cameraStats.threadRunning
-                    ? "Running"
-                    : "Stopped"
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Resolution",
-                    "%d x %d",
-                    cameraStats.width,
-                    cameraStats.height
-                );
-
-                Stat(
-                    "Configured FPS",
-                    "%.2f FPS",
-                    configuredCameraFps
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Captured FPS",
-                    "%.2f FPS",
-                    cameraStats.captureFps
-                );
-
-                Stat(
-                    "Uploaded FPS",
-                    "%.2f FPS",
-                    cameraStats.uploadFps
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Decode",
-                    "%.3f ms",
-                    cameraStats.captureFrameTimeMs
-                );
-
-                Stat(
-                    "D3D11 upload",
-                    "%.3f ms",
-                    cameraStats.uploadFrameTimeMs
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Frames captured",
-                    "%llu",
-                    static_cast<unsigned long long>(
-                        cameraStats.framesCaptured
-                        )
-                );
-
-                Stat(
-                    "Frames uploaded",
-                    "%llu",
-                    static_cast<unsigned long long>(
-                        cameraStats.framesUploaded
-                        )
-                );
-
-                ImGui::TableNextRow();
-
-                Stat(
-                    "Frames dropped",
-                    "%llu",
-                    static_cast<unsigned long long>(
-                        cameraStats.framesDropped
-                        )
-                );
-
-                Stat(
-                    "Frame size",
-                    "%.2f MB",
-                    frameSizeMB
-                );
-
-                EndStatsTable();
-            }
-        }
-
-        
-
-        // =====================================================
-        // AUDIO
-        // =====================================================
-
-        ImGui::SeparatorText("AUDIO");
-
-        if (m_audioEngine)
-        {
-            const auto* output = m_audioEngine->output();
-            const auto* audio = m_audioEngine->audio();
-
-            if (output)
-            {
-                const auto audioStats = output->getStatistics();
-
-                static double latencyAccumulator = 0.0;
-                static double latencyAccumulatorTime = 0.0;
-                static uint64_t latencySampleCount = 0;
-                static double averageLatencyMs = 0.0;
-
-                double pluginLatencyMs = 0.0;
-                double queuedAudioLatencyMs = 0.0;
-
-                if (audio && audioStats.sampleRate > 0.0)
-                {
-                    pluginLatencyMs =
-                        static_cast<double>(
-                            audio->getLatencySamples()
-                            ) /
-                        audioStats.sampleRate *
-                        1000.0;
-
-                    queuedAudioLatencyMs =
-                        static_cast<double>(
-                            audioStats.currentPadding
-                            ) /
-                        audioStats.sampleRate *
-                        1000.0;
-                }
-
-                const double estimatedLatencyMs =
-                    pluginLatencyMs +
-                    queuedAudioLatencyMs;
-
-                latencyAccumulator += estimatedLatencyMs;
-                latencyAccumulatorTime +=
-                    m_statistics.frameTimeMs / 1000.0;
-                latencySampleCount++;
-
-                if (latencyAccumulatorTime >= 2.0 &&
-                    latencySampleCount > 0)
-                {
-                    averageLatencyMs =
-                        latencyAccumulator /
-                        static_cast<double>(latencySampleCount);
-
-                    latencyAccumulator = 0.0;
-                    latencyAccumulatorTime = 0.0;
-                    latencySampleCount = 0;
-                }
-
-                if (BeginStatsTable())
-                {
-                    ImGui::TableNextRow();
-
-                    Stat(
-                        "Output",
-                        "%s",
-                        audioStats.initialized
-                        ? (audioStats.running ? "Running" : "Stopped")
-                        : "Unavailable"
-                    );
-
-                    Stat(
-                        "Sample rate",
-                        "%.0f Hz",
-                        audioStats.sampleRate
-                    );
-
-                    ImGui::TableNextRow();
-
-                    Stat(
-                        "Channels",
-                        "%d",
-                        audioStats.channels
-                    );
-
-                    Stat(
-                        "Buffer",
-                        "%u frames",
-                        audioStats.bufferFrames
-                    );
-
-                    ImGui::TableNextRow();
-
-                    Stat(
-                        "Buffer duration",
-                        "%.2f ms",
-                        audioStats.bufferDurationMs
-                    );
-
-                    Stat(
-                        "Output rate",
-                        "%.0f frames/s",
-                        audioStats.outputFramesPerSecond
-                    );
-
-                    ImGui::TableNextRow();
-
-                    Stat(
-                        "Throughput",
-                        "%.2f MB/s",
-                        audioStats.throughputMBps
-                    );
-
-                    Stat(
-                        "Failed writes",
-                        "%llu",
-                        static_cast<unsigned long long>(
-                            audioStats.failedWrites
-                            )
-                    );
-
-                    ImGui::TableNextRow();
-
-                    Stat(
-                        "Average latency",
-                        "%.3f ms",
-                        averageLatencyMs
-                    );
-
-                    EndStatsTable();
-                }
-            }
-            else
-            {
-                ImGui::TextDisabled("Audio output: Unavailable");
-            }
-        }
-        else
-        {
-            ImGui::TextDisabled("Audio engine: Unavailable");
-        }
-
-        // -----------------------------------------------------
-        // VST3
-        // -----------------------------------------------------
-
-        const bool pluginLoaded =
-            m_audioEngine &&
-            !m_audioEngine->pluginName().empty();
-
-        if (BeginStatsTable())
-        {
-            ImGui::TableNextRow();
-
-            Stat(
-                "VST3",
-                "%s",
-                pluginLoaded ? "Loaded" : "None"
-            );
-
-            if (pluginLoaded)
-            {
-                ImGui::TableNextColumn();
-                ImGui::TextDisabled("Plugin");
-
-                ImGui::TableNextColumn();
-                ImGui::Text(
-                    "%s",
-                    m_audioEngine->pluginName().c_str()
-                );
-            }
-
-            EndStatsTable();
-        }
-
-        // =====================================================
-        // VISUALIZER
-        // =====================================================
-
-        ImGui::SeparatorText("VISUALIZER");
-
-        if (BeginStatsTable())
-        {
-            ImGui::TableNextRow();
-
-            ImGui::TableNextColumn();
-            ImGui::TextDisabled("Renderer");
-
-            ImGui::TableNextColumn();
-
-            switch (gui::renderer)
-            {
-            case gui::VisualizerRenderer::BuiltInVisualizer:
-                ImGui::Text("Built-in");
-                break;
-
-            case gui::VisualizerRenderer::OtherVisualizer:
-                ImGui::Text("Window capture");
-                break;
-
-            default:
-                ImGui::Text("Unknown");
-                break;
-            }
-
-            Stat(
-                "Visualizer",
-                "%s",
-                m_viewer ? "Loaded" : "Unavailable"
-            );
-
-            ImGui::TableNextRow();
-
-            Stat(
-                "Window capture",
-                "%s",
-                gui::windowCaptureRunning
-                ? "Running"
-                : "Stopped"
-            );
-
-            EndStatsTable();
-        }
-
-        // =====================================================
-        // SYSTEM
-        // =====================================================
-
-        ImGui::SeparatorText("SYSTEM");
-
-        if (BeginStatsTable())
-        {
-            ImGui::TableNextRow();
-
-            //Stat(
-            //    "CPU Usage",
-            //    "%.2f%%",
-            //    m_statistics.processCpuPercent
-            //);
-
-            Stat(
-                "Process memory",
-                "%llu MB",
-                static_cast<unsigned long long>(
-                    m_statistics.processMemoryMB
-                    )
-            );
-
-            if (m_viewer) 
-            {
-                Stat(
-                    "Viewer Timer",
-                    "%.2fs",
-                    m_viewer->getTime()
-                );
-
-                Stat(
-                    "Elapsed Recording Time",
-                    "%.2fs",
-                    m_viewer->getElapsedRecordingTime()
-                );
-            }
-        
-
-            EndStatsTable();
-        }
-    }
-
-    ImGui::End();
+	if (!m_showStatistics)
+		return;
+
+	ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+	// ---------------------------------------------------------
+	// Position near bottom-right
+	// ---------------------------------------------------------
+
+	const float margin = 16.0f;
+
+	ImGui::SetNextWindowPos(
+		ImVec2(
+			viewport->WorkPos.x + viewport->WorkSize.x - margin,
+			viewport->WorkPos.y + viewport->WorkSize.y - margin
+		),
+		ImGuiCond_FirstUseEver,
+		ImVec2(1.0f, 1.0f)
+	);
+
+	if (ImGui::Begin(
+		"Statistics",
+		&m_showStatistics,
+		ImGuiWindowFlags_AlwaysAutoResize
+	))
+	{
+		// Compact 4-column layout:
+		// Label | Value | Label | Value
+		//
+		// This puts two statistics on each row, greatly reducing
+		// the vertical size of the window.
+
+		auto BeginStatsTable = []()
+			{
+				return ImGui::BeginTable(
+					"##StatsTable",
+					4,
+					ImGuiTableFlags_SizingFixedFit |
+					ImGuiTableFlags_NoSavedSettings
+				);
+			};
+
+		auto EndStatsTable = []()
+			{
+				ImGui::EndTable();
+			};
+
+		auto Stat = [](const char* label, const char* format, auto... args)
+			{
+				ImGui::TableNextColumn();
+				ImGui::TextDisabled("%s", label);
+
+				ImGui::TableNextColumn();
+				ImGui::Text(format, args...);
+			};
+
+		// =====================================================
+		// PERFORMANCE
+		// =====================================================
+
+		ImGui::SeparatorText("PERFORMANCE");
+
+		if (BeginStatsTable())
+		{
+			ImGui::TableNextRow();
+
+			Stat("FPS", "%.1f", m_statistics.fps);
+			Stat("Frame time", "%.3f ms", m_statistics.frameTimeMs);
+
+			ImGui::TableNextRow();
+
+			Stat("Min frame", "%.3f ms", m_statistics.minFrameTimeMs);
+			Stat("Max frame", "%.3f ms", m_statistics.maxFrameTimeMs);
+
+			ImGui::TableNextRow();
+
+			Stat(
+				"Frames",
+				"%llu",
+				static_cast<unsigned long long>(
+					m_statistics.frameCount
+					)
+			);
+
+			Stat("Uptime", "%.1f s", m_statistics.uptimeSeconds);
+
+			EndStatsTable();
+		}
+
+		// =====================================================
+		// DISPLAY
+		// =====================================================
+
+		ImGui::SeparatorText("DISPLAY");
+
+		if (BeginStatsTable())
+		{
+			ImGui::TableNextRow();
+
+			Stat(
+				"Resolution",
+				"%u x %u",
+				m_statistics.renderWidth,
+				m_statistics.renderHeight
+			);
+
+			Stat(
+				"Fullscreen",
+				"%s",
+				gui::fullscreen ? "Yes" : "No"
+			);
+
+			EndStatsTable();
+		}
+
+		// =====================================================
+		// CAMERA / VIDEO PLAYER
+		// =====================================================
+
+		const bool playback =
+			m_viewer &&
+			m_viewer->isPlaybackLoaded();
+
+		ImGui::SeparatorText(
+			playback
+			? "VIDEO PLAYER"
+			: "CAMERA"
+		);
+
+		if (playback)
+		{
+			const CameraVideoPlayerStatistics videoStats =
+				m_cameraVideoPlayer.GetStatistics();
+
+			const double frameSizeMB =
+				static_cast<double>(videoStats.frameBytes) /
+				(1024.0 * 1024.0);
+
+			if (BeginStatsTable())
+			{
+				ImGui::TableNextRow();
+
+				Stat(
+					"Status",
+					"%s",
+					videoStats.open ? "Open" : "Closed"
+				);
+
+				Stat(
+					"Thread",
+					"%s",
+					videoStats.threadRunning
+					? "Running"
+					: "Stopped"
+				);
+
+				ImGui::TableNextRow();
+
+				Stat(
+					"Resolution",
+					"%d x %d",
+					videoStats.width,
+					videoStats.height
+				);
+
+				Stat(
+					"Video FPS",
+					"%.2f FPS",
+					videoStats.videoFps
+				);
+
+				ImGui::TableNextRow();
+
+				Stat(
+					"Decoded FPS",
+					"%.2f FPS",
+					videoStats.decodeFps
+				);
+
+				Stat(
+					"Uploaded FPS",
+					"%.2f FPS",
+					videoStats.uploadFps
+				);
+
+				ImGui::TableNextRow();
+
+				Stat(
+					"Decode",
+					"%.3f ms",
+					videoStats.decodeFrameTimeMs
+				);
+
+				Stat(
+					"D3D11 upload",
+					"%.3f ms",
+					videoStats.uploadFrameTimeMs
+				);
+
+				ImGui::TableNextRow();
+
+				Stat(
+					"Frames decoded",
+					"%llu",
+					static_cast<unsigned long long>(
+						videoStats.framesDecoded
+						)
+				);
+
+				Stat(
+					"Frames uploaded",
+					"%llu",
+					static_cast<unsigned long long>(
+						videoStats.framesUploaded
+						)
+				);
+
+				ImGui::TableNextRow();
+
+				Stat(
+					"Frames dropped",
+					"%llu",
+					static_cast<unsigned long long>(
+						videoStats.framesDropped
+						)
+				);
+
+				Stat(
+					"Queued frames",
+					"%zu",
+					videoStats.queuedFrames
+				);
+				
+				ImGui::TableNextRow();
+
+				Stat(
+					"Buffered",
+					"%.1f ms",
+					videoStats.bufferedTimeMs
+				);
+
+				Stat(
+					"Decoder lead",
+					"%.1f ms",
+					videoStats.decoderLeadMs
+				);
+
+				ImGui::TableNextRow();
+
+				Stat(
+					"Current time",
+					"%.3f s",
+					videoStats.currentFrameTime
+				);
+
+				Stat(
+					"Target time",
+					"%.3f s",
+					videoStats.targetTime
+				);
+
+				ImGui::TableNextRow();
+
+				Stat(
+					"Frame size",
+					"%.2f MB",
+					frameSizeMB
+				);
+
+				Stat(
+					"End of stream",
+					"%s",
+					videoStats.endOfStream
+					? "Yes"
+					: "No"
+				);
+
+				EndStatsTable();
+			}
+		}
+		else
+		{
+			const Camera::CameraStatistics cameraStats =
+				m_camera.GetStatistics();
+
+			double configuredCameraFps = 0.0;
+
+			if (cameraStats.fpsDenominator != 0)
+			{
+				configuredCameraFps =
+					static_cast<double>(
+						cameraStats.fpsNumerator
+						) /
+					static_cast<double>(
+						cameraStats.fpsDenominator
+						);
+			}
+
+			const double frameSizeMB =
+				static_cast<double>(cameraStats.frameBytes) /
+				(1024.0 * 1024.0);
+
+			if (BeginStatsTable())
+			{
+				ImGui::TableNextRow();
+
+				Stat(
+					"Status",
+					"%s",
+					cameraStats.open
+					? "Open"
+					: "Closed"
+				);
+
+				Stat(
+					"Thread",
+					"%s",
+					cameraStats.threadRunning
+					? "Running"
+					: "Stopped"
+				);
+
+				ImGui::TableNextRow();
+
+				Stat(
+					"Resolution",
+					"%d x %d",
+					cameraStats.width,
+					cameraStats.height
+				);
+
+				Stat(
+					"Configured FPS",
+					"%.2f FPS",
+					configuredCameraFps
+				);
+
+				ImGui::TableNextRow();
+
+				Stat(
+					"Captured FPS",
+					"%.2f FPS",
+					cameraStats.captureFps
+				);
+
+				Stat(
+					"Uploaded FPS",
+					"%.2f FPS",
+					cameraStats.uploadFps
+				);
+
+				ImGui::TableNextRow();
+
+				Stat(
+					"Decode",
+					"%.3f ms",
+					cameraStats.captureFrameTimeMs
+				);
+
+				Stat(
+					"D3D11 upload",
+					"%.3f ms",
+					cameraStats.uploadFrameTimeMs
+				);
+
+				ImGui::TableNextRow();
+
+				Stat(
+					"Frames captured",
+					"%llu",
+					static_cast<unsigned long long>(
+						cameraStats.framesCaptured
+						)
+				);
+
+				Stat(
+					"Frames uploaded",
+					"%llu",
+					static_cast<unsigned long long>(
+						cameraStats.framesUploaded
+						)
+				);
+
+				ImGui::TableNextRow();
+
+				Stat(
+					"Frames dropped",
+					"%llu",
+					static_cast<unsigned long long>(
+						cameraStats.framesDropped
+						)
+				);
+
+				Stat(
+					"Frame size",
+					"%.2f MB",
+					frameSizeMB
+				);
+
+				EndStatsTable();
+			}
+		}
+
+		
+
+		// =====================================================
+		// AUDIO
+		// =====================================================
+
+		ImGui::SeparatorText("AUDIO");
+
+		if (m_audioEngine)
+		{
+			const auto* output = m_audioEngine->output();
+			const auto* audio = m_audioEngine->audio();
+
+			if (output)
+			{
+				const auto audioStats = output->getStatistics();
+
+				static double latencyAccumulator = 0.0;
+				static double latencyAccumulatorTime = 0.0;
+				static uint64_t latencySampleCount = 0;
+				static double averageLatencyMs = 0.0;
+
+				double pluginLatencyMs = 0.0;
+				double queuedAudioLatencyMs = 0.0;
+
+				if (audio && audioStats.sampleRate > 0.0)
+				{
+					pluginLatencyMs =
+						static_cast<double>(
+							audio->getLatencySamples()
+							) /
+						audioStats.sampleRate *
+						1000.0;
+
+					queuedAudioLatencyMs =
+						static_cast<double>(
+							audioStats.currentPadding
+							) /
+						audioStats.sampleRate *
+						1000.0;
+				}
+
+				const double estimatedLatencyMs =
+					pluginLatencyMs +
+					queuedAudioLatencyMs;
+
+				latencyAccumulator += estimatedLatencyMs;
+				latencyAccumulatorTime +=
+					m_statistics.frameTimeMs / 1000.0;
+				latencySampleCount++;
+
+				if (latencyAccumulatorTime >= 2.0 &&
+					latencySampleCount > 0)
+				{
+					averageLatencyMs =
+						latencyAccumulator /
+						static_cast<double>(latencySampleCount);
+
+					latencyAccumulator = 0.0;
+					latencyAccumulatorTime = 0.0;
+					latencySampleCount = 0;
+				}
+
+				if (BeginStatsTable())
+				{
+					ImGui::TableNextRow();
+
+					Stat(
+						"Output",
+						"%s",
+						audioStats.initialized
+						? (audioStats.running ? "Running" : "Stopped")
+						: "Unavailable"
+					);
+
+					Stat(
+						"Sample rate",
+						"%.0f Hz",
+						audioStats.sampleRate
+					);
+
+					ImGui::TableNextRow();
+
+					Stat(
+						"Channels",
+						"%d",
+						audioStats.channels
+					);
+
+					Stat(
+						"Buffer",
+						"%u frames",
+						audioStats.bufferFrames
+					);
+
+					ImGui::TableNextRow();
+
+					Stat(
+						"Buffer duration",
+						"%.2f ms",
+						audioStats.bufferDurationMs
+					);
+
+					Stat(
+						"Output rate",
+						"%.0f frames/s",
+						audioStats.outputFramesPerSecond
+					);
+
+					ImGui::TableNextRow();
+
+					Stat(
+						"Throughput",
+						"%.2f MB/s",
+						audioStats.throughputMBps
+					);
+
+					Stat(
+						"Failed writes",
+						"%llu",
+						static_cast<unsigned long long>(
+							audioStats.failedWrites
+							)
+					);
+
+					ImGui::TableNextRow();
+
+					Stat(
+						"Average latency",
+						"%.3f ms",
+						averageLatencyMs
+					);
+
+					EndStatsTable();
+				}
+			}
+			else
+			{
+				ImGui::TextDisabled("Audio output: Unavailable");
+			}
+		}
+		else
+		{
+			ImGui::TextDisabled("Audio engine: Unavailable");
+		}
+
+		// -----------------------------------------------------
+		// VST3
+		// -----------------------------------------------------
+
+		const bool pluginLoaded =
+			m_audioEngine &&
+			!m_audioEngine->pluginName().empty();
+
+		if (BeginStatsTable())
+		{
+			ImGui::TableNextRow();
+
+			Stat(
+				"VST3",
+				"%s",
+				pluginLoaded ? "Loaded" : "None"
+			);
+
+			if (pluginLoaded)
+			{
+				ImGui::TableNextColumn();
+				ImGui::TextDisabled("Plugin");
+
+				ImGui::TableNextColumn();
+				ImGui::Text(
+					"%s",
+					m_audioEngine->pluginName().c_str()
+				);
+			}
+
+			EndStatsTable();
+		}
+
+		// =====================================================
+		// VISUALIZER
+		// =====================================================
+
+		ImGui::SeparatorText("VISUALIZER");
+
+		if (BeginStatsTable())
+		{
+			ImGui::TableNextRow();
+
+			ImGui::TableNextColumn();
+			ImGui::TextDisabled("Renderer");
+
+			ImGui::TableNextColumn();
+
+			switch (gui::renderer)
+			{
+			case gui::VisualizerRenderer::BuiltInVisualizer:
+				ImGui::Text("Built-in");
+				break;
+
+			case gui::VisualizerRenderer::OtherVisualizer:
+				ImGui::Text("Window capture");
+				break;
+
+			default:
+				ImGui::Text("Unknown");
+				break;
+			}
+
+			Stat(
+				"Visualizer",
+				"%s",
+				m_viewer ? "Loaded" : "Unavailable"
+			);
+
+			ImGui::TableNextRow();
+
+			Stat(
+				"Window capture",
+				"%s",
+				gui::windowCaptureRunning
+				? "Running"
+				: "Stopped"
+			);
+
+			EndStatsTable();
+		}
+
+		// =====================================================
+		// SYSTEM
+		// =====================================================
+
+		ImGui::SeparatorText("SYSTEM");
+
+		if (BeginStatsTable())
+		{
+			ImGui::TableNextRow();
+
+			//Stat(
+			//    "CPU Usage",
+			//    "%.2f%%",
+			//    m_statistics.processCpuPercent
+			//);
+
+			Stat(
+				"Process memory",
+				"%llu MB",
+				static_cast<unsigned long long>(
+					m_statistics.processMemoryMB
+					)
+			);
+
+			if (m_viewer) 
+			{
+				Stat(
+					"Viewer Timer",
+					"%.2fs",
+					m_viewer->getTime()
+				);
+
+				Stat(
+					"Elapsed Recording Time",
+					"%.2fs",
+					m_viewer->getElapsedRecordingTime()
+				);
+			}
+		
+
+			EndStatsTable();
+		}
+	}
+
+	ImGui::End();
 }
 
 // =========================================================
@@ -7538,75 +7648,75 @@ void PianoVisualizer::RenderStatistics()
 
 void PianoVisualizer::Shutdown()
 {
-    if (!m_initializationStarted)
-        return;
+	if (!m_initializationStarted)
+		return;
 
-    Logger::Log(
-        "Shutting down Piano Visualizer...\n"
-    );
+	Logger::Log(
+		"Shutting down Piano Visualizer...\n"
+	);
 
-    StopWindowCapture();
+	StopWindowCapture();
 
-    m_vstDropTarget.Unregister();
+	m_vstDropTarget.Unregister();
 
-    ShutdownAudio();
+	ShutdownAudio();
 
-    ShutdownCamera();
+	ShutdownCamera();
 
-    ShutdownMidiVisualizer();
+	ShutdownMidiVisualizer();
 
-    ShutdownRenderTarget();
+	ShutdownRenderTarget();
 
-    m_virtualCamera.Shutdown();
+	m_virtualCamera.Shutdown();
 
-    m_initialized =
-        false;
+	m_initialized =
+		false;
 
-    m_initializationStarted = false;
+	m_initializationStarted = false;
 
-    Logger::Log(
-        "Piano Visualizer shut down.\n"
-    );
+	Logger::Log(
+		"Piano Visualizer shut down.\n"
+	);
 }
 
 
 void PianoVisualizer::ShutdownAudio()
 {
-    if (!m_audioEngine)
-        return;
+	if (!m_audioEngine)
+		return;
 
-    m_audioEngine->stop();
+	m_audioEngine->stop();
 
-    m_audioEngine->shutdown();
+	m_audioEngine->shutdown();
 
-    delete m_audioEngine;
+	delete m_audioEngine;
 
-    m_audioEngine =
-        nullptr;
+	m_audioEngine =
+		nullptr;
 }
 
 
 void PianoVisualizer::ShutdownCamera()
 {
-    m_cameraVideoPlayer.Shutdown();
+	m_cameraVideoPlayer.Shutdown();
 
-    m_camera.Shutdown();
+	m_camera.Shutdown();
 }
 
 
 void PianoVisualizer::ShutdownMidiVisualizer()
 {
-    if (!m_viewer)
-        return;
+	if (!m_viewer)
+		return;
 
-    delete m_viewer;
+	delete m_viewer;
 
-    m_viewer =
-        nullptr;
+	m_viewer =
+		nullptr;
 }
 
 
 void PianoVisualizer::ShutdownRenderTarget()
 {
-    CleanupRenderTarget();
+	CleanupRenderTarget();
 }

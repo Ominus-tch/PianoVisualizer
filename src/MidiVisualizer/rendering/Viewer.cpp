@@ -523,6 +523,15 @@ void Viewer::executeLiveKeybind(int action)
 	case 4:
 		_liveEchoSettings.transposeSemitones = (std::max)(-48, _liveEchoSettings.transposeSemitones - 1);
 		break;
+	case 5:
+		if (auto liveScene = std::dynamic_pointer_cast<MIDISceneLive>(_scene))
+			liveScene->startLooperRecording();
+		break;
+
+	case 6:
+		if (auto liveScene = std::dynamic_pointer_cast<MIDISceneLive>(_scene))
+			liveScene->stopLooperRecordingAndStart();
+		break;
 	default:
 		return;
 	}

@@ -9,7 +9,7 @@ int main() {
 	const std::string resourcesDir = "resources/";
 	const std::string outputDir = "src/MidiVisualizer/resources/";
 
-	std::vector<std::string> shadersToLoad = { "flashes", "notes", "particles", "particlesblur", "screenquad", "majorKeys", "minorKeys", "pedal", "wave", "fxaa", "wave_noise", "score_bars", "score_labels", "background" };
+	std::vector<std::string> shadersToLoad = { "flashes", "notes", "particles", "particlesblur", "screenquad", "majorKeys", "minorKeys", "wave", "fxaa", "wave_noise", "background" };
 
 	std::ofstream shadersOutput(outputDir + "shaders.cpp");
 	if (!shadersOutput.is_open()) {

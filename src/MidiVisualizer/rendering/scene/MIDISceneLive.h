@@ -88,6 +88,20 @@ public:
 	using KeybindHandler = std::function<bool(short note, bool pressed)>;
 	void setKeybindHandler(KeybindHandler handler);
 
+	void startLooperRecording();
+	void stopLooperRecordingAndStart();
+	void startLooperPlayback();
+	void stopLooperPlayback();
+	void clearLooperRecording();
+
+	bool isLooperRecording() const { return _looperRecording; }
+	bool isLooperPlaying() const { return _looperPlaying; }
+	bool hasLooperRecording() const
+	{
+		return !_looperEvents.empty() && _looperLength > 0.0;
+	}
+	double looperLength() const { return _looperLength; }
+
 private:
 
 	void handleMIDIDisconnect(
@@ -148,6 +162,52 @@ private:
 	void recordEchoEvent(const ScheduledEchoEvent& event);
 	short audioNote(short note) const;
 
+	struct LooperEvent
+	{
+		enum class Type { NoteOn, NoteOff };
+
+		Type type;
+		double time;
+		short channel;
+		short note;
+		short velocity;
+		uint64_t recordedNoteId;
+	};
+
+	struct ActiveLooperNote
+	{
+		int noteIndex;
+		short channel;
+		short note;
+		short audioNote;
+	};
+
+	void recordLooperEvent(
+		short channel,
+		short note,
+		short velocity,
+		bool pressed,
+		double time
+	);
+
+	void dispatchDueLooperEvents(double time, int& minUpdated, int& maxUpdated);
+
+	void startLooperNote(
+		const LooperEvent& event,
+		double dispatchTime,
+		int& minUpdated,
+		int& maxUpdated
+	);
+
+	void stopLooperNote(
+		const LooperEvent& event,
+		double dispatchTime,
+		int& minUpdated,
+		int& maxUpdated
+	);
+
+	bool hasActiveLooperForNote(short note) const;
+
 	std::vector<NoteInfos> _notesInfos;
 
 	std::array<int, 128> _activeIds;
@@ -173,6 +233,31 @@ private:
 	std::vector<ScheduledEchoEvent> _scheduledEchoEvents;
 	std::array<std::array<std::vector<EchoVoice>, 128>, 16> _echoVoices;
 	std::unordered_map<uint64_t, ActiveEchoNote> _activeEchoNotes;
+
+	// Looper state. Runtime-only; never saved to configuration.
+	bool _looperRecording = false;
+	bool _looperPlaying = false;
+
+	double _currentUpdateTime = 0.0;
+	double _looperRecordingStartTime = 0.0;
+	double _looperPlaybackStartTime = 0.0;
+	double _looperLength = 0.0;
+
+	size_t _looperPlaybackEventIndex = 0;
+	uint64_t _looperPlaybackIteration = 0;
+	uint64_t _nextLooperNoteId = 1;
+
+	std::vector<LooperEvent> _looperEvents;
+
+	// Recorded note IDs currently held while capturing, indexed by channel/note.
+	std::array<std::array<std::vector<uint64_t>, 128>, 16>
+		_looperRecordingNoteIds;
+
+	// Maps recorded note IDs to the actual voice IDs created during playback.
+	std::unordered_map<uint64_t, std::vector<uint64_t>>
+		_looperPlaybackVoiceIds;
+
+	std::unordered_map<uint64_t, ActiveLooperNote> _activeLooperNotes;
 
 	int _notesCount = 0;
 	int _tempo = 500000;
